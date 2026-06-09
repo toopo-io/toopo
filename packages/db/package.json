@@ -38,6 +38,8 @@
   },
   "devDependencies": {
     "@testcontainers/postgresql": "12.0.1",
+    "@toopo/ingest": "workspace:*",
+    "@toopo/lang-react": "workspace:*",
     "@toopo/tsconfig": "workspace:*",
     "@toopo/vitest-config": "workspace:*",
     "@types/pg": "8.20.0",

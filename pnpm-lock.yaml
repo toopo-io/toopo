@@ -296,6 +296,12 @@ importers:
       '@testcontainers/postgresql':
         specifier: 12.0.1
         version: 12.0.1
+      '@toopo/ingest':
+        specifier: workspace:*
+        version: link:../ingest
+      '@toopo/lang-react':
+        specifier: workspace:*
+        version: link:../lang-react
       '@toopo/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/tsconfig

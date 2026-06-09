@@ -39,15 +39,26 @@
     "db:studio": "node --env-file=../../apps/api/.env ./node_modules/drizzle-kit/bin.cjs studio"
   },
   "dependencies": {
+    "@libsql/kysely-libsql": "0.4.1",
     "@neondatabase/serverless": "1.1.0",
-    "drizzle-orm": "0.45.2"
+    "drizzle-orm": "0.45.2",
+    "kysely": "0.29.2",
+    "pg": "8.21.0"
+  },
+  "peerDependencies": {
+    "better-auth": "~1.6.11",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@testcontainers/postgresql": "12.0.1",
     "@toopo/tsconfig": "workspace:*",
     "@toopo/vitest-config": "workspace:*",
+    "@types/pg": "8.20.0",
     "@vitest/coverage-v8": "4.1.6",
+    "better-auth": "~1.6.11",
     "drizzle-kit": "0.31.10",
     "typescript": "6.0.3",
-    "vitest": "4.1.6"
+    "vitest": "4.1.6",
+    "zod": "4.4.3"
   }
 }

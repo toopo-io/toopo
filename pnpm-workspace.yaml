@@ -13,5 +13,8 @@ allowBuilds:
   esbuild: true
   tree-sitter-javascript: false
   tree-sitter-typescript: false
+  cpu-features: false
+  protobufjs: false
+  ssh2: false
 overrides:
   postcss@<8.5.10: 8.5.14

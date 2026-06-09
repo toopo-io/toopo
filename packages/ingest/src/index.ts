@@ -8,6 +8,7 @@ export {
   ingestProject,
   type ProjectModelBuilder,
 } from './ingest/ingest-project.js';
+export { type PackageDir, synthesizePackages } from './ingest/synthesize-packages.js';
 export {
   computeMetrics,
   type DiscoveryMetrics,
@@ -21,4 +22,4 @@ export { formatReportText } from './metrics/report.js';
 export { buildTypescriptProjectModel } from './typescript/project-model.js';
 export { loadTsconfigAliases } from './typescript/tsconfig.js';
 export { matchesWorkspaceGlobs } from './typescript/workspace-globs.js';
-export { loadWorkspacePackages } from './typescript/workspaces.js';
+export { loadWorkspacePackageDirs, loadWorkspacePackages } from './typescript/workspaces.js';

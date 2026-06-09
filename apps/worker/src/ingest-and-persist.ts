@@ -8,7 +8,11 @@
  * The database must already be migrated (`db:migrate`, ADR-0008 — never on boot).
  */
 import { createGraphDatabase, type PersistGraphResult } from '@toopo/db';
-import { buildTypescriptProjectModel, ingestProject } from '@toopo/ingest';
+import {
+  buildTypescriptProjectModel,
+  ingestProject,
+  loadWorkspacePackageDirs,
+} from '@toopo/ingest';
 import { createReactPlugins, createReactResolver } from '@toopo/lang-react';
 
 export interface IngestAndPersistOptions {
@@ -37,6 +41,7 @@ export async function ingestAndPersist(
     languagePlugins: createReactPlugins(),
     resolverPlugins: [createReactResolver()],
     buildProjectModel: (discovered) => buildTypescriptProjectModel(options.rootDir, discovered),
+    buildPackageLayout: (rootDir) => loadWorkspacePackageDirs(rootDir),
     gitignore: options.gitignore ?? true,
   });
 

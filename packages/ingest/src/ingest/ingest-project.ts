@@ -10,6 +10,7 @@ import {
   resolveProject,
 } from '@toopo/resolver';
 import { discoverFiles } from '../discovery/discover.js';
+import { type PackageDir, synthesizePackages } from './synthesize-packages.js';
 
 const EMPTY_PROJECT_MODEL: ProjectModel = { aliases: [], workspacePackages: [] };
 
@@ -30,6 +31,16 @@ export interface IngestOptions {
   readonly resolverPlugins: readonly ResolverPlugin[];
   /** Build the resolver's project model from the discovered files. Defaults to empty. */
   readonly buildProjectModel?: ProjectModelBuilder;
+  /**
+   * Load the workspace package boundaries for Package-node synthesis (ADR-0015
+   * §2). Injected so the orchestration stays language-agnostic; the TS/React
+   * composition root supplies one over `pnpm-workspace`/`package.json`. Omitted
+   * (or empty) means no package tier is synthesized — the map's top stays at the
+   * file level (graceful degradation for a non-workspace repo).
+   */
+  readonly buildPackageLayout?: (
+    rootDir: string,
+  ) => Promise<readonly PackageDir[]> | readonly PackageDir[];
   /** Honor `.gitignore` during discovery (root + nested). Defaults to true. */
   readonly gitignore?: boolean;
 }
@@ -102,11 +113,12 @@ export async function ingestProject(
   const resolveStart = performance.now();
 
   const projectModel = await (options.buildProjectModel?.(paths) ?? EMPTY_PROJECT_MODEL);
-  const { document, diagnostics } = resolveProject(
-    fragments,
-    options.resolverPlugins,
-    projectModel,
-  );
+  const resolved = resolveProject(fragments, options.resolverPlugins, projectModel);
+  // Complete the optional container tier (ADR-0015 §2): synthesize package nodes
+  // from the workspace boundaries so the map has a clean package-level overview.
+  const layout = (await options.buildPackageLayout?.(base)) ?? [];
+  const document = synthesizePackages(resolved.document, layout);
+  const diagnostics = resolved.diagnostics;
   const resolveEnd = performance.now();
 
   return {

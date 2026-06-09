@@ -4,6 +4,7 @@ import { buildWorkspacePackages, type WorkspacePackageInput } from '@toopo/lang-
 import type { WorkspacePackage } from '@toopo/resolver';
 import { fdir } from 'fdir';
 import { parse as parseYaml } from 'yaml';
+import type { PackageDir } from '../ingest/synthesize-packages.js';
 import { directoryOf, HARD_DEFAULT_DIRS, toPosix } from '../internal/paths.js';
 import { matchesWorkspaceGlobs } from './workspace-globs.js';
 
@@ -25,6 +26,24 @@ export async function loadWorkspacePackages(
   rootDir: string,
   fileExists: (repoRelativePath: string) => boolean,
 ): Promise<WorkspacePackage[]> {
+  const inputs = await collectWorkspacePackageInputs(rootDir);
+  return buildWorkspacePackages(inputs, fileExists);
+}
+
+/**
+ * The workspace packages' container boundaries: each named package's `{ name,
+ * dir }` (repo-relative directory). Unlike {@link loadWorkspacePackages}, this is
+ * NOT filtered by an analysed source entry — Package-node synthesis (ADR-0015 §2)
+ * groups files by directory, so a package counts as long as its `package.json`
+ * sits under a workspace glob, regardless of whether its entry resolved.
+ */
+export async function loadWorkspacePackageDirs(rootDir: string): Promise<PackageDir[]> {
+  const inputs = await collectWorkspacePackageInputs(rootDir);
+  return inputs.map((input) => ({ name: input.name, dir: input.dir }));
+}
+
+/** Crawl the workspace globs and read every named package.json into a builder input. */
+async function collectWorkspacePackageInputs(rootDir: string): Promise<WorkspacePackageInput[]> {
   // Resolve to absolute: fdir's withRelativePaths() collapses to basenames on a
   // bare relative crawl root, and readFile must target the right directory.
   const base = resolve(rootDir);
@@ -51,7 +70,7 @@ export async function loadWorkspacePackages(
       inputs.push(input);
     }
   }
-  return buildWorkspacePackages(inputs, fileExists);
+  return inputs;
 }
 
 /** Read workspace globs from pnpm-workspace.yaml, else the package.json field. */

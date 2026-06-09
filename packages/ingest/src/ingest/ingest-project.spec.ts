@@ -1,7 +1,7 @@
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { isSymbolNode } from '@toopo/core';
+import { isFileNode, isPackageNode, isSymbolNode } from '@toopo/core';
 import { createReactPlugins, createReactResolver } from '@toopo/lang-react';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { buildTypescriptProjectModel } from '../typescript/project-model';
@@ -100,5 +100,44 @@ describe('ingestProject', () => {
     // Without aliases the @/format import cannot resolve; it stays a diagnostic.
     expect(result.document.nodes.length).toBeGreaterThan(0);
     expect(result.files).toHaveLength(3);
+  });
+
+  it('synthesizes a package tier from the injected workspace layout (ADR-0015 §2)', async () => {
+    const result = await ingestProject(root, {
+      ...plugins,
+      buildProjectModel: (discovered) => buildTypescriptProjectModel(root, discovered),
+      // This fixture lives under one synthetic package rooted at `src`.
+      buildPackageLayout: () => [{ name: '@demo/app', dir: 'src' }],
+    });
+
+    const pkg = result.document.nodes.find(isPackageNode);
+    expect(pkg).toMatchObject({ kind: 'package', id: '@demo/app', name: '@demo/app' });
+
+    // Every analysed file is contained by the package via a deterministic edge
+    // (targets are the files' descriptor ids, not their plain paths).
+    const fileIds = result.document.nodes
+      .filter(isFileNode)
+      .map((node) => node.id)
+      .sort();
+    const contained = result.document.edges
+      .filter((edge) => edge.kind === 'contains' && edge.sourceId === '@demo/app')
+      .map((edge) => edge.targetId)
+      .sort();
+    expect(contained).toEqual(fileIds);
+    expect(
+      result.document.edges.every(
+        (edge) =>
+          !(edge.kind === 'contains' && edge.sourceId === '@demo/app') ||
+          edge.resolution === 'deterministic',
+      ),
+    ).toBe(true);
+  });
+
+  it('synthesizes no package tier when no layout is injected (graceful fallback)', async () => {
+    const result = await ingestProject(root, {
+      ...plugins,
+      buildProjectModel: (discovered) => buildTypescriptProjectModel(root, discovered),
+    });
+    expect(result.document.nodes.some(isPackageNode)).toBe(false);
   });
 });

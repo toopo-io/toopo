@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { loadWorkspacePackages } from './workspaces';
+import { loadWorkspacePackageDirs, loadWorkspacePackages } from './workspaces';
 
 const created: string[] = [];
 
@@ -65,6 +65,42 @@ describe('loadWorkspacePackages', () => {
 
     const result = await loadWorkspacePackages(root, always);
     expect(result).toEqual([]);
+  });
+
+  it('returns name+dir for every named workspace package (unfiltered by entry)', async () => {
+    const root = await makeRoot();
+    await writeFile(
+      join(root, 'pnpm-workspace.yaml'),
+      'packages:\n  - "apps/*"\n  - "packages/*"\n',
+    );
+    await mkdir(join(root, 'apps', 'web'), { recursive: true });
+    await mkdir(join(root, 'packages', 'core'), { recursive: true });
+    await writeFile(
+      join(root, 'apps', 'web', 'package.json'),
+      JSON.stringify({ name: '@toopo/web' }),
+    );
+    await writeFile(
+      join(root, 'packages', 'core', 'package.json'),
+      JSON.stringify({ name: '@toopo/core' }),
+    );
+    // An unnamed package is excluded (it cannot be a container we can name).
+    await mkdir(join(root, 'packages', 'anon'), { recursive: true });
+    await writeFile(
+      join(root, 'packages', 'anon', 'package.json'),
+      JSON.stringify({ version: '1' }),
+    );
+
+    const dirs = await loadWorkspacePackageDirs(root);
+    expect([...dirs].sort((a, b) => a.dir.localeCompare(b.dir))).toEqual([
+      { name: '@toopo/web', dir: 'apps/web' },
+      { name: '@toopo/core', dir: 'packages/core' },
+    ]);
+  });
+
+  it('returns no dirs when there is no workspace config', async () => {
+    const root = await makeRoot();
+    await writeFile(join(root, 'package.json'), JSON.stringify({ name: 'solo' }));
+    expect(await loadWorkspacePackageDirs(root)).toEqual([]);
   });
 
   it('reads the exports map into subpath exports (Fix C2)', async () => {

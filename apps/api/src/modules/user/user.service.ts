@@ -1,8 +1,6 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { createDb, type Db } from '@toopo/db';
-import { account, session, user } from '@toopo/db/schema';
-import { eq } from 'drizzle-orm';
-import { Env } from '../../env';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import type { UserRepository } from '@toopo/db';
+import { USER_REPOSITORY } from '../database/database.module';
 
 export interface UserDataExport {
   readonly exportedAt: string;
@@ -34,57 +32,41 @@ export interface UserDataExport {
 
 @Injectable()
 export class UserService {
-  private readonly db: Db;
-
-  constructor() {
-    this.db = createDb({ databaseUrl: Env.DATABASE_URL });
-  }
+  constructor(@Inject(USER_REPOSITORY) private readonly users: UserRepository) {}
 
   async exportUserData(userId: string): Promise<UserDataExport> {
-    const userRows = await this.db.select().from(user).where(eq(user.id, userId)).limit(1);
-    const userRow = userRows[0];
-    if (userRow === undefined) {
+    const user = await this.users.findUserById(userId);
+    if (user === null) {
       throw new NotFoundException('User not found');
     }
-    const sessions = await this.db.select().from(session).where(eq(session.userId, userId));
-    const accounts = await this.db.select().from(account).where(eq(account.userId, userId));
+    const [sessions, accounts] = await Promise.all([
+      this.users.listSessions(userId),
+      this.users.listAccounts(userId),
+    ]);
 
     return {
       exportedAt: new Date().toISOString(),
-      user: {
-        id: userRow.id,
-        name: userRow.name,
-        email: userRow.email,
-        emailVerified: userRow.emailVerified,
-        image: userRow.image,
-        createdAt: userRow.createdAt,
-        updatedAt: userRow.updatedAt,
-      },
-      sessions: sessions.map((row) => ({
-        id: row.id,
-        expiresAt: row.expiresAt,
-        createdAt: row.createdAt,
-        updatedAt: row.updatedAt,
-        ipAddress: row.ipAddress,
-        userAgent: row.userAgent,
+      user,
+      sessions: sessions.map((session) => ({
+        id: session.id,
+        expiresAt: session.expiresAt,
+        createdAt: session.createdAt,
+        updatedAt: session.updatedAt,
+        ipAddress: session.ipAddress,
+        userAgent: session.userAgent,
       })),
-      accounts: accounts.map((row) => ({
-        id: row.id,
-        providerId: row.providerId,
-        accountId: row.accountId,
-        createdAt: row.createdAt,
-        updatedAt: row.updatedAt,
+      accounts: accounts.map((account) => ({
+        id: account.id,
+        providerId: account.providerId,
+        accountId: account.accountId,
+        createdAt: account.createdAt,
+        updatedAt: account.updatedAt,
       })),
     };
   }
 
   async softDeleteUser(userId: string): Promise<{ deletedAt: Date }> {
-    const deletedAt = new Date();
-    await this.db.transaction(async (tx) => {
-      await tx.update(user).set({ deletedAt }).where(eq(user.id, userId));
-      await tx.delete(session).where(eq(session.userId, userId));
-    });
-    return { deletedAt };
+    return this.users.softDeleteUser(userId);
   }
 
   // Returns false if the user is missing or soft-deleted. Used as a
@@ -92,11 +74,6 @@ export class UserService {
   // though `auth.soft-delete-guard.ts` already blocks new sessions for
   // soft-deleted users at the Better Auth hook layer. See B10.
   async isActive(userId: string): Promise<boolean> {
-    const rows = await this.db
-      .select({ deletedAt: user.deletedAt })
-      .from(user)
-      .where(eq(user.id, userId))
-      .limit(1);
-    return rows[0] !== undefined && rows[0].deletedAt === null;
+    return this.users.isActive(userId);
   }
 }

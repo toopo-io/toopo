@@ -6,11 +6,12 @@ import { GlobalExceptionFilter } from './core/filters/global-exception.filter';
 import { I18nModule } from './i18n/i18n.module';
 import { LocaleInterceptor } from './i18n/locale.interceptor';
 import { AuthModule } from './modules/auth/auth.module';
+import { DatabaseModule } from './modules/database/database.module';
 import { HealthModule } from './modules/health/health.module';
 import { UserModule } from './modules/user/user.module';
 
 @Module({
-  imports: [CoreModule, I18nModule, AuthModule, HealthModule, UserModule],
+  imports: [CoreModule, DatabaseModule, I18nModule, AuthModule, HealthModule, UserModule],
   providers: [
     { provide: APP_PIPE, useClass: ZodValidationPipe },
     { provide: APP_INTERCEPTOR, useClass: LocaleInterceptor },

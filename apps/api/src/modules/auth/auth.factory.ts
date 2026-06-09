@@ -1,30 +1,24 @@
-import { createDb } from '@toopo/db';
-import { user } from '@toopo/db/schema';
+import { authSchemaOptions, type UserRepository } from '@toopo/db';
 import { negotiateLocale } from '@toopo/i18n';
 import { betterAuth } from 'better-auth';
-import { drizzleAdapter } from 'better-auth/adapters/drizzle';
-import { eq } from 'drizzle-orm';
 import type { Logger } from 'nestjs-pino';
 import { Env } from '../../env';
+import type { DatabaseService } from '../database/database.module';
 import { createSessionCreateBeforeHook } from './auth.soft-delete-guard';
 import type { AuthEmailService } from './email/email.service';
 import { buildResetPasswordUrl, buildVerifyEmailUrl } from './email/url-builders';
 
 export type Auth = ReturnType<typeof createAuth>;
 
-export function createAuth(logger: Logger, email: AuthEmailService) {
-  const db = createDb({ databaseUrl: Env.DATABASE_URL });
-
+export function createAuth(
+  logger: Logger,
+  email: AuthEmailService,
+  database: DatabaseService,
+  userRepository: UserRepository,
+) {
   const sessionCreateBefore = createSessionCreateBeforeHook({
     logger,
-    getUserDeletedAt: async (userId) => {
-      const rows = await db
-        .select({ deletedAt: user.deletedAt })
-        .from(user)
-        .where(eq(user.id, userId))
-        .limit(1);
-      return rows[0]?.deletedAt;
-    },
+    getUserDeletedAt: (userId) => userRepository.findDeletedAt(userId),
   });
 
   const googleClientId = Env.GOOGLE_CLIENT_ID;
@@ -34,13 +28,15 @@ export function createAuth(logger: Logger, email: AuthEmailService) {
       ? { google: { clientId: googleClientId, clientSecret: googleClientSecret } }
       : undefined;
 
-  // better-auth is pinned with `~1.6.11` in apps/api/package.json: patches
-  // flow, minor bumps require explicit review. The Drizzle schema in
-  // packages/db/src/schema/auth.ts is hand-transcribed from upstream docs —
-  // see ADR-0012 §"Updating better-auth checklist" for the maintenance
-  // checklist before any minor version bump.
+  // Better Auth on its built-in Kysely adapter over the shared connection
+  // (ADR-0017 §3). The schema is generated from the installed better-auth and
+  // committed as migrations, so there is no hand-written schema to drift; the
+  // CI drift-check guards it. `authSchemaOptions` carries the deletedAt RGPD
+  // field extension (ADR-0013) — the single source shared with the migration
+  // generator, so the running schema and the committed migrations never differ.
   return betterAuth({
-    database: drizzleAdapter(db, { provider: 'pg' }),
+    ...authSchemaOptions,
+    database: { db: database.db, type: database.type },
     secret: Env.BETTER_AUTH_SECRET,
     baseURL: Env.BETTER_AUTH_URL,
     basePath: '/v1/auth',

@@ -1,3 +1,4 @@
+import { inferBackend } from '@toopo/db';
 import { baseEnvShape } from '@toopo/env';
 import { z } from 'zod';
 
@@ -6,11 +7,17 @@ export const ApiEnvSchema = z.object({
   PORT: z.coerce.number().int().min(1).max(65535).default(4000),
   CORS_ORIGIN: z.string().url().default('http://localhost:3000'),
 
+  // The backend is inferred from the scheme (ADR-0017 §1): postgres(ql):// for
+  // cloud, libsql://|sqlite://|file: for self-host. Validated with a custom
+  // refine — not .url() — because libSQL's file: and :memory: forms are not
+  // standard URLs.
   DATABASE_URL: z
     .string()
-    .url()
-    .refine((v) => /^postgres(ql)?:\/\//.test(v), {
-      message: 'DATABASE_URL must be a postgres:// or postgresql:// URL',
+    .trim()
+    .min(1)
+    .refine((value) => inferBackend(value) !== null, {
+      message:
+        'DATABASE_URL must use a known scheme: postgres://, postgresql://, libsql://, sqlite://, file:, or :memory:',
     }),
 
   BETTER_AUTH_SECRET: z.string().min(32, {

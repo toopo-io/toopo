@@ -24,12 +24,16 @@ export interface Page<T> {
   readonly nextCursor: string | null;
 }
 
-/** Cursor + limit inputs shared by every paginated read. */
+/**
+ * Cursor + limit inputs shared by every paginated read. The fields admit
+ * `undefined` (not just absence) so callers can forward optional values straight
+ * through under `exactOptionalPropertyTypes`.
+ */
 export interface PageOptions {
   /** Requested page size; clamped to `[1, MAX_PAGE_LIMIT]` (defaults applied). */
-  readonly limit?: number;
+  readonly limit?: number | undefined;
   /** Opaque cursor from a previous page's `nextCursor`; absent on the first page. */
-  readonly cursor?: string;
+  readonly cursor?: string | undefined;
 }
 
 /** A single component of an ordering-key tuple encoded into a cursor. */

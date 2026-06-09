@@ -50,6 +50,8 @@ module.exports = {
         'lang-react',
         'resolver',
         'ingest',
+        'serve',
+        'worker',
         'env',
         'i18n',
         'tailwind',

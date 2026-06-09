@@ -51,9 +51,9 @@ export const DEFAULT_BLAST_RADIUS_KINDS: readonly EdgeKind[] = [
 
 export interface BlastRadiusOptions {
   /** Maximum reverse-traversal depth. Defaults to {@link DEFAULT_BLAST_RADIUS_MAX_DEPTH}. */
-  readonly maxDepth?: number;
+  readonly maxDepth?: number | undefined;
   /** Edge kinds to traverse. Defaults to {@link DEFAULT_BLAST_RADIUS_KINDS}. */
-  readonly kinds?: readonly EdgeKind[];
+  readonly kinds?: readonly EdgeKind[] | undefined;
 }
 
 export interface BlastRadiusHit {
@@ -66,17 +66,17 @@ export interface BlastRadiusHit {
 /** Page inputs for {@link GraphRepository.neighborsPage}, with the kind filter. */
 export interface NeighborPageOptions extends PageOptions {
   /** Restrict to one edge kind; omitted returns every kind. */
-  readonly kind?: EdgeKind;
+  readonly kind?: EdgeKind | undefined;
 }
 
 /** Inputs for {@link GraphRepository.search}: scoped, bounded node lookup. */
 export interface SearchOptions extends PageOptions {
   /** Case-insensitive literal substring matched against a node's name or path. */
-  readonly query?: string;
+  readonly query?: string | undefined;
   /** Restrict to one universal node kind (indexed). */
-  readonly kind?: Node['kind'];
+  readonly kind?: Node['kind'] | undefined;
   /** Restrict to one language-namespaced subKind (indexed). */
-  readonly subKind?: string;
+  readonly subKind?: string | undefined;
 }
 
 /** A blast-radius hit hydrated with its node (null for an external id, ADR-0015 Fork 1). */
@@ -110,9 +110,9 @@ export interface MapViewOptions {
    * for `level: 'symbol'`. Omitted at `level: 'package'` returns all packages —
    * the always-bounded top of the map.
    */
-  readonly scope?: SymbolId;
+  readonly scope?: SymbolId | undefined;
   /** Max container nodes; clamped. When more exist, {@link MapView.truncated} is set. */
-  readonly limit?: number;
+  readonly limit?: number | undefined;
 }
 
 /** One container node of a map view, with the count of symbols it contains. */

@@ -237,6 +237,10 @@ importers:
         version: 4.1.6(@types/node@25.8.0)(@vitest/coverage-v8@4.1.6)(jsdom@29.1.1(@noble/hashes@2.2.0))(vite@8.0.12(@types/node@25.8.0)(esbuild@0.28.0)(jiti@2.6.1)(terser@5.47.1)(tsx@4.22.4)(yaml@2.9.0))
 
   packages/api-contracts:
+    dependencies:
+      '@toopo/core':
+        specifier: workspace:*
+        version: link:../core
     devDependencies:
       '@toopo/tsconfig':
         specifier: workspace:*
@@ -523,6 +527,34 @@ importers:
       zod:
         specifier: 4.4.3
         version: 4.4.3
+
+  packages/serve:
+    dependencies:
+      '@toopo/api-contracts':
+        specifier: workspace:*
+        version: link:../api-contracts
+      '@toopo/core':
+        specifier: workspace:*
+        version: link:../core
+      '@toopo/db':
+        specifier: workspace:*
+        version: link:../db
+    devDependencies:
+      '@toopo/tsconfig':
+        specifier: workspace:*
+        version: link:../../tooling/tsconfig
+      '@toopo/vitest-config':
+        specifier: workspace:*
+        version: link:../../tooling/vitest
+      '@vitest/coverage-v8':
+        specifier: 4.1.6
+        version: 4.1.6(vitest@4.1.6)
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: 4.1.6
+        version: 4.1.6(@types/node@25.8.0)(@vitest/coverage-v8@4.1.6)(jsdom@29.1.1(@noble/hashes@2.2.0))(vite@8.0.12(@types/node@25.8.0)(esbuild@0.28.0)(jiti@2.6.1)(terser@5.47.1)(tsx@4.22.4)(yaml@2.9.0))
 
   packages/ui:
     dependencies:

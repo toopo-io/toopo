@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import type { NodeDetail } from '@toopo/api-contracts';
 import { NextIntlClientProvider } from 'next-intl';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -67,18 +67,27 @@ const DETAIL: NodeDetail = {
   callSites: { items: [], nextCursor: null },
 };
 
-function renderPanel(): void {
+function renderPanel(extra?: Partial<Parameters<typeof NodeDetailPanel>[0]>): void {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <NextIntlClientProvider locale="en" messages={messages}>
       <QueryClientProvider client={client}>
-        <NodeDetailPanel nodeId="pkg/Button.tsx#Button" locale="en" onClose={() => undefined} />
+        <NodeDetailPanel
+          nodeId="pkg/Button.tsx#Button"
+          locale="en"
+          onClose={() => undefined}
+          blastActive={false}
+          onToggleBlast={() => undefined}
+          blastLoading={false}
+          {...extra}
+        />
       </QueryClientProvider>
     </NextIntlClientProvider>,
   );
 }
 
 afterEach(() => {
+  cleanup();
   node.mockReset();
 });
 
@@ -107,5 +116,28 @@ describe('<NodeDetailPanel />', () => {
     node.mockRejectedValue(new Error('nope'));
     renderPanel();
     await waitFor(() => expect(screen.getByText(/Failed to load node: nope/)).toBeInTheDocument());
+  });
+
+  it('renders the blast-radius section with the honest no-certainty caveat when active', async () => {
+    node.mockResolvedValue(DETAIL);
+    renderPanel({
+      blastActive: true,
+      blastPage: {
+        items: [
+          {
+            nodeId: 'dep#',
+            depth: 1,
+            node: { kind: 'symbol', id: 'dep#', name: 'Dep', properties: {} },
+          },
+        ],
+        nextCursor: null,
+        truncated: true,
+      },
+    });
+    expect(await screen.findByText(messages.Graph.blast.title)).toBeInTheDocument();
+    expect(screen.getByText('Dep')).toBeInTheDocument();
+    // The honest framing must be present — no per-node certainty claim (Fork 6A).
+    expect(screen.getByText(messages.Graph.blast.caveat)).toBeInTheDocument();
+    expect(screen.getByText(messages.Graph.blast.truncated)).toBeInTheDocument();
   });
 });

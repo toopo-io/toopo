@@ -9,8 +9,10 @@
  * each neighbour/argument row carries a solid/dashed `TrustMark` and a trust-tinted
  * left border. The shape is the pure `nodeDetailToViewModel`; this only renders it.
  */
+import type { BlastRadiusPage } from '@toopo/api-contracts';
 import { useTranslations } from 'next-intl';
 import type { JSX, ReactNode } from 'react';
+import { blastRows } from '../../../lib/graph/blast';
 import {
   type CallSiteRow,
   type InterfaceRow,
@@ -25,10 +27,23 @@ interface NodeDetailPanelProps {
   readonly nodeId: string;
   readonly locale: string;
   readonly onClose: () => void;
+  readonly blastActive: boolean;
+  readonly onToggleBlast: () => void;
+  readonly blastPage?: BlastRadiusPage;
+  readonly blastLoading: boolean;
 }
 
-export function NodeDetailPanel({ nodeId, locale, onClose }: NodeDetailPanelProps): JSX.Element {
+export function NodeDetailPanel({
+  nodeId,
+  locale,
+  onClose,
+  blastActive,
+  onToggleBlast,
+  blastPage,
+  blastLoading,
+}: NodeDetailPanelProps): JSX.Element {
   const t = useTranslations('Graph.panel');
+  const tb = useTranslations('Graph.blast');
   const tl = useTranslations('Graph.legend');
   const { data, isLoading, error } = useGraphNode(nodeId, locale);
   const vm = data !== undefined ? nodeDetailToViewModel(data) : null;
@@ -48,17 +63,32 @@ export function NodeDetailPanel({ nodeId, locale, onClose }: NodeDetailPanelProp
             </p>
           ) : null}
         </div>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label={t('close')}
-          className="shrink-0 rounded-md px-2 py-1 text-muted-foreground text-sm hover:bg-muted hover:text-foreground"
-        >
-          ✕
-        </button>
+        <div className="flex shrink-0 items-center gap-1">
+          <button
+            type="button"
+            onClick={onToggleBlast}
+            aria-pressed={blastActive}
+            className={`rounded-md border px-2 py-1 text-xs transition-colors ${
+              blastActive
+                ? 'border-(--toopo-impact) text-(--toopo-impact)'
+                : 'border-border text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            {tb('toggle')}
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label={t('close')}
+            className="rounded-md px-2 py-1 text-muted-foreground text-sm hover:bg-muted hover:text-foreground"
+          >
+            ✕
+          </button>
+        </div>
       </header>
 
       <div className="flex-1 overflow-y-auto px-4 py-3">
+        {blastActive ? <BlastSection page={blastPage} loading={blastLoading} /> : null}
         {error ? (
           <p className="text-destructive text-sm">
             {t('error', { message: error instanceof Error ? error.message : '' })}
@@ -171,6 +201,50 @@ function NeighborItem({
       </span>
       <span className="shrink-0 font-mono text-[10px] text-muted-foreground">{row.edgeKind}</span>
     </li>
+  );
+}
+
+function BlastSection({
+  page,
+  loading,
+}: {
+  page: BlastRadiusPage | undefined;
+  loading: boolean;
+}): JSX.Element {
+  const tb = useTranslations('Graph.blast');
+  const rows = page !== undefined ? blastRows(page) : [];
+  return (
+    <section className="mb-5 rounded-lg border border-(--toopo-impact)/50 bg-(--toopo-impact)/5 p-3">
+      <h3 className="mb-1 font-medium text-(--toopo-impact) text-sm">{tb('title')}</h3>
+      {/* Honest framing (ADR-0015 §8, Fork 6A): no per-node certainty claim. */}
+      <p className="mb-2 text-[11px] text-muted-foreground italic">{tb('caveat')}</p>
+      {loading ? (
+        <p className="text-muted-foreground text-sm">{tb('loading')}</p>
+      ) : rows.length === 0 ? (
+        <p className="text-muted-foreground text-sm">{tb('empty')}</p>
+      ) : (
+        <>
+          <ul className="flex flex-col gap-1">
+            {rows.map((row) => (
+              <li
+                key={row.nodeId}
+                className="flex items-center justify-between gap-2 rounded-md border border-border px-2 py-1 text-sm"
+              >
+                <span className="min-w-0 truncate" title={row.label ?? row.nodeId}>
+                  {row.label ?? <span className="text-muted-foreground italic">{row.nodeId}</span>}
+                </span>
+                <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
+                  {tb('depth', { depth: row.depth })}
+                </span>
+              </li>
+            ))}
+          </ul>
+          {page?.truncated ? (
+            <p className="mt-2 text-[11px] text-muted-foreground">{tb('truncated')}</p>
+          ) : null}
+        </>
+      )}
+    </section>
   );
 }
 

@@ -62,6 +62,15 @@
       "none": "None",
       "external": "(external)",
       "firstPage": "first {count} shown"
+    },
+    "blast": {
+      "toggle": "Blast radius",
+      "title": "Impacted dependents",
+      "loading": "Computing impact…",
+      "empty": "Nothing depends on this node.",
+      "depth": "depth {depth}",
+      "truncated": "Impact shown up to the depth cap — deeper dependents may exist.",
+      "caveat": "Reverse impact: a path to a dependent may include inferred links. This does not assert which dependents are certainly vs possibly impacted."
     }
   },
   "LocaleSwitcher": {

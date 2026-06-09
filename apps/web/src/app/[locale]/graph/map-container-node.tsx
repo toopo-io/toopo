@@ -14,10 +14,15 @@ import { MAP_NODE_SIZE, type MapFlowNode } from '../../../lib/graph/map-adapter'
 
 export function MapContainerNode({ data, selected }: NodeProps<MapFlowNode>): JSX.Element {
   const t = useTranslations('Graph');
+  const border = data.impacted
+    ? 'border-(--toopo-impact) ring-2 ring-(--toopo-impact)/50'
+    : selected
+      ? 'border-ring ring-2 ring-ring/40'
+      : 'border-border';
   return (
     <div
-      className={`flex cursor-pointer flex-col justify-center gap-1 rounded-lg border bg-card px-4 py-2 text-card-foreground shadow-sm transition-colors hover:border-ring/70 ${
-        selected ? 'border-ring ring-2 ring-ring/40' : 'border-border'
+      className={`flex cursor-pointer flex-col justify-center gap-1 rounded-lg border bg-card px-4 py-2 text-card-foreground shadow-sm transition-all hover:border-ring/70 ${border} ${
+        data.dimmed ? 'opacity-35' : 'opacity-100'
       }`}
       style={{ width: MAP_NODE_SIZE.width, height: MAP_NODE_SIZE.height }}
     >

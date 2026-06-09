@@ -28,7 +28,7 @@ import {
   mapViewToFlowNodes,
 } from '../../../lib/graph/map-adapter';
 import { drillTarget, searchJumpState } from '../../../lib/graph/navigation';
-import { useGraphMap } from '../../../lib/graph/use-graph-queries';
+import { useGraphBlastRadius, useGraphMap } from '../../../lib/graph/use-graph-queries';
 import './graph.css';
 import { useGraphViewState } from '../../../lib/graph/use-graph-view-state';
 import { Breadcrumb } from './breadcrumb';
@@ -78,11 +78,31 @@ export function GraphExplorer({ initialLevel, initialMap }: GraphExplorerProps):
     }
   };
 
+  const blastActive = state.blast && state.node !== undefined;
+  const blast = useGraphBlastRadius(state.node, locale, blastActive);
+  const impacted = useMemo(
+    () => new Set((blast.data?.items ?? []).map((item) => item.nodeId)),
+    [blast.data],
+  );
+
+  const onToggleBlast = (): void => {
+    setState({ ...state, blast: !state.blast });
+  };
+
   const [nodes, setNodes] = useState<MapFlowNode[]>([]);
   const [edges, setEdges] = useState<MapFlowEdge[]>([]);
   const displayNodes = useMemo(
-    () => nodes.map((node) => ({ ...node, selected: node.id === state.node })),
-    [nodes, state.node],
+    () =>
+      nodes.map((node) => {
+        const isImpacted = blastActive && impacted.has(node.id);
+        const isDimmed = blastActive && !isImpacted && node.id !== state.node;
+        return {
+          ...node,
+          selected: node.id === state.node,
+          data: { ...node.data, impacted: isImpacted, dimmed: isDimmed },
+        };
+      }),
+    [nodes, state.node, blastActive, impacted],
   );
 
   useEffect(() => {
@@ -153,11 +173,15 @@ export function GraphExplorer({ initialLevel, initialMap }: GraphExplorerProps):
         <NodeDetailPanel
           nodeId={state.node}
           locale={locale}
+          blastActive={blastActive}
+          onToggleBlast={onToggleBlast}
+          blastLoading={blast.isFetching}
+          {...(blast.data !== undefined ? { blastPage: blast.data } : {})}
           onClose={() =>
             setState({
               level: state.level,
               ...(state.scope !== undefined ? { scope: state.scope } : {}),
-              blast: state.blast,
+              blast: false,
             })
           }
         />

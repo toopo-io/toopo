@@ -16,14 +16,19 @@ import {
   type Node,
   type SymbolId,
 } from '@toopo/core';
-import type { Kysely } from 'kysely';
+import { type Kysely, sql } from 'kysely';
 import type { GraphDatabase } from '../schema/graph-types.js';
+import { BLAST_PATH_SEPARATOR, blastRadiusCte } from './blast-radius-sql.js';
 import { buildFileIndex } from './file-association.js';
-import type {
-  GraphRepository,
-  Neighbor,
-  NeighborDirection,
-  PersistGraphResult,
+import {
+  type BlastRadiusHit,
+  type BlastRadiusOptions,
+  DEFAULT_BLAST_RADIUS_KINDS,
+  DEFAULT_BLAST_RADIUS_MAX_DEPTH,
+  type GraphRepository,
+  type Neighbor,
+  type NeighborDirection,
+  type PersistGraphResult,
 } from './graph.repository.js';
 import { edgeToInsert, nodeToInsert, rowToEdge, rowToNode } from './graph-records.js';
 
@@ -156,5 +161,31 @@ export class KyselyGraphRepository implements GraphRepository {
     }
     const rows = await this.db.selectFrom('node').selectAll().where('id', 'in', distinct).execute();
     return new Map(rows.map((row) => [row.id, rowToNode(row)]));
+  }
+
+  async blastRadius(
+    id: SymbolId,
+    options?: BlastRadiusOptions,
+  ): Promise<readonly BlastRadiusHit[]> {
+    if (id.includes(BLAST_PATH_SEPARATOR)) {
+      // The visited-path delimiter must never appear inside an id (it cannot, for
+      // parser-emitted SymbolIds). Reject explicitly rather than risk a silent
+      // cycle-guard collision.
+      throw new Error('blastRadius: id must not contain the U+001F path separator');
+    }
+    const maxDepth = options?.maxDepth ?? DEFAULT_BLAST_RADIUS_MAX_DEPTH;
+    const kinds = options?.kinds ?? DEFAULT_BLAST_RADIUS_KINDS;
+    if (maxDepth < 1 || kinds.length === 0) {
+      return [];
+    }
+
+    const cte = blastRadiusCte({ startId: id, kinds, maxDepth });
+    const query = sql<{ node_id: string; depth: number }>`${cte}
+      select "node_id", min("depth") as "depth"
+      from "blast"
+      where "depth" > 0
+      group by "node_id"`;
+    const { rows } = await query.execute(this.db);
+    return rows.map((row) => ({ nodeId: row.node_id, depth: Number(row.depth) }));
   }
 }

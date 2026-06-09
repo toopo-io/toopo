@@ -21,11 +21,15 @@ export {
   SqlFileMigrationProvider,
   splitSqlStatements,
 } from './migrator.js';
-export type {
-  GraphRepository,
-  Neighbor,
-  NeighborDirection,
-  PersistGraphResult,
+export {
+  type BlastRadiusHit,
+  type BlastRadiusOptions,
+  DEFAULT_BLAST_RADIUS_KINDS,
+  DEFAULT_BLAST_RADIUS_MAX_DEPTH,
+  type GraphRepository,
+  type Neighbor,
+  type NeighborDirection,
+  type PersistGraphResult,
 } from './repositories/graph.repository.js';
 export { KyselyGraphRepository } from './repositories/graph.repository.kysely.js';
 export type { UserRepository } from './repositories/user.repository.js';

@@ -27,6 +27,38 @@ export interface Neighbor {
   readonly node: Node | null;
 }
 
+/** Default depth cap for {@link GraphRepository.blastRadius} — bounds traversal
+ *  cost and guarantees termination even on a cyclic graph (ADR-0017 §6). */
+export const DEFAULT_BLAST_RADIUS_MAX_DEPTH = 32;
+
+/**
+ * Default edge kinds traversed by blast-radius: the inbound DEPENDENCY kinds.
+ * `contains` (pure structure) and `exports` (a symbol's own declaring module,
+ * not a dependent) are excluded — re-exporting structure is not impact. Pass an
+ * explicit `kinds` to override.
+ */
+export const DEFAULT_BLAST_RADIUS_KINDS: readonly EdgeKind[] = [
+  'imports',
+  'references',
+  'calls',
+  'extends',
+  'implements',
+];
+
+export interface BlastRadiusOptions {
+  /** Maximum reverse-traversal depth. Defaults to {@link DEFAULT_BLAST_RADIUS_MAX_DEPTH}. */
+  readonly maxDepth?: number;
+  /** Edge kinds to traverse. Defaults to {@link DEFAULT_BLAST_RADIUS_KINDS}. */
+  readonly kinds?: readonly EdgeKind[];
+}
+
+export interface BlastRadiusHit {
+  /** A node that (transitively) depends on the queried node. */
+  readonly nodeId: SymbolId;
+  /** Shortest reverse distance from the queried node (always ≥ 1). */
+  readonly depth: number;
+}
+
 export interface GraphRepository {
   /**
    * Persist a graph document idempotently (ADR-0015 §11 stored-once): nodes are
@@ -51,4 +83,13 @@ export interface GraphRepository {
     direction: NeighborDirection,
     kind?: EdgeKind,
   ): Promise<readonly Neighbor[]>;
+
+  /**
+   * Transitive reverse-reachability: every node that (transitively) depends on
+   * `id`, by following forward dependency edges backwards (ADR-0015 §11). Each
+   * hit carries its shortest depth. Bounded by `maxDepth` and made cycle-safe by
+   * a visited-path guard, so the traversal always terminates (ADR-0017 §6). The
+   * queried node itself is never a hit.
+   */
+  blastRadius(id: SymbolId, options?: BlastRadiusOptions): Promise<readonly BlastRadiusHit[]>;
 }

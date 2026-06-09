@@ -30,10 +30,11 @@ interface LocalBinding {
  *     carrying the precise exported name (`default`, or a `Foo as Bar` rename),
  *     which an edge cannot encode.
  *
- * Only an export that binds to an extracted top-level symbol is emitted. An
- * export of a type, a class/non-function const, or a re-exported import
- * (`export { X }` where X is imported, not defined here) has no local symbol and
- * is deferred — missing one is recoverable, fabricating a binding is not.
+ * Only an export that binds to an extracted top-level symbol is emitted. With
+ * the broadened grain (Fix B) that now includes value consts, classes,
+ * interfaces, and type aliases; a re-exported import (`export { X }` where X is
+ * imported, not defined here) still has no local symbol and is deferred —
+ * missing one is recoverable, fabricating a binding is not.
  */
 export function extractExports(
   ctx: ExtractContext,
@@ -108,9 +109,24 @@ function localBindings(
   return [];
 }
 
-/** The declared name(s) of an exported declaration (function, or `const`/`let` fns). */
+/** Declaration kinds whose exported name is a single `name` field (Fix B grain). */
+const SINGLE_NAME_DECLARATIONS = new Set([
+  'function_declaration',
+  'class_declaration',
+  'abstract_class_declaration',
+  'interface_declaration',
+  'type_alias_declaration',
+]);
+
+/**
+ * The declared name(s) of an exported declaration. Single-name declarations
+ * (function, class, interface, type alias) expose a `name` field; a
+ * `const`/`let`/`var` statement can declare several declarators. Names are
+ * matched against the extracted symbols, so the broadened grain (Fix B) makes
+ * `export interface X` / `export type Y` / `export const z` resolvable imports.
+ */
 function declaredNames(declaration: SyntaxNode): string[] {
-  if (declaration.type === 'function_declaration' || declaration.type === 'class_declaration') {
+  if (SINGLE_NAME_DECLARATIONS.has(declaration.type)) {
     const name = declaration.childForFieldName('name');
     return name === null ? [] : [name.text];
   }

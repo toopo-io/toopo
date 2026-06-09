@@ -10,27 +10,46 @@
  * chunked to stay within SQLite's bound-parameter limit on large graphs.
  */
 import {
+  type Edge,
   type EdgeKind,
+  edgeIdentityKey,
   type GraphDocument,
   GraphDocumentSchema,
   type Node,
   type SymbolId,
 } from '@toopo/core';
-import { type Kysely, sql } from 'kysely';
+import { type Kysely, type RawBuilder, type SqlBool, sql } from 'kysely';
 import type { GraphDatabase } from '../schema/graph-types.js';
+import { selectChildCounts, selectContainerRows, selectProjectedEdges } from './aggregate-sql.js';
 import { BLAST_PATH_SEPARATOR, blastRadiusCte } from './blast-radius-sql.js';
 import { buildFileIndex } from './file-association.js';
 import {
   type BlastRadiusHit,
+  type BlastRadiusNode,
   type BlastRadiusOptions,
+  type BlastRadiusPage,
+  type BlastRadiusPageOptions,
   DEFAULT_BLAST_RADIUS_KINDS,
   DEFAULT_BLAST_RADIUS_MAX_DEPTH,
   type GraphRepository,
+  type MapView,
+  type MapViewOptions,
   type Neighbor,
   type NeighborDirection,
+  type NeighborPageOptions,
   type PersistGraphResult,
+  type SearchOptions,
 } from './graph.repository.js';
+import {
+  buildPage,
+  clampLimit,
+  decodeCursorTuple,
+  encodeCursor,
+  type Page,
+  type PageOptions,
+} from './graph-page.js';
 import { edgeToInsert, nodeToInsert, rowToEdge, rowToNode } from './graph-records.js';
+import { escapeLikeOperand, LIKE_ESCAPE } from './sql-like.js';
 
 /** Rows per bulk insert. Node is the widest table (16 columns); 500 rows stays
  *  well under SQLite's default 32766 bound-parameter ceiling on both drivers. */
@@ -52,6 +71,11 @@ function dedupe<T>(rows: readonly T[], key: (row: T) => string): T[] {
     map.set(key(row), row);
   }
   return [...map.values()];
+}
+
+/** The edge column anchored to the queried node: source for forward, target for reverse. */
+function anchorColumn(direction: NeighborDirection): 'source_id' | 'target_id' {
+  return direction === 'out' ? 'source_id' : 'target_id';
 }
 
 export class KyselyGraphRepository implements GraphRepository {
@@ -135,21 +159,27 @@ export class KyselyGraphRepository implements GraphRepository {
     direction: NeighborDirection,
     kind?: EdgeKind,
   ): Promise<readonly Neighbor[]> {
-    const anchorColumn = direction === 'out' ? 'source_id' : 'target_id';
-    let query = this.db.selectFrom('edge').selectAll().where(anchorColumn, '=', id);
+    let query = this.db.selectFrom('edge').selectAll().where(anchorColumn(direction), '=', id);
     if (kind !== undefined) {
       query = query.where('kind', '=', kind);
     }
     // Deterministic order so callers and tests see a stable result.
     const edgeRows = await query.orderBy('edge_key').execute();
-    const edges = edgeRows.map(rowToEdge);
+    return this.hydrateNeighbors(edgeRows.map(rowToEdge), direction);
+  }
 
-    // The far end is the target for `out`, the source for `in`. Batch-load those
-    // nodes in one query to avoid an N+1 fan-out.
-    const farEndId = (edge: (typeof edges)[number]): SymbolId =>
+  /**
+   * Pair each edge with the node on its far end (target for `out`, source for
+   * `in`), batch-loading those nodes in one query to avoid an N+1 fan-out. An
+   * external/unresolved far end with no node row yields `null` (ADR-0015 Fork 1).
+   */
+  private async hydrateNeighbors(
+    edges: readonly Edge[],
+    direction: NeighborDirection,
+  ): Promise<Neighbor[]> {
+    const farEndId = (edge: Edge): SymbolId =>
       direction === 'out' ? edge.targetId : edge.sourceId;
     const nodesById = await this.loadNodes(edges.map(farEndId));
-
     return edges.map((edge) => ({ edge, node: nodesById.get(farEndId(edge)) ?? null }));
   }
 
@@ -188,4 +218,183 @@ export class KyselyGraphRepository implements GraphRepository {
     const { rows } = await query.execute(this.db);
     return rows.map((row) => ({ nodeId: row.node_id, depth: Number(row.depth) }));
   }
+
+  async neighborsPage(
+    id: SymbolId,
+    direction: NeighborDirection,
+    options?: NeighborPageOptions,
+  ): Promise<Page<Neighbor>> {
+    const limit = clampLimit(options?.limit);
+    let query = this.db.selectFrom('edge').selectAll().where(anchorColumn(direction), '=', id);
+    if (options?.kind !== undefined) {
+      query = query.where('kind', '=', options.kind);
+    }
+    if (options?.cursor !== undefined) {
+      query = query.where('edge_key', '>', String(decodeCursorTuple(options.cursor, 1)[0]));
+    }
+    const edgeRows = await query
+      .orderBy('edge_key')
+      .limit(limit + 1)
+      .execute();
+    const neighbors = await this.hydrateNeighbors(edgeRows.map(rowToEdge), direction);
+    return buildPage(neighbors, limit, (neighbor) =>
+      encodeCursor([edgeIdentityKey(neighbor.edge)]),
+    );
+  }
+
+  async search(options?: SearchOptions): Promise<Page<Node>> {
+    const limit = clampLimit(options?.limit);
+    let query = this.db.selectFrom('node').selectAll();
+    if (options?.kind !== undefined) {
+      query = query.where('kind', '=', options.kind);
+    }
+    if (options?.subKind !== undefined) {
+      query = query.where('sub_kind', '=', options.subKind);
+    }
+    if (options?.query !== undefined && options.query.length > 0) {
+      query = query.where(nameOrPathMatches(options.query));
+    }
+    if (options?.cursor !== undefined) {
+      query = query.where('id', '>', String(decodeCursorTuple(options.cursor, 1)[0]));
+    }
+    const rows = await query
+      .orderBy('id')
+      .limit(limit + 1)
+      .execute();
+    return buildPage(rows.map(rowToNode), limit, (node) => encodeCursor([node.id]));
+  }
+
+  async declaredInterface(id: SymbolId, options?: PageOptions): Promise<Page<Node>> {
+    const limit = clampLimit(options?.limit);
+    let query = this.db
+      .selectFrom('edge as c')
+      .innerJoin('node as n', 'n.id', 'c.target_id')
+      .where('c.source_id', '=', id)
+      .where('c.kind', '=', 'contains')
+      .where('n.kind', '=', 'symbol')
+      .selectAll('n');
+    if (options?.cursor !== undefined) {
+      query = query.where('n.id', '>', String(decodeCursorTuple(options.cursor, 1)[0]));
+    }
+    const rows = await query
+      .orderBy('n.id')
+      .limit(limit + 1)
+      .execute();
+    return buildPage(rows.map(rowToNode), limit, (node) => encodeCursor([node.id]));
+  }
+
+  async callSitesOf(id: SymbolId, options?: PageOptions): Promise<Page<Node>> {
+    const limit = clampLimit(options?.limit);
+    let query = this.db
+      .selectFrom('node')
+      .selectAll()
+      .where('enclosing_symbol_id', '=', id)
+      .where('kind', '=', 'callSite');
+    if (options?.cursor !== undefined) {
+      query = query.where('id', '>', String(decodeCursorTuple(options.cursor, 1)[0]));
+    }
+    const rows = await query
+      .orderBy('id')
+      .limit(limit + 1)
+      .execute();
+    return buildPage(rows.map(rowToNode), limit, (node) => encodeCursor([node.id]));
+  }
+
+  async blastRadiusPage(id: SymbolId, options?: BlastRadiusPageOptions): Promise<BlastRadiusPage> {
+    if (id.includes(BLAST_PATH_SEPARATOR)) {
+      throw new Error('blastRadiusPage: id must not contain the U+001F path separator');
+    }
+    const maxDepth = options?.maxDepth ?? DEFAULT_BLAST_RADIUS_MAX_DEPTH;
+    const kinds = options?.kinds ?? DEFAULT_BLAST_RADIUS_KINDS;
+    const limit = clampLimit(options?.limit);
+    if (maxDepth < 1 || kinds.length === 0) {
+      return { items: [], nextCursor: null, truncated: false };
+    }
+
+    const rawRows = await this.runBlastRadiusPage(id, kinds, maxDepth, limit, options?.cursor);
+    const maxDepthReached = rawRows.length > 0 ? Number(rawRows[0]?.max_depth) : 0;
+    const hits: BlastRadiusHit[] = rawRows.map((row) => ({
+      nodeId: row.node_id,
+      depth: Number(row.depth),
+    }));
+    const nodesById = await this.loadNodes(hits.map((hit) => hit.nodeId));
+    const hydrated: BlastRadiusNode[] = hits.map((hit) => ({
+      ...hit,
+      node: nodesById.get(hit.nodeId) ?? null,
+    }));
+    const page = buildPage(hydrated, limit, (hit) => encodeCursor([hit.depth, hit.nodeId]));
+    return {
+      items: page.items,
+      nextCursor: page.nextCursor,
+      truncated: maxDepthReached >= maxDepth,
+    };
+  }
+
+  /** Execute the keyset-paginated blast-radius CTE (ordered by depth, then id). */
+  private async runBlastRadiusPage(
+    id: SymbolId,
+    kinds: readonly EdgeKind[],
+    maxDepth: number,
+    limit: number,
+    cursor: string | undefined,
+  ): Promise<Array<{ node_id: string; depth: number; max_depth: number }>> {
+    const cte = blastRadiusCte({ startId: id, kinds, maxDepth });
+    const keyset = blastKeysetClause(cursor);
+    const query = sql<{ node_id: string; depth: number; max_depth: number }>`${cte},
+      "hits" as (
+        select "node_id", min("depth") as "depth" from "blast" where "depth" > 0 group by "node_id"
+      )
+      select "node_id", "depth", (select max("depth") from "hits") as "max_depth"
+      from "hits"
+      ${keyset}
+      order by "depth" asc, "node_id" asc
+      limit ${limit + 1}`;
+    const { rows } = await query.execute(this.db);
+    return rows;
+  }
+
+  async mapView(options: MapViewOptions): Promise<MapView> {
+    if (options.level === 'symbol' && options.scope === undefined) {
+      throw new Error('mapView: the symbol level requires a file scope');
+    }
+    const limit = clampLimit(options.limit);
+    const containerRows = await selectContainerRows(
+      this.db,
+      options.level,
+      options.scope,
+      limit + 1,
+    );
+    const truncated = containerRows.length > limit;
+    const kept = truncated ? containerRows.slice(0, limit) : containerRows;
+    const ids = kept.map((row) => row.id);
+    const [counts, edges] = await Promise.all([
+      selectChildCounts(this.db, options.level, ids),
+      selectProjectedEdges(this.db, options.level, ids),
+    ]);
+    const nodes = kept.map((row) => ({
+      node: rowToNode(row),
+      childCount: counts.get(row.id) ?? 0,
+    }));
+    return { level: options.level, nodes, edges, truncated };
+  }
+}
+
+/** Portable case-insensitive name/path substring predicate (escaped LIKE). */
+function nameOrPathMatches(query: string): RawBuilder<SqlBool> {
+  const pattern = sql`'%' || lower(${escapeLikeOperand(sql`${query}`)}) || '%'`;
+  return sql<SqlBool>`(
+    lower(coalesce("name", '')) like ${pattern} escape ${LIKE_ESCAPE}
+    or lower(coalesce("path", '')) like ${pattern} escape ${LIKE_ESCAPE}
+  )`;
+}
+
+/** The keyset WHERE clause for blast-radius paging, or empty on the first page. */
+function blastKeysetClause(cursor: string | undefined): RawBuilder<unknown> {
+  if (cursor === undefined) {
+    return sql``;
+  }
+  const [depthPart, nodePart] = decodeCursorTuple(cursor, 2);
+  const depth = Number(depthPart);
+  const nodeId = String(nodePart);
+  return sql`where ("depth" > ${depth} or ("depth" = ${depth} and "node_id" > ${nodeId}))`;
 }

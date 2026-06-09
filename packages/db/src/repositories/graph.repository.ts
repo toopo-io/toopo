@@ -2,9 +2,13 @@
  * The graph persistence abstraction (ADR-0017 §1 repository pattern), mirroring
  * {@link UserRepository}. Callers depend on this interface, never on Kysely, so
  * the storage engine stays swappable behind it. The interface grows by slice:
- * S3 persist + read, S4 neighbors, S5 blast-radius.
+ * Chunk 2 added persist + getNode + neighbors + blast-radius; ADR-0020 (Serve)
+ * adds the bounded read primitives the Serve pass composes — paginated
+ * neighbors, search, declared-interface, call-sites, bounded blast-radius, and
+ * the on-read aggregate map view.
  */
 import type { Edge, EdgeKind, GraphDocument, Node, SymbolId } from '@toopo/core';
+import type { Page, PageOptions } from './graph-page.js';
 
 export interface PersistGraphResult {
   /** Distinct nodes written (after stored-once dedup). */
@@ -59,6 +63,83 @@ export interface BlastRadiusHit {
   readonly depth: number;
 }
 
+/** Page inputs for {@link GraphRepository.neighborsPage}, with the kind filter. */
+export interface NeighborPageOptions extends PageOptions {
+  /** Restrict to one edge kind; omitted returns every kind. */
+  readonly kind?: EdgeKind;
+}
+
+/** Inputs for {@link GraphRepository.search}: scoped, bounded node lookup. */
+export interface SearchOptions extends PageOptions {
+  /** Case-insensitive literal substring matched against a node's name or path. */
+  readonly query?: string;
+  /** Restrict to one universal node kind (indexed). */
+  readonly kind?: Node['kind'];
+  /** Restrict to one language-namespaced subKind (indexed). */
+  readonly subKind?: string;
+}
+
+/** A blast-radius hit hydrated with its node (null for an external id, ADR-0015 Fork 1). */
+export interface BlastRadiusNode extends BlastRadiusHit {
+  readonly node: Node | null;
+}
+
+/** Page + traversal inputs for {@link GraphRepository.blastRadiusPage}. */
+export interface BlastRadiusPageOptions extends PageOptions, BlastRadiusOptions {}
+
+/** A bounded page of blast-radius hits, ordered by (depth, id). */
+export interface BlastRadiusPage {
+  readonly items: readonly BlastRadiusNode[];
+  readonly nextCursor: string | null;
+  /**
+   * True when the depth cap was reached, so dependents deeper than `maxDepth`
+   * may exist and are NOT included. Surfaced honestly (never silent): the UI
+   * shows "impact up to depth N" rather than asserting completeness.
+   */
+  readonly truncated: boolean;
+}
+
+/** The containment level a {@link GraphRepository.mapView} aggregates to (ADR-0015 §2). */
+export type MapLevel = 'package' | 'file' | 'symbol';
+
+/** Inputs for the on-read aggregate map (ADR-0015 §3 — computed, never stored). */
+export interface MapViewOptions {
+  readonly level: MapLevel;
+  /**
+   * Containment scope (a parent id): the package for `level: 'file'`, the file
+   * for `level: 'symbol'`. Omitted at `level: 'package'` returns all packages —
+   * the always-bounded top of the map.
+   */
+  readonly scope?: SymbolId;
+  /** Max container nodes; clamped. When more exist, {@link MapView.truncated} is set. */
+  readonly limit?: number;
+}
+
+/** One container node of a map view, with the count of symbols it contains. */
+export interface MapNode {
+  readonly node: Node;
+  readonly childCount: number;
+}
+
+/** A projected dependency edge between two container nodes, split by trust. */
+export interface MapEdge {
+  readonly sourceId: SymbolId;
+  readonly targetId: SymbolId;
+  /** Deterministic dependency edges projected onto this container pair (ADR-0015 §8). */
+  readonly deterministic: number;
+  /** Inferred dependency edges projected onto this container pair (ADR-0015 §8). */
+  readonly inferred: number;
+}
+
+/** A scoped, bounded slice of the graph aggregated to one containment level. */
+export interface MapView {
+  readonly level: MapLevel;
+  readonly nodes: readonly MapNode[];
+  readonly edges: readonly MapEdge[];
+  /** True when the container cap hid some nodes at this scope (never silent). */
+  readonly truncated: boolean;
+}
+
 export interface GraphRepository {
   /**
    * Persist a graph document idempotently (ADR-0015 §11 stored-once): nodes are
@@ -92,4 +173,49 @@ export interface GraphRepository {
    * queried node itself is never a hit.
    */
   blastRadius(id: SymbolId, options?: BlastRadiusOptions): Promise<readonly BlastRadiusHit[]>;
+
+  /**
+   * Keyset-paginated {@link neighbors} (ADR-0020 Fork 4): one bounded page of a
+   * node's incident edges and their far-end nodes, ordered by edge identity, with
+   * a cursor for the next page. The Serve node-detail view's callers/callees.
+   */
+  neighborsPage(
+    id: SymbolId,
+    direction: NeighborDirection,
+    options?: NeighborPageOptions,
+  ): Promise<Page<Neighbor>>;
+
+  /**
+   * Bounded node search by name/path substring and/or kind/subKind, keyset-paged
+   * by id. The substring match is a portable, escaped, case-insensitive LIKE.
+   */
+  search(options?: SearchOptions): Promise<Page<Node>>;
+
+  /**
+   * The declared interface of a symbol (ADR-0015 §6): its contained child SYMBOL
+   * nodes (parameters/props/members), via `contains` edges, keyset-paged by id.
+   * Their subKinds tell the UI which are params vs props; this layer stays
+   * language-agnostic and returns every contained symbol.
+   */
+  declaredInterface(id: SymbolId, options?: PageOptions): Promise<Page<Node>>;
+
+  /**
+   * The call-sites enclosed by a symbol (ADR-0015 §3 zoom-in, §7 payloads),
+   * looked up by `enclosing_symbol_id` (indexed, ADR-0020 A1), keyset-paged by id.
+   */
+  callSitesOf(id: SymbolId, options?: PageOptions): Promise<Page<Node>>;
+
+  /**
+   * Keyset-paginated, node-hydrated {@link blastRadius} with an honest
+   * depth-cap `truncated` flag — the Serve blast-radius view (ADR-0020 Fork 4).
+   */
+  blastRadiusPage(id: SymbolId, options?: BlastRadiusPageOptions): Promise<BlastRadiusPage>;
+
+  /**
+   * The on-read aggregate map at one containment level (ADR-0015 §3): container
+   * nodes (with contained-symbol counts) and the dependency edges projected
+   * between them, split deterministic/inferred (ADR-0015 §8). Always scoped and
+   * capped; `truncated` flags a hit cap. Never stored, never a re-parse.
+   */
+  mapView(options: MapViewOptions): Promise<MapView>;
 }

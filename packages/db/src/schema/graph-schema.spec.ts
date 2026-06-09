@@ -47,6 +47,9 @@ const GRAPH_INDEXES = [
   'node_sub_kind_idx',
   'node_content_hash_idx',
   'node_file_id_idx',
+  // ADR-0020 A1: the call-site lookup index for the Serve node-detail zoom-in
+  // (call-sites of a symbol, queried by enclosing_symbol_id).
+  'node_enclosing_symbol_id_idx',
   'edge_source_idx',
   'edge_target_idx',
   'edge_file_id_idx',

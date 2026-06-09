@@ -15,13 +15,11 @@
  * `cast … as text`) is identical on libSQL-SQLite ≥3.38 and Postgres.
  */
 import { type RawBuilder, sql } from 'kysely';
+import { escapeLikeOperand, LIKE_ESCAPE } from './sql-like.js';
 
 /** The visited-path delimiter — ASCII Unit Separator (0x1F), never present in a
  *  SymbolId (tree-sitter emits no control characters in identifier text). */
 export const BLAST_PATH_SEPARATOR = String.fromCharCode(31);
-
-/** The LIKE escape character used to neutralize `%`/`_` in candidate ids. */
-const LIKE_ESCAPE = '\\';
 
 export interface BlastRadiusCteParams {
   readonly startId: string;
@@ -38,6 +36,7 @@ export function blastRadiusCte(params: BlastRadiusCteParams): RawBuilder<unknown
   const sep = BLAST_PATH_SEPARATOR;
   const esc = LIKE_ESCAPE;
   const kindList = sql.join(params.kinds.map((kind) => sql`${kind}`));
+  const escapedSource = escapeLikeOperand(sql`"e"."source_id"`);
 
   return sql`
     with recursive "blast"("node_id", "depth", "path") as (
@@ -49,8 +48,6 @@ export function blastRadiusCte(params: BlastRadiusCteParams): RawBuilder<unknown
       where "b"."depth" < ${params.maxDepth}
         and "e"."kind" in (${kindList})
         and "b"."path" not like
-          '%' || ${sep} ||
-          replace(replace(replace("e"."source_id", ${esc}, ${esc} || ${esc}), '%', ${esc} || '%'), '_', ${esc} || '_')
-          || ${sep} || '%' escape ${esc}
+          '%' || ${sep} || ${escapedSource} || ${sep} || '%' escape ${esc}
     )`;
 }

@@ -23,15 +23,33 @@ export {
 } from './migrator.js';
 export {
   type BlastRadiusHit,
+  type BlastRadiusNode,
   type BlastRadiusOptions,
+  type BlastRadiusPage,
+  type BlastRadiusPageOptions,
   DEFAULT_BLAST_RADIUS_KINDS,
   DEFAULT_BLAST_RADIUS_MAX_DEPTH,
   type GraphRepository,
+  type MapEdge,
+  type MapLevel,
+  type MapNode,
+  type MapView,
+  type MapViewOptions,
   type Neighbor,
   type NeighborDirection,
+  type NeighborPageOptions,
   type PersistGraphResult,
+  type SearchOptions,
 } from './repositories/graph.repository.js';
 export { KyselyGraphRepository } from './repositories/graph.repository.kysely.js';
+export {
+  type CursorPart,
+  DEFAULT_PAGE_LIMIT,
+  InvalidCursorError,
+  MAX_PAGE_LIMIT,
+  type Page,
+  type PageOptions,
+} from './repositories/graph-page.js';
 export type { UserRepository } from './repositories/user.repository.js';
 export { KyselyUserRepository } from './repositories/user.repository.kysely.js';
 export {

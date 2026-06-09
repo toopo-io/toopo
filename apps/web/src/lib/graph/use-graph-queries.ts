@@ -8,13 +8,17 @@
  * their slices; S1 needs the map.
  */
 import { type UseQueryResult, useQuery } from '@tanstack/react-query';
-import type { MapQuery, MapView, NodeDetail } from '@toopo/api-contracts';
+import type { MapQuery, MapView, NodeDetail, NodePage } from '@toopo/api-contracts';
 import { graphApi } from './api';
+
+/** Minimum query length before a search request is issued. */
+export const SEARCH_MIN_LENGTH = 2;
 
 export const graphQueryKeys = {
   all: ['graph'] as const,
   map: (locale: string, query: MapQuery) => ['graph', 'map', locale, query] as const,
   node: (locale: string, id: string) => ['graph', 'node', locale, id] as const,
+  search: (locale: string, query: string) => ['graph', 'search', locale, query] as const,
 };
 
 export function useGraphMap(
@@ -34,5 +38,14 @@ export function useGraphNode(id: string | undefined, locale: string): UseQueryRe
     queryKey: graphQueryKeys.node(locale, id ?? ''),
     queryFn: () => graphApi.node({ id: id ?? '' }, locale),
     enabled: id !== undefined,
+  });
+}
+
+export function useGraphSearch(query: string, locale: string): UseQueryResult<NodePage> {
+  const trimmed = query.trim();
+  return useQuery({
+    queryKey: graphQueryKeys.search(locale, trimmed),
+    queryFn: () => graphApi.search({ query: trimmed }, locale),
+    enabled: trimmed.length >= SEARCH_MIN_LENGTH,
   });
 }

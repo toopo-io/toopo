@@ -27,7 +27,7 @@ import {
   mapViewToFlowEdges,
   mapViewToFlowNodes,
 } from '../../../lib/graph/map-adapter';
-import { drillTarget } from '../../../lib/graph/navigation';
+import { drillTarget, searchJumpState } from '../../../lib/graph/navigation';
 import { useGraphMap } from '../../../lib/graph/use-graph-queries';
 import './graph.css';
 import { useGraphViewState } from '../../../lib/graph/use-graph-view-state';
@@ -35,6 +35,7 @@ import { Breadcrumb } from './breadcrumb';
 import { MapCanvas } from './map-canvas';
 import { MapContainerNode } from './map-container-node';
 import { NodeDetailPanel } from './node-detail-panel';
+import { SearchBox } from './search-box';
 import { TrustEdge } from './trust-edge';
 import { TrustLegend } from './trust-legend';
 import { useScopeTrail } from './use-scope-trail';
@@ -134,6 +135,9 @@ export function GraphExplorer({ initialLevel, initialMap }: GraphExplorerProps):
             {t('truncated')}
           </div>
         ) : null}
+      </div>
+      <div className="-translate-x-1/2 absolute top-3 left-1/2 z-20">
+        <SearchBox locale={locale} onJump={(node) => setState(searchJumpState(node, state))} />
       </div>
       <TrustLegend />
       <ReactFlowProvider>

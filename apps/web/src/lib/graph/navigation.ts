@@ -6,6 +6,7 @@
  * plus resolved labels, so it is deep-linkable and unit-testable.
  */
 import type { MapLevel } from '@toopo/api-contracts';
+import type { Node } from '@toopo/core';
 import type { GraphViewState } from './view-state';
 
 /**
@@ -86,4 +87,23 @@ export function buildScopeTrail(input: ScopeTrailInput): Crumb[] {
     isCurrent: true,
   });
   return trail;
+}
+
+/**
+ * The view to jump to when a search result is chosen (ADR-0020 V5). A container
+ * scopes the map to itself (package → its files, file → its symbols, repo → the
+ * root); a symbol or call-site opens its detail panel in place, preserving the
+ * current map context.
+ */
+export function searchJumpState(node: Node, current: GraphViewState): GraphViewState {
+  switch (node.kind) {
+    case 'package':
+      return { level: 'file', scope: node.id, blast: false };
+    case 'file':
+      return { level: 'symbol', scope: node.id, blast: false };
+    case 'repo':
+      return { level: 'package', blast: false };
+    default:
+      return { ...current, node: node.id };
+  }
 }

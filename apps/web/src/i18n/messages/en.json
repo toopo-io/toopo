@@ -45,6 +45,12 @@
     "breadcrumb": {
       "aria": "Cartography breadcrumb"
     },
+    "search": {
+      "placeholder": "Search packages, files, symbols…",
+      "aria": "Search the graph",
+      "noResults": "No matches",
+      "searching": "Searching…"
+    },
     "panel": {
       "close": "Close",
       "loading": "Loading node…",

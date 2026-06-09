@@ -52,8 +52,8 @@
   },
   "parseErrors": [],
   "timings": {
-    "discoverMs": 5.0767999999999915,
-    "parseMs": 205.828,
-    "resolveMs": 22.252800000000036
+    "discoverMs": 5.77079999999998,
+    "parseMs": 196.07040000000003,
+    "resolveMs": 21.88159999999999
   }
 }

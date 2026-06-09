@@ -123,6 +123,12 @@ importers:
       '@toopo/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@toopo/ingest':
+        specifier: workspace:*
+        version: link:../../packages/ingest
+      '@toopo/lang-react':
+        specifier: workspace:*
+        version: link:../../packages/lang-react
       '@toopo/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/tsconfig
@@ -235,6 +241,43 @@ importers:
       tw-animate-css:
         specifier: 1.4.0
         version: 1.4.0
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: 4.1.6
+        version: 4.1.6(@types/node@25.8.0)(@vitest/coverage-v8@4.1.6)(jsdom@29.1.1(@noble/hashes@2.2.0))(vite@8.0.12(@types/node@25.8.0)(esbuild@0.28.0)(jiti@2.6.1)(terser@5.47.1)(tsx@4.22.4)(yaml@2.9.0))
+
+  apps/worker:
+    dependencies:
+      '@toopo/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@toopo/ingest':
+        specifier: workspace:*
+        version: link:../../packages/ingest
+      '@toopo/lang-react':
+        specifier: workspace:*
+        version: link:../../packages/lang-react
+    devDependencies:
+      '@toopo/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@toopo/tsconfig':
+        specifier: workspace:*
+        version: link:../../tooling/tsconfig
+      '@toopo/vitest-config':
+        specifier: workspace:*
+        version: link:../../tooling/vitest
+      '@types/node':
+        specifier: 25.8.0
+        version: 25.8.0
+      '@vitest/coverage-v8':
+        specifier: 4.1.6
+        version: 4.1.6(vitest@4.1.6)
+      tsx:
+        specifier: 4.22.4
+        version: 4.22.4
       typescript:
         specifier: 6.0.3
         version: 6.0.3

@@ -1,0 +1,38 @@
+{
+  "name": "@toopo/worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Toopo worker — minimal ingest→persist CLI to populate the graph database (ADR-0020 Fork 5)",
+  "license": "AGPL-3.0-or-later",
+  "bin": {
+    "toopo-worker": "./dist/cli/bin.js"
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "clean": "rimraf dist *.tsbuildinfo",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "ingest": "node --import tsx src/cli/bin.ts"
+  },
+  "dependencies": {
+    "@toopo/db": "workspace:*",
+    "@toopo/ingest": "workspace:*",
+    "@toopo/lang-react": "workspace:*"
+  },
+  "devDependencies": {
+    "@toopo/core": "workspace:*",
+    "@toopo/tsconfig": "workspace:*",
+    "@toopo/vitest-config": "workspace:*",
+    "@types/node": "25.8.0",
+    "@vitest/coverage-v8": "4.1.6",
+    "tsx": "4.22.4",
+    "typescript": "6.0.3",
+    "vitest": "4.1.6"
+  }
+}

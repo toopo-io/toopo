@@ -18,8 +18,7 @@
       "!**/*.tsbuildinfo",
       "!**/pnpm-lock.yaml",
       "!tooling/tailwind/base.css",
-      "!**/next-env.d.ts",
-      "!packages/*/drizzle/migrations"
+      "!**/next-env.d.ts"
     ]
   },
   "formatter": {

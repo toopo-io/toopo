@@ -6,6 +6,7 @@
 import type { Edge, Node } from '@toopo/core';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
+import { GRAPH_SEGMENTS, graphApiPath } from '../graph-routes.js';
 import {
   BlastRadiusQuerySchema,
   GraphNeighborSchema,
@@ -53,6 +54,21 @@ describe('query schemas', () => {
     expect(() => MapQuerySchema.parse({ level: 'module' })).toThrow();
   });
 
+  it('requires a scope for the symbol level (never unbounded), and accepts it with one', () => {
+    // The symbol level must be scoped to a file — otherwise it could return
+    // every symbol in the repo (ADR-0020 Fork 4).
+    expect(() => MapQuerySchema.parse({ level: 'symbol' })).toThrow();
+    expect(MapQuerySchema.parse({ level: 'symbol', scope: 'fileA' })).toEqual({
+      level: 'symbol',
+      scope: 'fileA',
+    });
+  });
+
+  it('allows the package and file levels without a scope', () => {
+    expect(MapQuerySchema.parse({ level: 'package' }).scope).toBeUndefined();
+    expect(MapQuerySchema.parse({ level: 'file' }).scope).toBeUndefined();
+  });
+
   it('coerces blast-radius maxDepth', () => {
     expect(BlastRadiusQuerySchema.parse({ id: 'sA', maxDepth: '3' }).maxDepth).toBe(3);
   });
@@ -72,6 +88,18 @@ describe('pagination envelope', () => {
       nextCursor: null,
     });
     expect(schema.parse({ items: [], nextCursor: 'c', total: 5 }).total).toBe(5);
+  });
+});
+
+describe('graphApiPath', () => {
+  it('builds the versioned /v1/graph/<segment> client paths', () => {
+    expect(graphApiPath(GRAPH_SEGMENTS.MAP)).toBe('/v1/graph/map');
+    expect(graphApiPath(GRAPH_SEGMENTS.NODE)).toBe('/v1/graph/node');
+    expect(graphApiPath(GRAPH_SEGMENTS.NEIGHBORS)).toBe('/v1/graph/neighbors');
+    expect(graphApiPath(GRAPH_SEGMENTS.BLAST_RADIUS)).toBe('/v1/graph/blast-radius');
+    expect(graphApiPath(GRAPH_SEGMENTS.DECLARED_INTERFACE)).toBe('/v1/graph/declared-interface');
+    expect(graphApiPath(GRAPH_SEGMENTS.CALL_SITES)).toBe('/v1/graph/call-sites');
+    expect(graphApiPath(GRAPH_SEGMENTS.SEARCH)).toBe('/v1/graph/search');
   });
 });
 

@@ -17,3 +17,8 @@ next-env.d.ts
 !.vscode/settings.json
 !.vscode/extensions.json
 .pnpm-store/
+
+# E2E + dogfood artifacts (Playwright output, local dogfood database/logs)
+test-results/
+playwright-report/
+.dogfood/

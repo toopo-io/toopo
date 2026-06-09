@@ -4,7 +4,15 @@ import { ROUTE_SEGMENTS } from './routes';
 describe('ROUTE_SEGMENTS', () => {
   it('exposes the documented segment set', () => {
     expect(Object.keys(ROUTE_SEGMENTS).sort()).toEqual(
-      ['ACCOUNT', 'FORGOT_PASSWORD', 'RESET_PASSWORD', 'SIGNIN', 'SIGNUP', 'VERIFY_EMAIL'].sort(),
+      [
+        'ACCOUNT',
+        'FORGOT_PASSWORD',
+        'GRAPH',
+        'RESET_PASSWORD',
+        'SIGNIN',
+        'SIGNUP',
+        'VERIFY_EMAIL',
+      ].sort(),
     );
   });
 
@@ -25,5 +33,9 @@ describe('ROUTE_SEGMENTS', () => {
     expect(ROUTE_SEGMENTS.SIGNUP).toBe('signup');
     expect(ROUTE_SEGMENTS.ACCOUNT).toBe('account');
     expect(ROUTE_SEGMENTS.FORGOT_PASSWORD).toBe('forgot-password');
+  });
+
+  it('pins the visual-cartography explorer segment', () => {
+    expect(ROUTE_SEGMENTS.GRAPH).toBe('graph');
   });
 });

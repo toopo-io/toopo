@@ -41,6 +41,9 @@ export const routes = {
   forgotPassword: (locale: string): string => `/${locale}/${ROUTE_SEGMENTS.FORGOT_PASSWORD}`,
 
   resetPassword: (locale: string): string => `/${locale}/${ROUTE_SEGMENTS.RESET_PASSWORD}`,
+
+  /** The visual-cartography explorer (ADR-0020 read API). Public in v1. */
+  graph: (locale: string): string => `/${locale}/${ROUTE_SEGMENTS.GRAPH}`,
 } as const;
 
 /**

@@ -44,13 +44,15 @@ describe('routes (relative)', () => {
     });
   });
 
-  describe('signup / account / forgotPassword / resetPassword / verifyEmail', () => {
+  describe('signup / account / forgotPassword / resetPassword / verifyEmail / graph', () => {
     it('each builds its locale-prefixed path', () => {
       expect(routes.signup('en')).toBe('/en/signup');
       expect(routes.account('zz')).toBe('/zz/account');
       expect(routes.forgotPassword('en')).toBe('/en/forgot-password');
       expect(routes.resetPassword('zz')).toBe('/zz/reset-password');
       expect(routes.verifyEmail('en')).toBe('/en/verify-email');
+      expect(routes.graph('en')).toBe('/en/graph');
+      expect(routes.graph('zz')).toBe('/zz/graph');
     });
   });
 

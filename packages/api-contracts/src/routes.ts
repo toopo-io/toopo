@@ -15,6 +15,9 @@ export const ROUTE_SEGMENTS = {
   VERIFY_EMAIL: 'verify-email',
   FORGOT_PASSWORD: 'forgot-password',
   RESET_PASSWORD: 'reset-password',
+  // The visual-cartography explorer (ADR-0020 read API; web-only — the backend
+  // emails no link to it, but the page URL stays single-sourced like the rest).
+  GRAPH: 'graph',
 } as const;
 
 export type RouteSegment = (typeof ROUTE_SEGMENTS)[keyof typeof ROUTE_SEGMENTS];

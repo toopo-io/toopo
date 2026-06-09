@@ -54,8 +54,11 @@ export class SqlFileMigrationProvider implements MigrationProvider {
   }
 }
 
-export interface MigrateOptions {
-  readonly db: Kysely<unknown>;
+export interface MigrateOptions<DB = unknown> {
+  // Migrations are schema-agnostic (raw SQL), so any typed Kysely instance is
+  // accepted — `Kysely` is invariant in its schema parameter, so this generic
+  // avoids forcing callers to widen their typed instance.
+  readonly db: Kysely<DB>;
   readonly backend: DatabaseBackend;
   /** Migrations root; the runner reads `<rootDir>/<backend>`. */
   readonly rootDir: string;
@@ -65,12 +68,12 @@ export interface MigrateOptions {
  * Applies all pending migrations for the backend, in filename order. Throws on
  * the first failure with the offending migration surfaced — never swallows.
  */
-export async function migrateToLatest(
-  options: MigrateOptions,
+export async function migrateToLatest<DB = unknown>(
+  options: MigrateOptions<DB>,
 ): Promise<readonly MigrationResult[]> {
   const directory = path.join(options.rootDir, options.backend);
   const migrator = new Migrator({
-    db: options.db as Kysely<unknown>,
+    db: options.db,
     provider: new SqlFileMigrationProvider(directory),
   });
 

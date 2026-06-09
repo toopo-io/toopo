@@ -1,0 +1,34 @@
+pre-commit:
+  parallel: true
+  commands:
+    biome-check:
+      glob: "*.{ts,tsx,js,jsx,mjs,cjs,json,jsonc}"
+      # Use Biome's native --staged (reads the git index directly) instead of
+      # passing {staged_files} on the command line. A whole-repo commit (e.g.
+      # the orphan root commit) stages hundreds of files; expanding them as
+      # arguments overflows the Windows command-line length limit. --staged
+      # keeps the file list off the command line and correctly scopes to the
+      # index (never touching unstaged working-tree changes).
+      run: pnpm exec biome check --staged --write --no-errors-on-unmatched --files-ignore-unknown=true
+      stage_fixed: true
+
+commit-msg:
+  commands:
+    commitlint:
+      run: pnpm exec commitlint --edit {1}
+
+pre-push:
+  parallel: false
+  commands:
+    typecheck:
+      run: pnpm typecheck
+    build:
+      run: pnpm build
+    # Run test:coverage (not plain test) so the local quality gate
+    # matches CI. Without this, coverage-threshold failures stay
+    # invisible until the push reaches GitHub — the root cause of
+    # Phase 4 → 4.1's 8-commit red main streak (Better Auth schema
+    # dragged @toopo/db below 80%, no local signal until CI).
+    # See ADR-0007 (coverage strategy) and ADR-0010 (operational gaps).
+    test:
+      run: pnpm test:coverage

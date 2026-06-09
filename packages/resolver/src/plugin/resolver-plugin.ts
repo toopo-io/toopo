@@ -1,0 +1,207 @@
+import type {
+  CallSitePayloadArgument,
+  Confidence,
+  EdgeKind,
+  PackageCoordinate,
+  SymbolId,
+} from '@toopo/core';
+import type { FileRef, ReExport } from '@toopo/parser';
+
+/**
+ * The resolver-plugin contract (ADR-0016 Resolve pass) — the extensibility
+ * keystone of the cross-file binding pass, mirroring how `LanguagePlugin`
+ * splits the Parse pass. The ENGINE (`packages/resolver`) owns the mechanics
+ * (aggregation, the file/export indices, work-list correlation, edge minting,
+ * determinism, diagnostics); the PLUGIN owns ALL language semantics (how a
+ * specifier maps to a file, how an exported name resolves to a symbol, how a
+ * callee maps to an imported binding). The engine never knows what a "barrel"
+ * or a "tsconfig path" is — that lives only in the plugin — which is how a new
+ * language is a new plugin with ZERO engine or core change.
+ *
+ * The trust guarantee (ADR-0015 §8) is structural: the engine NEVER upgrades a
+ * plugin's verdict. A `deterministic` edge can only originate from a plugin
+ * returning a `deterministic` {@link Certainty}; an `inferred` outcome flows
+ * straight through with its confidence intact.
+ */
+
+/**
+ * Certainty of a resolution outcome — the same `deterministic | inferred`
+ * discriminator core's `withResolution` carries (ADR-0015 §8), so a plugin
+ * verdict maps 1:1 onto the edge the engine emits. `deterministic` carries no
+ * confidence; `inferred` requires one.
+ */
+export type Certainty =
+  | { readonly resolution: 'deterministic' }
+  | { readonly resolution: 'inferred'; readonly confidence: Confidence };
+
+/** A module specifier the resolver must bind (relative / alias / workspace). */
+export interface ModuleRequest {
+  readonly specifier: string;
+  readonly importerPath: string;
+  readonly importerFileId: SymbolId;
+  readonly typeOnly: boolean;
+}
+
+/** A request to resolve one exported name within an already module-resolved file. */
+export interface ExportRequest {
+  readonly fileId: SymbolId;
+  readonly exportedName: string;
+  readonly typeOnly: boolean;
+}
+
+/**
+ * One tsconfig `paths` rule, with repo-relative targets (ADR-0016 Fork 2). The
+ * `pattern` is the path key (`@/*`, `@app`); `targets` are the fallback
+ * substitutions with the `*` capture, already resolved against `baseUrl` by the
+ * caller — the resolver never reads tsconfig from disk (the fs-free guarantee).
+ */
+export interface AliasRule {
+  readonly pattern: string;
+  readonly targets: readonly string[];
+}
+
+/** One workspace-internal package (ADR-0016 Fork 2b), with a repo-relative entry
+ * file — so a bare import of its name resolves to an internal symbol, not an
+ * external coordinate. Supplied by the caller; the resolver never reads disk. */
+export interface WorkspacePackage {
+  readonly name: string;
+  readonly entry: string;
+}
+
+/**
+ * Project metadata the resolver needs that does NOT come from the parsed files —
+ * tsconfig path aliases and workspace packages. It enters ONLY through this
+ * model (built by the caller from raw config content), never by the resolver
+ * touching the filesystem, which keeps the Resolve pass pure and deterministic.
+ */
+export interface ProjectModel {
+  readonly aliases: readonly AliasRule[];
+  readonly workspacePackages: readonly WorkspacePackage[];
+}
+
+/**
+ * Engine-built read model of the project's parsed file universe (ADR-0016: the
+ * resolver is filesystem-free — "does `./Button.tsx` exist?" means "is it in
+ * the parsed set?"). The plugin drives the per-language probing (extensions,
+ * `/index`, directory) against this lookup; the engine owns only the lookup.
+ */
+export interface ModuleIndex {
+  /** The stable id of a known repo-relative file path, or undefined if unknown. */
+  fileId(repoRelativePath: string): SymbolId | undefined;
+}
+
+/**
+ * Engine-built read model of per-file export facts (ADR-0016 barrel
+ * resolution). Sourced from the parse-side `exports` edges and re-export
+ * records; the plugin follows chains through it to a defining symbol.
+ */
+export interface ExportIndex {
+  /** A locally-defined export of `fileId` by its exported name, if any. */
+  localExport(fileId: SymbolId, exportedName: string): SymbolId | undefined;
+  /** The re-export statements (`export … from`) the file declares (barrels). */
+  reExports(fileId: SymbolId): readonly ReExport[];
+}
+
+/**
+ * Where a module specifier resolves to. `ambiguous` (≥2 equally-plausible
+ * targets with no principled tiebreak) yields NO edge plus a diagnostic — the
+ * engine never picks one of equals, even as `inferred`. `unresolved` means the
+ * specifier matched no known file at all.
+ */
+export type ModuleResolution =
+  | { readonly status: 'internal'; readonly fileId: SymbolId; readonly certainty: Certainty }
+  | { readonly status: 'external'; readonly coordinate: PackageCoordinate }
+  | { readonly status: 'ambiguous'; readonly candidates: readonly SymbolId[] }
+  | { readonly status: 'unresolved'; readonly reason: string };
+
+/**
+ * Where an exported name resolves to within a module-resolved file (single hop).
+ * `re-export` is a redirect through a barrel (`export … from`): the engine
+ * resolves the new module and recurses, accumulating certainty and detecting
+ * cycles, so the plugin stays single-hop. `external` carries the package
+ * coordinate and the still-external name; `ambiguous`/`unresolved` follow the
+ * same honesty rule as {@link ModuleResolution}.
+ */
+export type ExportResolution =
+  | { readonly status: 'symbol'; readonly symbolId: SymbolId; readonly certainty: Certainty }
+  | {
+      readonly status: 're-export';
+      readonly specifier: string;
+      readonly importerPath: string;
+      readonly exportedName: string;
+      readonly certainty: Certainty;
+    }
+  | { readonly status: 'external'; readonly coordinate: PackageCoordinate; readonly name: string }
+  | { readonly status: 'ambiguous'; readonly candidates: readonly SymbolId[] }
+  | { readonly status: 'unresolved'; readonly reason: string };
+
+/** One of an importer file's resolved imports: the bound symbol and its certainty. */
+export interface ResolvedImport {
+  readonly symbolId: SymbolId;
+  readonly certainty: Certainty;
+}
+
+/** A deferred call-site the engine asks a plugin to bind across files. `subKind`
+ * is the call-site's own parse-time refinement (the plugin interprets it — e.g.
+ * `react:element` marks a render); `payload` is its actual args/props. */
+export interface CallSiteBinding {
+  readonly callSiteId: SymbolId;
+  readonly callee: string;
+  readonly subKind: string | undefined;
+  readonly payload: readonly CallSitePayloadArgument[];
+}
+
+/** A child symbol declared by a target symbol (a parameter/prop), exposed to the
+ * plugin so it can bind a payload to the receiving declaration BY ITS OWN RULES
+ * (e.g. React binds props by name). The engine surfaces children agnostically;
+ * the plugin decides which are bindable via their language-namespaced `subKind`. */
+export interface DeclaredChildView {
+  readonly id: SymbolId;
+  readonly name: string;
+  readonly subKind: string | undefined;
+}
+
+/** Engine-built read model of a symbol's declared interface (ADR-0015 §6). */
+export interface SymbolView {
+  declaredChildren(symbolId: SymbolId): readonly DeclaredChildView[];
+}
+
+/**
+ * A cross-file edge a plugin asks the engine to mint. It carries the language-
+ * namespaced `subKind` and `rule` the plugin chose, plus a {@link Certainty}.
+ * The engine maps `certainty` onto the core edge's `deterministic | inferred`
+ * 1:1 — it cannot upgrade it (ADR-0015 §8, the trust guarantee).
+ */
+export interface ResolvedEdge {
+  readonly kind: EdgeKind;
+  readonly sourceId: SymbolId;
+  readonly targetId: SymbolId;
+  readonly rule: string;
+  readonly subKind?: string;
+  readonly certainty: Certainty;
+}
+
+/**
+ * A language's resolution implementation, injected into the resolver at runtime.
+ * `bindCallSite` is where ALL call-site binding semantics live — how a callee
+ * maps to an imported name (exact identifier vs `member-root` like `Form.Item`),
+ * whether a render or a call edge is emitted, and how a payload binds to the
+ * receiver's declared interface — because every one of those carries language-
+ * specific subKinds the agnostic engine must not know. It returns descriptors;
+ * the engine mints, dedupes, orders, and never upgrades their certainty.
+ */
+export interface ResolverPlugin {
+  readonly id: string;
+  matches(file: FileRef): boolean;
+  resolveModule(
+    request: ModuleRequest,
+    index: ModuleIndex,
+    project: ProjectModel,
+  ): ModuleResolution;
+  resolveExport(request: ExportRequest, index: ExportIndex): ExportResolution;
+  bindCallSite(
+    callSite: CallSiteBinding,
+    resolvedImports: ReadonlyMap<string, ResolvedImport>,
+    symbols: SymbolView,
+  ): readonly ResolvedEdge[];
+}

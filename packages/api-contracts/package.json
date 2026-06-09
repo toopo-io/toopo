@@ -1,0 +1,57 @@
+{
+  "name": "@toopo/api-contracts",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./schemas/health": {
+      "types": "./dist/schemas/health.schema.d.ts",
+      "import": "./dist/schemas/health.schema.js",
+      "default": "./dist/schemas/health.schema.js"
+    },
+    "./errors": {
+      "types": "./dist/errors/index.d.ts",
+      "import": "./dist/errors/index.js",
+      "default": "./dist/errors/index.js"
+    },
+    "./routes": {
+      "types": "./dist/routes.d.ts",
+      "import": "./dist/routes.js",
+      "default": "./dist/routes.js"
+    },
+    "./types": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/types/index.js",
+      "default": "./dist/types/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "clean": "rimraf dist *.tsbuildinfo",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
+  },
+  "peerDependencies": {
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@toopo/tsconfig": "workspace:*",
+    "@toopo/vitest-config": "workspace:*",
+    "@vitest/coverage-v8": "4.1.6",
+    "typescript": "6.0.3",
+    "vitest": "4.1.6",
+    "zod": "4.4.3"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "extends": "@toopo/tsconfig/nextjs.json",
+  "compilerOptions": {
+    "types": ["node"]
+  },
+  "include": [
+    "next-env.d.ts",
+    "src/**/*",
+    "env.ts",
+    "next.config.ts",
+    "vitest.config.ts",
+    "vitest.setup.ts",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": ["node_modules", ".next", "dist"]
+}

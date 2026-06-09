@@ -1,0 +1,19 @@
+{
+  "name": "@toopo/vitest-config",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./base.ts",
+    "./react": "./react.ts"
+  },
+  "files": [
+    "base.ts",
+    "react.ts"
+  ],
+  "peerDependencies": {
+    "@vitejs/plugin-react": "^6.0.1",
+    "@vitest/coverage-v8": "^4.1.6",
+    "vitest": "^4.1.6"
+  }
+}

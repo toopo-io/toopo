@@ -1,0 +1,56 @@
+{
+  "name": "@toopo/i18n",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./catalog": {
+      "types": "./dist/catalog.d.ts",
+      "import": "./dist/catalog.js",
+      "default": "./dist/catalog.js"
+    },
+    "./locales": {
+      "types": "./dist/locales.d.ts",
+      "import": "./dist/locales.js",
+      "default": "./dist/locales.js"
+    },
+    "./path": {
+      "types": "./dist/path.d.ts",
+      "import": "./dist/path.js",
+      "default": "./dist/path.js"
+    },
+    "./negotiate": {
+      "types": "./dist/negotiate.d.ts",
+      "import": "./dist/negotiate.js",
+      "default": "./dist/negotiate.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "clean": "rimraf dist *.tsbuildinfo",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@formatjs/intl-localematcher": "0.8.8"
+  },
+  "devDependencies": {
+    "@toopo/tsconfig": "workspace:*",
+    "@toopo/vitest-config": "workspace:*",
+    "@vitest/coverage-v8": "4.1.6",
+    "typescript": "6.0.3",
+    "vitest": "4.1.6"
+  }
+}

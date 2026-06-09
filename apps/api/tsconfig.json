@@ -1,0 +1,9 @@
+{
+  "extends": "@toopo/tsconfig/node-classic.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "dist"
+  },
+  "include": ["src/**/*", "test/**/*"],
+  "exclude": ["dist", "node_modules"]
+}

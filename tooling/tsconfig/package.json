@@ -1,0 +1,12 @@
+{
+  "name": "@toopo/tsconfig",
+  "version": "0.0.0",
+  "private": true,
+  "files": [
+    "base.json",
+    "node.json",
+    "node-classic.json",
+    "nextjs.json",
+    "library.json"
+  ]
+}

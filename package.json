@@ -1,0 +1,40 @@
+{
+  "name": "toopo",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Toopo — continuous, deterministic cartography of a codebase",
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=11.0.0"
+  },
+  "packageManager": "pnpm@11.1.1",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "dev:web": "pnpm exec turbo run dev --filter=@toopo/web",
+    "dev:api": "pnpm exec turbo run dev --filter=@toopo/api",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "biome format --write .",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "test:coverage": "turbo run test:coverage",
+    "clean": "turbo run clean",
+    "db:generate": "pnpm --filter @toopo/db db:generate",
+    "db:migrate": "pnpm --filter @toopo/db db:migrate",
+    "db:push": "pnpm --filter @toopo/db db:push",
+    "db:studio": "pnpm --filter @toopo/db db:studio",
+    "prepare": "lefthook install"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.4.15",
+    "@commitlint/cli": "21.0.1",
+    "@commitlint/config-conventional": "21.0.1",
+    "@types/node": "25.8.0",
+    "lefthook": "2.1.6",
+    "turbo": "2.9.14",
+    "typescript": "6.0.3"
+  }
+}

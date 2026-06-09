@@ -1,0 +1,139 @@
+{
+  "Home": {
+    "title": "Toopo",
+    "description": "Continuous, deterministic cartography of a codebase.",
+    "phaseNote": "Phase 3 — locale-aware UI and validation.",
+    "viewHealth": "View API health"
+  },
+  "Health": {
+    "title": "API health",
+    "description": "Initial data fetched server-side, then refreshed on a fixed interval by TanStack Query.",
+    "currentStatus": "Current status",
+    "refreshing": "Refreshing…",
+    "pollingEvery": "Polling every {seconds}s",
+    "failedToLoad": "Failed to load health: {message}",
+    "unknownError": "unknown error",
+    "noData": "No data yet.",
+    "fields": {
+      "status": "Status",
+      "version": "Version",
+      "uptime": "Uptime",
+      "timestamp": "Timestamp"
+    }
+  },
+  "LocaleSwitcher": {
+    "label": "Language",
+    "locale": {
+      "en": "English"
+    }
+  },
+  "Auth": {
+    "common": {
+      "googleButton": "Continue with Google",
+      "orDivider": "or",
+      "requiredField": "This field is required",
+      "invalidEmail": "Please enter a valid email address",
+      "passwordTooShort": "Password must be at least 8 characters",
+      "passwordHint": "At least 8 characters"
+    },
+    "signin": {
+      "title": "Sign in",
+      "subtitle": "Welcome back to Toopo.",
+      "emailLabel": "Email",
+      "passwordLabel": "Password",
+      "submit": "Sign in",
+      "submitting": "Signing in…",
+      "errorGeneric": "Sign-in failed. Please try again.",
+      "forgotLink": "Forgot your password?",
+      "noAccount": "Don't have an account?",
+      "signupLink": "Create one"
+    },
+    "signup": {
+      "title": "Create your account",
+      "subtitle": "Start mapping your codebase in minutes.",
+      "nameLabel": "Name",
+      "emailLabel": "Email",
+      "passwordLabel": "Password",
+      "submit": "Create account",
+      "submitting": "Creating account…",
+      "errorGeneric": "Sign-up failed. Please try again.",
+      "haveAccount": "Already have an account?",
+      "signinLink": "Sign in"
+    },
+    "forgotPassword": {
+      "title": "Forgot password",
+      "subtitle": "Enter your email and we'll send a reset link.",
+      "emailLabel": "Email",
+      "submit": "Send reset link",
+      "submitting": "Sending…",
+      "errorGeneric": "Could not send the reset email. Please try again.",
+      "successMessage": "If an account exists for this email, a reset link is on its way.",
+      "backToSignin": "Back to sign in"
+    },
+    "resetPassword": {
+      "title": "Choose a new password",
+      "subtitle": "Pick a strong, unique password.",
+      "newPasswordLabel": "New password",
+      "submit": "Update password",
+      "submitting": "Updating…",
+      "errorGeneric": "Could not reset your password. The link may have expired.",
+      "missingToken": "This link is missing or invalid. Request a new reset email."
+    },
+    "verifyEmail": {
+      "title": "Verify your email",
+      "pendingMessage": "Check your inbox for a verification link.",
+      "pendingMessageWithEmail": "We sent a verification link to {email}. Check your inbox to finish setting up your account.",
+      "resendButton": "Resend verification email",
+      "resending": "Sending…",
+      "resendSuccess": "A new verification email is on its way.",
+      "errorMessage": "Could not resend the verification email. Please try again later.",
+      "backToSignin": "Back to sign in",
+      "verifyingTitle": "Verifying your email…",
+      "verifyingBody": "Please wait while we confirm your email address.",
+      "successTitle": "Email verified",
+      "successMessage": "Your email is now verified. You can sign in to continue.",
+      "successSigninCta": "Sign in",
+      "errorTitle": "Verification failed",
+      "errorBody": "This verification link is invalid or has expired. Request a new one below."
+    },
+    "account": {
+      "title": "Your account",
+      "subtitle": "Read-only profile. Full settings coming soon.",
+      "nameLabel": "Name",
+      "emailLabel": "Email",
+      "emailVerifiedLabel": "Email verified",
+      "emailVerifiedYes": "Yes",
+      "emailVerifiedNo": "No — check your inbox",
+      "memberSinceLabel": "Member since",
+      "signOut": "Sign out",
+      "signingOut": "Signing out…",
+      "export": {
+        "title": "Export your data",
+        "description": "Download a JSON file containing your profile, sessions, and connected accounts.",
+        "button": "Export my data",
+        "exporting": "Preparing your export…",
+        "error": "Could not export your data. Please try again."
+      },
+      "delete": {
+        "title": "Delete your account",
+        "description": "Soft-deletes your account. It will be permanently removed after 30 days.",
+        "button": "Delete my account",
+        "confirmTitle": "Are you sure?",
+        "confirmBody": "This will sign you out everywhere and schedule your data for permanent deletion in 30 days. This action cannot be undone after the grace period.",
+        "confirmButton": "Yes, delete my account",
+        "cancel": "Cancel",
+        "deleting": "Deleting…",
+        "error": "Could not delete your account. Please try again."
+      }
+    }
+  },
+  "errors": {
+    "validation": {
+      "too_small": "Field {path} must be at least {minimum}",
+      "too_big": "Field {path} must be at most {maximum}",
+      "invalid_type": "Field {path} must be of type {expected}",
+      "not_integer": "Field {path} must be a whole number",
+      "failed": "Validation failed"
+    }
+  }
+}

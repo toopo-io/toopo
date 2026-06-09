@@ -1,0 +1,9 @@
+{
+  "name": "@toopo/biome-config",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "files": [
+    "biome.json"
+  ]
+}

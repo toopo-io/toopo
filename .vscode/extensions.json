@@ -1,0 +1,9 @@
+{
+  "recommendations": [
+    "biomejs.biome",
+    "editorconfig.editorconfig",
+    "mikestead.dotenv",
+    "streetsidesoftware.code-spell-checker",
+    "yoavbls.pretty-ts-errors"
+  ]
+}

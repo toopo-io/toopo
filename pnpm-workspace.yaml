@@ -1,0 +1,17 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+  - "tooling/*"
+allowBuilds:
+  lefthook: true
+  '@swc/core': true
+  sharp: true
+  tree-sitter-cli: true
+  '@scarf/scarf': false
+  '@nestjs/core': false
+  '@parcel/watcher': false
+  esbuild: true
+  tree-sitter-javascript: false
+  tree-sitter-typescript: false
+overrides:
+  postcss@<8.5.10: 8.5.14

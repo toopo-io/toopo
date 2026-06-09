@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json.schemastore.org/nest-cli",
+  "collection": "@nestjs/schematics",
+  "sourceRoot": "src",
+  "compilerOptions": {
+    "deleteOutDir": true,
+    "builder": {
+      "type": "swc",
+      "options": {
+        "outDir": "dist",
+        "filenames": ["src"],
+        "stripLeadingPaths": true
+      }
+    },
+    "typeCheck": true
+  }
+}

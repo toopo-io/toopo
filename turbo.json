@@ -1,0 +1,102 @@
+{
+  "$schema": "https://turbo.build/schema.v2.json",
+  "ui": "tui",
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**", ".next/**", "!.next/cache/**"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "env": [
+        "NEXT_PUBLIC_API_URL",
+        "NEXT_PUBLIC_AUTH_URL",
+        "NEXT_PUBLIC_DEFAULT_LOCALE",
+        "NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED",
+        "LOG_LEVEL"
+      ]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true,
+      "dependsOn": ["^build"],
+      "env": [
+        "DATABASE_URL",
+        "BETTER_AUTH_SECRET",
+        "BETTER_AUTH_URL",
+        "RESEND_API_KEY",
+        "RESEND_FROM_EMAIL",
+        "RESEND_FROM_NAME",
+        "GOOGLE_CLIENT_ID",
+        "GOOGLE_CLIENT_SECRET",
+        "NEXT_PUBLIC_API_URL",
+        "NEXT_PUBLIC_AUTH_URL",
+        "NEXT_PUBLIC_DEFAULT_LOCALE",
+        "NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED",
+        "LOG_LEVEL"
+      ]
+    },
+    "lint": {
+      "dependsOn": ["^lint"],
+      "outputs": []
+    },
+    "typecheck": {
+      "dependsOn": ["^build"],
+      "outputs": ["*.tsbuildinfo", "**/*.tsbuildinfo"]
+    },
+    "test": {
+      "dependsOn": ["^build"],
+      "outputs": ["coverage/**"],
+      "inputs": ["$TURBO_DEFAULT$", "vitest.config.ts", "vitest.config.mts"],
+      "env": [
+        "DATABASE_URL",
+        "BETTER_AUTH_SECRET",
+        "BETTER_AUTH_URL",
+        "RESEND_API_KEY",
+        "RESEND_FROM_EMAIL",
+        "RESEND_FROM_NAME",
+        "GOOGLE_CLIENT_ID",
+        "GOOGLE_CLIENT_SECRET",
+        "NEXT_PUBLIC_API_URL",
+        "NEXT_PUBLIC_AUTH_URL",
+        "NEXT_PUBLIC_DEFAULT_LOCALE",
+        "NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED",
+        "LOG_LEVEL"
+      ]
+    },
+    "test:coverage": {
+      "dependsOn": ["^build"],
+      "outputs": ["coverage/**"],
+      "env": [
+        "DATABASE_URL",
+        "BETTER_AUTH_SECRET",
+        "BETTER_AUTH_URL",
+        "RESEND_API_KEY",
+        "RESEND_FROM_EMAIL",
+        "RESEND_FROM_NAME",
+        "GOOGLE_CLIENT_ID",
+        "GOOGLE_CLIENT_SECRET",
+        "NEXT_PUBLIC_API_URL",
+        "NEXT_PUBLIC_AUTH_URL",
+        "NEXT_PUBLIC_DEFAULT_LOCALE",
+        "NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED",
+        "LOG_LEVEL"
+      ]
+    },
+    "clean": {
+      "cache": false
+    },
+    "db:generate": {
+      "cache": false,
+      "outputs": ["drizzle/migrations/**"]
+    },
+    "db:migrate": {
+      "cache": false
+    },
+    "db:push": {
+      "cache": false
+    },
+    "db:studio": {
+      "cache": false,
+      "persistent": true
+    }
+  }
+}

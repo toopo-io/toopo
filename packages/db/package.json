@@ -1,0 +1,53 @@
+{
+  "name": "@toopo/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./client": {
+      "types": "./dist/client.d.ts",
+      "import": "./dist/client.js",
+      "default": "./dist/client.js"
+    },
+    "./schema": {
+      "types": "./dist/schema/index.d.ts",
+      "import": "./dist/schema/index.js",
+      "default": "./dist/schema/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "drizzle"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "clean": "rimraf dist *.tsbuildinfo",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "db:generate": "node --env-file=../../apps/api/.env ./node_modules/drizzle-kit/bin.cjs generate",
+    "db:migrate": "node --env-file=../../apps/api/.env ./node_modules/drizzle-kit/bin.cjs migrate",
+    "db:push": "node --env-file=../../apps/api/.env ./node_modules/drizzle-kit/bin.cjs push",
+    "db:studio": "node --env-file=../../apps/api/.env ./node_modules/drizzle-kit/bin.cjs studio"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "1.1.0",
+    "drizzle-orm": "0.45.2"
+  },
+  "devDependencies": {
+    "@toopo/tsconfig": "workspace:*",
+    "@toopo/vitest-config": "workspace:*",
+    "@vitest/coverage-v8": "4.1.6",
+    "drizzle-kit": "0.31.10",
+    "typescript": "6.0.3",
+    "vitest": "4.1.6"
+  }
+}

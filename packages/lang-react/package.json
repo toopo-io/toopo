@@ -1,0 +1,48 @@
+{
+  "name": "@toopo/lang-react",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "grammars"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "build:grammar": "node scripts/build-grammar.mjs",
+    "clean": "rimraf dist *.tsbuildinfo",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@toopo/core": "workspace:*",
+    "@toopo/parser": "workspace:*",
+    "@toopo/resolver": "workspace:*",
+    "web-tree-sitter": "0.26.9"
+  },
+  "peerDependencies": {
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@toopo/tsconfig": "workspace:*",
+    "@toopo/vitest-config": "workspace:*",
+    "@types/node": "25.8.0",
+    "@vitest/coverage-v8": "4.1.6",
+    "tree-sitter-cli": "0.26.9",
+    "tree-sitter-typescript": "0.23.2",
+    "typescript": "6.0.3",
+    "vitest": "4.1.6",
+    "zod": "4.4.3"
+  }
+}

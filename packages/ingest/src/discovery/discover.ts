@@ -1,13 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { fdir } from 'fdir';
+import { directoryOf, HARD_DEFAULT_DIRS, toPosix } from '../internal/paths.js';
 import { buildIgnoreFilter, type GitignoreSources } from './ignore-filter.js';
-
-/**
- * Directory names never traversed (F-B hard defaults). Excluding them at the
- * crawl level — rather than filtering afterwards — keeps the walk fast and
- * avoids reading `.gitignore` files buried inside dependency trees.
- */
-const HARD_DEFAULT_DIRS = new Set(['node_modules', '.git', 'dist', 'build', 'coverage']);
 
 const GITIGNORE = '.gitignore';
 
@@ -70,15 +64,4 @@ async function readGitignores(
     }),
   );
   return sources;
-}
-
-/** The repo-relative POSIX directory of a path ('' for a root-level file). */
-function directoryOf(path: string): string {
-  const slash = path.lastIndexOf('/');
-  return slash === -1 ? '' : path.slice(0, slash);
-}
-
-/** Normalize a crawled path to forward slashes (fdir yields the OS separator). */
-function toPosix(path: string): string {
-  return path.replaceAll('\\', '/');
 }

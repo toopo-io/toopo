@@ -25,10 +25,13 @@
   },
   "dependencies": {
     "@toopo/core": "workspace:*",
+    "@toopo/lang-react": "workspace:*",
     "@toopo/parser": "workspace:*",
     "@toopo/resolver": "workspace:*",
     "fdir": "6.5.0",
-    "ignore": "7.0.5"
+    "get-tsconfig": "4.14.0",
+    "ignore": "7.0.5",
+    "yaml": "2.9.0"
   },
   "peerDependencies": {
     "zod": "^4.4.3"

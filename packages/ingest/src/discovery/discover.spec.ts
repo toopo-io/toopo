@@ -54,4 +54,17 @@ describe('discoverFiles', () => {
     const second = await discoverFiles(root, { include: TS });
     expect(second).toEqual(first);
   });
+
+  it('keeps full subpaths for a bare relative root like "." (regression)', async () => {
+    // fdir collapses to basenames on a bare relative crawl root; discoverFiles
+    // resolves it to absolute. Guard that subdirectories survive.
+    const previous = process.cwd();
+    process.chdir(root);
+    try {
+      const files = await discoverFiles('.', { include: TS });
+      expect(files).toEqual(['src/a.ts', 'src/b.tsx', 'src/nested/c.ts']);
+    } finally {
+      process.chdir(previous);
+    }
+  });
 });

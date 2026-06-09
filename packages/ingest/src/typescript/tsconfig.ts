@@ -1,4 +1,4 @@
-import { dirname, relative } from 'node:path';
+import { dirname, relative, resolve } from 'node:path';
 import { buildAliasTable, type TsconfigCompilerOptions } from '@toopo/lang-react';
 import type { AliasRule } from '@toopo/resolver';
 import { getTsconfig } from 'get-tsconfig';
@@ -17,11 +17,12 @@ import { toPosix } from '../internal/paths.js';
  * instead (the Toopo layout).
  */
 export function loadTsconfigAliases(rootDir: string): AliasRule[] {
-  const found = getTsconfig(rootDir);
+  const base = resolve(rootDir);
+  const found = getTsconfig(base);
   if (found === null) {
     return [];
   }
-  const repoRelativeDir = toPosix(relative(rootDir, dirname(found.path)));
+  const repoRelativeDir = toPosix(relative(base, dirname(found.path)));
   if (repoRelativeDir.startsWith('..')) {
     return [];
   }

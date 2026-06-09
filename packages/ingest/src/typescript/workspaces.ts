@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 import { buildWorkspacePackages, type WorkspacePackageInput } from '@toopo/lang-react';
 import type { WorkspacePackage } from '@toopo/resolver';
 import { fdir } from 'fdir';
@@ -24,7 +25,10 @@ export async function loadWorkspacePackages(
   rootDir: string,
   fileExists: (repoRelativePath: string) => boolean,
 ): Promise<WorkspacePackage[]> {
-  const globs = await readWorkspaceGlobs(rootDir);
+  // Resolve to absolute: fdir's withRelativePaths() collapses to basenames on a
+  // bare relative crawl root, and readFile must target the right directory.
+  const base = resolve(rootDir);
+  const globs = await readWorkspaceGlobs(base);
   if (globs.length === 0) {
     return [];
   }
@@ -33,7 +37,7 @@ export async function loadWorkspacePackages(
     .withRelativePaths()
     .exclude((dirName) => HARD_DEFAULT_DIRS.has(dirName))
     .filter((path) => isPackageJson(path))
-    .crawl(rootDir)
+    .crawl(base)
     .withPromise();
 
   const inputs: WorkspacePackageInput[] = [];
@@ -42,7 +46,7 @@ export async function loadWorkspacePackages(
     if (dir === '' || !matchesWorkspaceGlobs(dir, globs)) {
       continue;
     }
-    const input = await readPackageInput(rootDir, path, dir);
+    const input = await readPackageInput(base, path, dir);
     if (input !== undefined) {
       inputs.push(input);
     }

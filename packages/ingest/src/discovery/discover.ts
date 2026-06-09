@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 import { fdir } from 'fdir';
 import { directoryOf, HARD_DEFAULT_DIRS, toPosix } from '../internal/paths.js';
 import { buildIgnoreFilter, type GitignoreSources } from './ignore-filter.js';
@@ -30,17 +31,20 @@ export async function discoverFiles(
   rootDir: string,
   options: DiscoverOptions,
 ): Promise<readonly string[]> {
+  // fdir's withRelativePaths() collapses to basenames when the crawl root is a
+  // bare relative path (e.g. "."); resolving to absolute keeps full subpaths.
+  const base = resolve(rootDir);
   const crawled = await new fdir()
     .withRelativePaths()
     .exclude((dirName) => HARD_DEFAULT_DIRS.has(dirName))
-    .crawl(rootDir)
+    .crawl(base)
     .withPromise();
 
   const paths = crawled.map(toPosix);
   const isIgnored =
     options.gitignore === false
       ? () => false
-      : buildIgnoreFilter(await readGitignores(rootDir, paths));
+      : buildIgnoreFilter(await readGitignores(base, paths));
 
   // Paths are unique, so a two-way comparator gives a total deterministic order.
   return paths

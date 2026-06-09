@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { type AnalysisStatus, type GraphDocument, isFileNode } from '@toopo/core';
 import { createParser, type LanguagePlugin, type ParseResult } from '@toopo/parser';
@@ -81,8 +81,10 @@ export async function ingestProject(
   const include = (path: string): boolean =>
     options.languagePlugins.some((plugin) => plugin.matches({ path }));
 
+  // Normalize once so discovery, reads, and the project-model builder agree.
+  const base = resolve(rootDir);
   const discoverStart = performance.now();
-  const paths = await discoverFiles(rootDir, {
+  const paths = await discoverFiles(base, {
     include,
     ...(options.gitignore !== undefined && { gitignore: options.gitignore }),
   });
@@ -92,7 +94,7 @@ export async function ingestProject(
   const fragments: ParseResult[] = [];
   const files: FileOutcome[] = [];
   for (const path of paths) {
-    const bytes = await readFile(join(rootDir, path));
+    const bytes = await readFile(join(base, path));
     const fragment = await parser.parseFile({ path, bytes });
     fragments.push(fragment);
     files.push(fileOutcome(path, fragment));

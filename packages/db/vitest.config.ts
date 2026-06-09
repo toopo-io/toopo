@@ -30,6 +30,9 @@ export default mergeConfig(
           'src/**/*.d.ts',
           'src/**/index.ts',
           'src/schema/**',
+          // Maintainer/runtime entrypoints (thin shells) and test-only harness.
+          'src/bin/**',
+          'src/test-support/**',
         ],
       },
     },

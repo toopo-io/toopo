@@ -61,6 +61,11 @@ jobs:
           NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED: 'false'
         run: pnpm build
 
+      # The dual-backend suite (ADR-0017) runs against a real Postgres via
+      # @testcontainers/postgresql. ubuntu-latest ships a running Docker daemon,
+      # so no service container is declared here; testcontainers manages its own.
+      # CI=true (set by GitHub) makes the Postgres leg REQUIRED — it fails loudly
+      # if Docker is ever unavailable rather than silently skipping.
       - name: Test (with coverage)
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/test?sslmode=disable
@@ -73,6 +78,15 @@ jobs:
           NEXT_PUBLIC_DEFAULT_LOCALE: en
           NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED: 'false'
         run: pnpm test:coverage
+
+      # Drift-check (ADR-0017 §4, closing ADR-0012's open gap): regenerate the
+      # Better Auth migration SQL from the installed better-auth and fail if it
+      # differs from the committed migrations — catches an un-regenerated schema
+      # on a better-auth bump or an authSchemaOptions change.
+      - name: Auth migration drift-check
+        run: |
+          pnpm --filter @toopo/db db:generate
+          git diff --exit-code packages/db/migrations
 
       - name: Upload coverage
         if: always()

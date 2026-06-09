@@ -47,6 +47,7 @@
       "outputs": ["coverage/**"],
       "inputs": ["$TURBO_DEFAULT$", "vitest.config.ts", "vitest.config.mts"],
       "env": [
+        "CI",
         "DATABASE_URL",
         "BETTER_AUTH_SECRET",
         "BETTER_AUTH_URL",
@@ -66,6 +67,7 @@
       "dependsOn": ["^build"],
       "outputs": ["coverage/**"],
       "env": [
+        "CI",
         "DATABASE_URL",
         "BETTER_AUTH_SECRET",
         "BETTER_AUTH_URL",
@@ -86,7 +88,7 @@
     },
     "db:generate": {
       "cache": false,
-      "outputs": ["drizzle/migrations/**"]
+      "outputs": ["migrations/**"]
     },
     "db:migrate": {
       "cache": false

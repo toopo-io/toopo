@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { TRUST_CURVATURE, TRUST_DASHARRAY, trustEdgeStyle } from './trust';
+import { TRUST_DASHARRAY, TRUST_EDGE_OFFSET, trustEdgeStyle } from './trust';
 
 describe('trust visual language (ADR-0015 §8)', () => {
   it('deterministic is solid (no dash), inferred is dashed', () => {
@@ -7,10 +7,12 @@ describe('trust visual language (ADR-0015 §8)', () => {
     expect(TRUST_DASHARRAY.inferred).toBeDefined();
   });
 
-  it('aggregated parallel edges bow in opposite directions, never merged', () => {
-    expect(Math.sign(TRUST_CURVATURE.deterministic)).toBe(1);
-    expect(Math.sign(TRUST_CURVATURE.inferred)).toBe(-1);
-    expect(TRUST_CURVATURE.deterministic).not.toBe(TRUST_CURVATURE.inferred);
+  it('aggregated parallel edges bow to opposite sides by an equal fixed amount', () => {
+    expect(Math.sign(TRUST_EDGE_OFFSET.deterministic)).toBe(1);
+    expect(Math.sign(TRUST_EDGE_OFFSET.inferred)).toBe(-1);
+    expect(TRUST_EDGE_OFFSET.deterministic).toBe(-TRUST_EDGE_OFFSET.inferred);
+    // A meaningful, non-trivial separation so the two edges never read as one.
+    expect(Math.abs(TRUST_EDGE_OFFSET.deterministic)).toBeGreaterThanOrEqual(12);
   });
 
   it('deterministic edge style is solid and fully opaque, with no dasharray', () => {

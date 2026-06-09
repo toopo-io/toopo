@@ -14,16 +14,7 @@
  * Later slices add drill-down (file/symbol), the detail panel, search and
  * blast-radius; this slice is intentionally the package map only.
  */
-import {
-  Background,
-  Controls,
-  type EdgeTypes,
-  MarkerType,
-  MiniMap,
-  type NodeTypes,
-  ReactFlow,
-  ReactFlowProvider,
-} from '@xyflow/react';
+import { type EdgeTypes, MarkerType, type NodeTypes, ReactFlowProvider } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import type { MapLevel, MapView } from '@toopo/api-contracts';
 import { useLocale, useTranslations } from 'next-intl';
@@ -38,6 +29,7 @@ import {
 } from '../../../lib/graph/map-adapter';
 import { useGraphMap } from '../../../lib/graph/use-graph-queries';
 import './graph.css';
+import { MapCanvas } from './map-canvas';
 import { MapContainerNode } from './map-container-node';
 import { TrustEdge } from './trust-edge';
 import { TrustLegend } from './trust-legend';
@@ -114,20 +106,7 @@ export function GraphExplorer({ initialLevel, initialMap }: GraphExplorerProps):
       ) : null}
       <TrustLegend />
       <ReactFlowProvider>
-        <ReactFlow
-          className="toopo-graph-canvas"
-          nodes={nodes}
-          edges={edges}
-          nodeTypes={NODE_TYPES}
-          edgeTypes={EDGE_TYPES}
-          fitView
-          minZoom={0.1}
-          maxZoom={2}
-        >
-          <Background />
-          <Controls showInteractive={false} />
-          <MiniMap pannable zoomable />
-        </ReactFlow>
+        <MapCanvas nodes={nodes} edges={edges} nodeTypes={NODE_TYPES} edgeTypes={EDGE_TYPES} />
       </ReactFlowProvider>
     </div>
   );

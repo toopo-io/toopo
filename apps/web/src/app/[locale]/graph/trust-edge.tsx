@@ -7,10 +7,11 @@
  * collapses into one ambiguous line. A small badge shows the projected count of
  * underlying edges this aggregate represents.
  */
-import { BaseEdge, EdgeLabelRenderer, type EdgeProps, getBezierPath } from '@xyflow/react';
+import { BaseEdge, EdgeLabelRenderer, type EdgeProps } from '@xyflow/react';
 import type { JSX } from 'react';
 import type { MapFlowEdge } from '../../../lib/graph/map-adapter';
-import { TRUST_COLOR_VAR, TRUST_CURVATURE, trustEdgeStyle } from '../../../lib/graph/trust';
+import { parallelEdgePath } from '../../../lib/graph/parallel-edge-path';
+import { TRUST_COLOR_VAR, TRUST_EDGE_OFFSET, trustEdgeStyle } from '../../../lib/graph/trust';
 
 export function TrustEdge({
   id,
@@ -18,20 +19,20 @@ export function TrustEdge({
   sourceY,
   targetX,
   targetY,
-  sourcePosition,
-  targetPosition,
   markerEnd,
   data,
 }: EdgeProps<MapFlowEdge>): JSX.Element {
   const trustKind = data?.trustKind ?? 'deterministic';
-  const [edgePath, labelX, labelY] = getBezierPath({
+  const {
+    path: edgePath,
+    labelX,
+    labelY,
+  } = parallelEdgePath({
     sourceX,
     sourceY,
     targetX,
     targetY,
-    sourcePosition,
-    targetPosition,
-    curvature: TRUST_CURVATURE[trustKind],
+    offset: TRUST_EDGE_OFFSET[trustKind],
   });
 
   return (

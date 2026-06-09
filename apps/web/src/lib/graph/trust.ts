@@ -28,14 +28,16 @@ export const TRUST_COLOR_VAR: Record<TrustKind, string> = {
 };
 
 /**
- * Curvature sign per trust kind. The two aggregated edges between the same pair
- * of containers (ADR-0020 V1: a solid one for the deterministic count, a dashed
- * one for the inferred count) bow in OPPOSITE directions so both stay legible
- * and visibly separate — never a single merged line.
+ * Signed perpendicular apex displacement (px) per trust kind. The two aggregated
+ * edges between the same pair of containers (ADR-0020 V1: a solid one for the
+ * deterministic count, a dashed one for the inferred count) bow to OPPOSITE sides
+ * by a FIXED pixel amount (not a distance fraction), so they stay unmistakably
+ * two separate edges even when the containers are adjacent — never one merged
+ * line (the §8 trust invariant). See `parallel-edge-path.ts`.
  */
-export const TRUST_CURVATURE: Record<TrustKind, number> = {
-  deterministic: 0.3,
-  inferred: -0.3,
+export const TRUST_EDGE_OFFSET: Record<TrustKind, number> = {
+  deterministic: 18,
+  inferred: -18,
 };
 
 export const TRUST_STROKE_WIDTH = 1.5;

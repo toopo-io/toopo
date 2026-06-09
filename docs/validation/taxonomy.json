@@ -25,35 +25,35 @@
     },
     "edgesByKind": {
       "contains": 1812,
-      "exports": 273,
-      "imports": 487,
+      "exports": 291,
+      "imports": 488,
       "calls": 612,
       "references": 113
     }
   },
   "imports": {
-    "deterministic": 299,
+    "deterministic": 300,
     "inferred": 0,
     "external": 188,
     "ambiguous": 0,
-    "unresolved": 18,
-    "total": 505,
-    "resolved": 487,
-    "overallResolutionRate": 0.9643564356435643,
-    "deterministicShare": 0.592079207920792
+    "unresolved": 16,
+    "total": 504,
+    "resolved": 488,
+    "overallResolutionRate": 0.9682539682539683,
+    "deterministicShare": 0.5952380952380952
   },
   "relationships": {
     "renders": 204,
     "calls": 408,
     "propBindings": 77,
     "argBindings": 36,
-    "crossFile": 804,
-    "intraFile": 2493
+    "crossFile": 805,
+    "intraFile": 2511
   },
   "parseErrors": [],
   "timings": {
-    "discoverMs": 5.5154,
-    "parseMs": 189.6844,
-    "resolveMs": 21.40889999999996
+    "discoverMs": 5.0767999999999915,
+    "parseMs": 205.828,
+    "resolveMs": 22.252800000000036
   }
 }

@@ -1,5 +1,13 @@
 # Engine validation on real code — 2026-06-09
 
+> **Baseline (pre-fix).** This report captured the engine's state *before* the
+> two recommended fixes and motivated them. For the post-fix re-run — internal
+> resolution 92–97% across all targets — see
+> [the post-fix report](./2026-06-09-engine-on-real-code-postfix.md). The JSON
+> snapshots in this folder now hold the **post-fix** numbers; this document's
+> inline tables hold the baseline.
+
+
 **Milestone:** validate the deterministic Parse → Resolve engine on real-world
 React/TS code before building persistence, Serve, or UI on top. The riskiest
 open question: does the engine produce a *genuinely good* graph on real repos,

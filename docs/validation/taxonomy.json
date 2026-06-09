@@ -9,47 +9,51 @@
   "graph": {
     "nodesByKind": {
       "file": 125,
-      "symbol": 237,
-      "callSite": 637
+      "symbol": 748,
+      "callSite": 1064
     },
     "symbolsBySubKind": {
-      "react:component": 77,
-      "react:prop": 80,
+      "ts:variable": 96,
+      "react:component": 176,
+      "react:prop": 222,
+      "ts:interface": 52,
       "ts:function": 40,
-      "ts:parameter": 36,
-      "react:hook": 4
+      "ts:parameter": 136,
+      "ts:type": 21,
+      "react:hook": 4,
+      "ts:class": 1
     },
     "edgesByKind": {
-      "imports": 442,
-      "contains": 874,
-      "exports": 102,
-      "calls": 288,
-      "references": 94
+      "contains": 1812,
+      "exports": 273,
+      "imports": 487,
+      "calls": 612,
+      "references": 113
     }
   },
   "imports": {
-    "deterministic": 254,
+    "deterministic": 299,
     "inferred": 0,
     "external": 188,
     "ambiguous": 0,
-    "unresolved": 164,
-    "total": 606,
-    "resolved": 442,
-    "overallResolutionRate": 0.7293729372937293,
-    "deterministicShare": 0.41914191419141916
+    "unresolved": 18,
+    "total": 505,
+    "resolved": 487,
+    "overallResolutionRate": 0.9643564356435643,
+    "deterministicShare": 0.592079207920792
   },
   "relationships": {
-    "renders": 112,
-    "calls": 176,
-    "propBindings": 58,
+    "renders": 204,
+    "calls": 408,
+    "propBindings": 77,
     "argBindings": 36,
-    "crossFile": 471,
-    "intraFile": 1329
+    "crossFile": 804,
+    "intraFile": 2493
   },
   "parseErrors": [],
   "timings": {
-    "discoverMs": 9.546899999999994,
-    "parseMs": 226.17770000000002,
-    "resolveMs": 14.711099999999988
+    "discoverMs": 5.5154,
+    "parseMs": 189.6844,
+    "resolveMs": 21.40889999999996
   }
 }

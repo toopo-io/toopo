@@ -1,55 +1,61 @@
 {
   "discovery": {
-    "discovered": 299,
-    "analyzed": 299,
+    "discovered": 305,
+    "analyzed": 305,
     "parseError": 0,
     "unsupported": 0,
     "skipped": 0
   },
   "graph": {
     "nodesByKind": {
-      "file": 299,
-      "symbol": 877,
-      "callSite": 1508
+      "file": 305,
+      "symbol": 1403,
+      "callSite": 2135
     },
     "symbolsBySubKind": {
-      "ts:function": 311,
-      "ts:parameter": 489,
-      "react:component": 45,
-      "react:prop": 30,
-      "react:hook": 2
+      "ts:class": 23,
+      "ts:variable": 233,
+      "ts:type": 71,
+      "ts:function": 332,
+      "ts:interface": 108,
+      "ts:parameter": 538,
+      "react:component": 55,
+      "react:prop": 40,
+      "react:hook": 3
     },
     "edgesByKind": {
-      "imports": 1267,
-      "contains": 2385,
-      "calls": 572,
-      "exports": 182,
-      "references": 336
+      "imports": 1494,
+      "contains": 3536,
+      "exports": 313,
+      "calls": 862,
+      "implements": 4,
+      "references": 403,
+      "extends": 2
     }
   },
   "imports": {
-    "deterministic": 256,
+    "deterministic": 503,
     "inferred": 1,
-    "external": 1010,
+    "external": 990,
     "ambiguous": 0,
-    "unresolved": 275,
-    "total": 1542,
-    "resolved": 1267,
-    "overallResolutionRate": 0.8216601815823605,
-    "deterministicShare": 0.16601815823605706
+    "unresolved": 14,
+    "total": 1508,
+    "resolved": 1494,
+    "overallResolutionRate": 0.9907161803713528,
+    "deterministicShare": 0.33355437665782495
   },
   "relationships": {
     "renders": 121,
-    "calls": 451,
+    "calls": 741,
     "propBindings": 13,
-    "argBindings": 323,
-    "crossFile": 307,
-    "intraFile": 4435
+    "argBindings": 390,
+    "crossFile": 763,
+    "intraFile": 5851
   },
   "parseErrors": [],
   "timings": {
-    "discoverMs": 9.691699999999997,
-    "parseMs": 513.7458999999999,
-    "resolveMs": 40.65460000000007
+    "discoverMs": 10.367099999999994,
+    "parseMs": 386.1881000000001,
+    "resolveMs": 48.10949999999991
   }
 }

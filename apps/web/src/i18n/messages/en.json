@@ -44,6 +44,18 @@
     },
     "breadcrumb": {
       "aria": "Cartography breadcrumb"
+    },
+    "panel": {
+      "close": "Close",
+      "loading": "Loading node…",
+      "error": "Failed to load node: {message}",
+      "interface": "Declared interface",
+      "callers": "Callers",
+      "callees": "Callees",
+      "callSites": "Call-sites",
+      "none": "None",
+      "external": "(external)",
+      "firstPage": "first {count} shown"
     }
   },
   "LocaleSwitcher": {

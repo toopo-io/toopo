@@ -18,7 +18,7 @@ import { type EdgeTypes, MarkerType, type NodeTypes, ReactFlowProvider } from '@
 import '@xyflow/react/dist/style.css';
 import type { MapLevel, MapView } from '@toopo/api-contracts';
 import { useLocale, useTranslations } from 'next-intl';
-import { type JSX, type ReactNode, useEffect, useState } from 'react';
+import { type JSX, type ReactNode, useEffect, useMemo, useState } from 'react';
 import { layoutGraph } from '../../../lib/graph/elk-layout';
 import {
   MAP_NODE_SIZE,
@@ -34,6 +34,7 @@ import { useGraphViewState } from '../../../lib/graph/use-graph-view-state';
 import { Breadcrumb } from './breadcrumb';
 import { MapCanvas } from './map-canvas';
 import { MapContainerNode } from './map-container-node';
+import { NodeDetailPanel } from './node-detail-panel';
 import { TrustEdge } from './trust-edge';
 import { TrustLegend } from './trust-legend';
 import { useScopeTrail } from './use-scope-trail';
@@ -70,11 +71,18 @@ export function GraphExplorer({ initialLevel, initialMap }: GraphExplorerProps):
     const target = drillTarget(level, nodeId);
     if (target !== null) {
       setState({ level: target.level, scope: target.scope, blast: false });
+    } else {
+      // Deepest tier: a click opens the node-detail panel (V2) for this symbol.
+      setState({ ...state, node: nodeId });
     }
   };
 
   const [nodes, setNodes] = useState<MapFlowNode[]>([]);
   const [edges, setEdges] = useState<MapFlowEdge[]>([]);
+  const displayNodes = useMemo(
+    () => nodes.map((node) => ({ ...node, selected: node.id === state.node })),
+    [nodes, state.node],
+  );
 
   useEffect(() => {
     if (data === undefined) {
@@ -130,13 +138,26 @@ export function GraphExplorer({ initialLevel, initialMap }: GraphExplorerProps):
       <TrustLegend />
       <ReactFlowProvider>
         <MapCanvas
-          nodes={nodes}
+          nodes={displayNodes}
           edges={edges}
           nodeTypes={NODE_TYPES}
           edgeTypes={EDGE_TYPES}
           onNodeClick={onNodeClick}
         />
       </ReactFlowProvider>
+      {state.node !== undefined ? (
+        <NodeDetailPanel
+          nodeId={state.node}
+          locale={locale}
+          onClose={() =>
+            setState({
+              level: state.level,
+              ...(state.scope !== undefined ? { scope: state.scope } : {}),
+              blast: state.blast,
+            })
+          }
+        />
+      ) : null}
     </div>
   );
 }

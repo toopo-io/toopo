@@ -3,13 +3,13 @@ import { composeCallSiteId, GraphDocumentSchema, isCallSiteNode } from '@toopo/c
 import { createParser } from '@toopo/parser';
 import { describe, expect, it } from 'vitest';
 import { id, term } from '../../test/support/graph-helpers';
-import { createReactPlugin } from '../plugin';
+import { createReactPlugins } from '../plugin';
 
 const PATH = 'src/Members.tsx';
 
 describe('extractReact — Phase G member callees and elements', () => {
   it('captures member calls and member JSX with their full member-path callees', async () => {
-    const parser = createParser([createReactPlugin()]);
+    const parser = createParser(createReactPlugins());
     const bytes = await readFile(new URL('../../test/fixtures/Members.tsx', import.meta.url));
     const { document } = await parser.parseFile({ path: PATH, bytes });
     expect(GraphDocumentSchema.safeParse(document).success).toBe(true);
@@ -41,7 +41,7 @@ describe('extractReact — Phase G member callees and elements', () => {
   });
 
   it('fabricates no calls/renders/references edge for a member target (resolver-deferred)', async () => {
-    const parser = createParser([createReactPlugin()]);
+    const parser = createParser(createReactPlugins());
     const bytes = await readFile(new URL('../../test/fixtures/Members.tsx', import.meta.url));
     const { document } = await parser.parseFile({ path: PATH, bytes });
 

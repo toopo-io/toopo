@@ -8,12 +8,12 @@ import {
 import { createParser } from '@toopo/parser';
 import { describe, expect, it } from 'vitest';
 import { byJson, id, param, term } from '../../test/support/graph-helpers';
-import { createReactPlugin } from '../plugin';
+import { createReactPlugins } from '../plugin';
 
 const PATH = 'src/Render.tsx';
 
 async function parseRender(): Promise<GraphDocument> {
-  const parser = createParser([createReactPlugin()]);
+  const parser = createParser(createReactPlugins());
   const bytes = await readFile(new URL('../../test/fixtures/Render.tsx', import.meta.url));
   const { document } = await parser.parseFile({ path: PATH, bytes });
   return document;
@@ -151,7 +151,7 @@ describe('extractReact — Phase F JSX renders', () => {
   });
 
   it('is deterministic — the same bytes yield a byte-identical document', async () => {
-    const parser = createParser([createReactPlugin()]);
+    const parser = createParser(createReactPlugins());
     const bytes = await readFile(new URL('../../test/fixtures/Render.tsx', import.meta.url));
     const first = await parser.parseFile({ path: PATH, bytes });
     const second = await parser.parseFile({ path: PATH, bytes });

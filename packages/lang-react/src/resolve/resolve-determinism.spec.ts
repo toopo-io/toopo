@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { createParser, type ParseResult } from '@toopo/parser';
 import { type ProjectModel, resolveProject } from '@toopo/resolver';
 import { describe, expect, it } from 'vitest';
-import { createReactPlugin } from '../plugin';
+import { createReactPlugins } from '../plugin';
 import { createReactResolver } from './resolver';
 import { buildAliasTable } from './tsconfig';
 
@@ -32,7 +32,7 @@ const project: ProjectModel = {
 };
 
 async function parseAll(): Promise<ParseResult[]> {
-  const parser = createParser([createReactPlugin()]);
+  const parser = createParser(createReactPlugins());
   const fragments: ParseResult[] = [];
   for (const file of FILES) {
     const bytes = await readFile(

@@ -1,9 +1,14 @@
 # Vendored grammar provenance
 
-`tsx.wasm` is a **compiled WebAssembly grammar**, not an opaque blob. It is
-reproducible from a pinned source revision with a pinned toolchain (ADR-0016:
-self-built WASM behind the `lang-*` interface), and it ships vendored so a plain
-`pnpm install` never compiles a grammar.
+`tsx.wasm` and `typescript.wasm` are **compiled WebAssembly grammars**, not
+opaque blobs. Each is reproducible from a pinned source revision with a pinned
+toolchain (ADR-0016: self-built WASM behind the `lang-*` interface), and they
+ship vendored so a plain `pnpm install` never compiles a grammar.
+
+Two grammars are vendored because `tree-sitter-typescript` ships two: `tsx`
+parses JSX, while `typescript` parses `.ts` — the `tsx` grammar misparses `.ts`
+type assertions (`<T>x`) as JSX, so the `.ts`/`.tsx` split is required (Part 1).
+Both build from the same pinned source and CLI.
 
 ## `tsx.wasm`
 
@@ -16,6 +21,17 @@ self-built WASM behind the `lang-*` interface), and it ships vendored so a plain
 | Toolchain | `wasi-sdk`, auto-downloaded by the CLI — no native compiler, no Docker required |
 | Build command | `pnpm --filter @toopo/lang-react build:grammar` |
 
+## `typescript.wasm`
+
+| Field | Value |
+| --- | --- |
+| Grammar source | `tree-sitter-typescript` — the `typescript/` grammar |
+| Pinned source version | `0.23.2` (this package's devDependency; locked in `pnpm-lock.yaml`) |
+| Build tool | `tree-sitter-cli` |
+| Pinned tool version | `0.26.9` (ABI-matched to `web-tree-sitter@0.26.9`) |
+| Toolchain | `wasi-sdk`, auto-downloaded by the CLI — no native compiler, no Docker required |
+| Build command | `pnpm --filter @toopo/lang-react build:grammar` (builds both) |
+
 ## Reproduce
 
 ```sh
@@ -23,8 +39,9 @@ pnpm --filter @toopo/lang-react build:grammar
 ```
 
 This runs [`../scripts/build-grammar.mjs`](../scripts/build-grammar.mjs), which
-resolves the pinned `tree-sitter-typescript/tsx` source and the pinned
-`tree-sitter-cli`, then runs `tree-sitter build --wasm` to regenerate this file.
+resolves the pinned `tree-sitter-typescript/tsx` and `typescript` sources and
+the pinned `tree-sitter-cli`, then runs `tree-sitter build --wasm` to regenerate
+both files.
 
 ## ABI note
 

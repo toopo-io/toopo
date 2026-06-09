@@ -3,12 +3,12 @@ import { GraphDocumentSchema } from '@toopo/core';
 import { createParser } from '@toopo/parser';
 import { describe, expect, it } from 'vitest';
 import { byJson, id, term } from '../../test/support/graph-helpers';
-import { createReactPlugin } from '../plugin';
+import { createReactPlugins } from '../plugin';
 
 const PATH = 'src/Exports.tsx';
 
 async function parseExports() {
-  const parser = createParser([createReactPlugin()]);
+  const parser = createParser(createReactPlugins());
   const bytes = await readFile(new URL('../../test/fixtures/Exports.tsx', import.meta.url));
   return parser.parseFile({ path: PATH, bytes });
 }

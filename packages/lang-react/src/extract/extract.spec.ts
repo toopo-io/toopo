@@ -18,12 +18,12 @@ import {
   projectSymbols,
   term,
 } from '../../test/support/graph-helpers';
-import { createReactPlugin } from '../plugin';
+import { createReactPlugins } from '../plugin';
 
 const encode = (text: string): Uint8Array => new TextEncoder().encode(text);
 
 async function parseFixture(path: string, fixture: string): Promise<GraphDocument> {
-  const parser = createParser([createReactPlugin()]);
+  const parser = createParser(createReactPlugins());
   const bytes = await readFile(new URL(`../../test/fixtures/${fixture}`, import.meta.url));
   const { document } = await parser.parseFile({ path, bytes });
   return document;
@@ -152,7 +152,7 @@ describe('extractReact — Phase C structural graph', () => {
   });
 
   it('degrades a syntactically broken .tsx to parse-error with no symbols', async () => {
-    const parser = createParser([createReactPlugin()]);
+    const parser = createParser(createReactPlugins());
     const { document } = await parser.parseFile({
       path: 'src/Broken.tsx',
       bytes: encode('export function Broken({ a, '),
@@ -163,7 +163,7 @@ describe('extractReact — Phase C structural graph', () => {
   });
 
   it('is deterministic — the same bytes yield a byte-identical document', async () => {
-    const parser = createParser([createReactPlugin()]);
+    const parser = createParser(createReactPlugins());
     const bytes = await readFile(new URL('../../test/fixtures/Widget.tsx', import.meta.url));
     const first = await parser.parseFile({ path: 'src/Widget.tsx', bytes });
     const second = await parser.parseFile({ path: 'src/Widget.tsx', bytes });

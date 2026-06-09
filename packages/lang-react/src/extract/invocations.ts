@@ -42,6 +42,7 @@ export function extractInvocations(
   ctx: ExtractContext,
   symbols: readonly ExtractedSymbol[],
   externalBindings: ReadonlyMap<string, SymbolId>,
+  jsx: boolean,
 ): InvocationExtraction {
   const nodes: Node[] = [];
   const edges: Edge[] = [];
@@ -53,7 +54,11 @@ export function extractInvocations(
     symbolByName.set(symbol.name, symbol);
   }
 
-  const invocations = [...collectCallInvocations(ctx), ...collectJsxInvocations(ctx)].sort(
+  // The `.ts` grammar has no JSX node types, so render collection is skipped
+  // (and its query would otherwise throw at compilation) — a `.ts` file has no
+  // renders by construction.
+  const renders = jsx ? collectJsxInvocations(ctx) : [];
+  const invocations = [...collectCallInvocations(ctx), ...renders].sort(
     (a, b) => a.node.startIndex - b.node.startIndex,
   );
 

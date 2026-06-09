@@ -4,7 +4,7 @@ import { createParser, type ParseResult } from '@toopo/parser';
 import { resolveProject } from '@toopo/resolver';
 import { describe, expect, it } from 'vitest';
 import { id, param, term } from '../../test/support/graph-helpers';
-import { createReactPlugin } from '../plugin';
+import { createReactPlugins } from '../plugin';
 import { createReactResolver } from './resolver';
 
 interface ProjectFile {
@@ -20,7 +20,7 @@ const PROJECT: readonly ProjectFile[] = [
 ];
 
 async function parseProject(files: readonly ProjectFile[]): Promise<ParseResult[]> {
-  const parser = createParser([createReactPlugin()]);
+  const parser = createParser(createReactPlugins());
   const fragments: ParseResult[] = [];
   for (const file of files) {
     const bytes = await readFile(

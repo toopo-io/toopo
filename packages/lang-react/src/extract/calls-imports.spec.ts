@@ -9,12 +9,12 @@ import {
 import { createParser } from '@toopo/parser';
 import { describe, expect, it } from 'vitest';
 import { byJson, id, param, projectEdges, term } from '../../test/support/graph-helpers';
-import { createReactPlugin } from '../plugin';
+import { createReactPlugins } from '../plugin';
 
 const encode = (text: string): Uint8Array => new TextEncoder().encode(text);
 
 async function parseFixture(path: string, fixture: string) {
-  const parser = createParser([createReactPlugin()]);
+  const parser = createParser(createReactPlugins());
   const bytes = await readFile(new URL(`../../test/fixtures/${fixture}`, import.meta.url));
   return parser.parseFile({ path, bytes });
 }
@@ -188,7 +188,7 @@ describe('extractReact — Phase D call-sites and imports', () => {
   });
 
   it('assigns source-order ordinals to repeated calls of the same callee', async () => {
-    const parser = createParser([createReactPlugin()]);
+    const parser = createParser(createReactPlugins());
     const { document } = await parser.parseFile({
       path: 'src/Repeat.tsx',
       bytes: encode('export function run() {\n  step();\n  step();\n}\n'),
@@ -202,7 +202,7 @@ describe('extractReact — Phase D call-sites and imports', () => {
   });
 
   it('resolves scoped packages and defers path-alias imports', async () => {
-    const parser = createParser([createReactPlugin()]);
+    const parser = createParser(createReactPlugins());
     const source =
       "import { thing } from '@scope/pkg';\nimport { local } from '@/local';\nexport function use() {\n  thing();\n}\n";
     const { document, unresolved } = await parser.parseFile({
@@ -219,7 +219,7 @@ describe('extractReact — Phase D call-sites and imports', () => {
   });
 
   it('ignores a module-level call not contained by any extracted symbol', async () => {
-    const parser = createParser([createReactPlugin()]);
+    const parser = createParser(createReactPlugins());
     const { document } = await parser.parseFile({
       path: 'src/Top.tsx',
       bytes: encode('doThing();\n'),
@@ -258,7 +258,7 @@ describe('extractReact — Phase D call-sites and imports', () => {
   });
 
   it('is deterministic — the same bytes yield a byte-identical document', async () => {
-    const parser = createParser([createReactPlugin()]);
+    const parser = createParser(createReactPlugins());
     const bytes = await readFile(new URL('../../test/fixtures/Calls.tsx', import.meta.url));
     const first = await parser.parseFile({ path, bytes });
     const second = await parser.parseFile({ path, bytes });

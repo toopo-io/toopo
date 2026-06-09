@@ -32,7 +32,7 @@ const JSX_BODY_TYPES = new Set(['jsx_element', 'jsx_self_closing_element']);
  * declarations (no name node) are skipped — a symbol's identity is its name
  * path, and inventing one would be a guess.
  */
-export function extractSymbols(ctx: ExtractContext): SymbolExtraction {
+export function extractSymbols(ctx: ExtractContext, jsx: boolean): SymbolExtraction {
   const nodes: Node[] = [];
   const edges: Edge[] = [];
   const symbols: ExtractedSymbol[] = [];
@@ -45,7 +45,7 @@ export function extractSymbols(ctx: ExtractContext): SymbolExtraction {
     }
 
     const name = parts.name.text;
-    const subKind = classifySymbol(name, bodyReturnsJsx(ctx, parts.body));
+    const subKind = classifySymbol(name, jsx && bodyReturnsJsx(ctx, parts.body));
     const descriptor: Descriptor = { name, suffix: 'term' };
     const id = ctx.childId([descriptor]);
 

@@ -4,7 +4,7 @@ import { createParser, type ParseResult } from '@toopo/parser';
 import { resolveProject } from '@toopo/resolver';
 import { describe, expect, it } from 'vitest';
 import { id, param, term } from '../../test/support/graph-helpers';
-import { createReactPlugin } from '../plugin';
+import { createReactPlugins } from '../plugin';
 import { createReactResolver } from './resolver';
 
 const FILES: readonly { path: string; fixture: string }[] = [
@@ -19,7 +19,7 @@ const FILES: readonly { path: string; fixture: string }[] = [
 ];
 
 async function resolveFixtures(): Promise<{ document: GraphDocument; edges: ResolveEdge[] }> {
-  const parser = createParser([createReactPlugin()]);
+  const parser = createParser(createReactPlugins());
   const fragments: ParseResult[] = [];
   for (const file of FILES) {
     const bytes = await readFile(

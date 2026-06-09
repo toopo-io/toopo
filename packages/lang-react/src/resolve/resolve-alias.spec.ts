@@ -4,7 +4,7 @@ import { createParser, type ParseResult } from '@toopo/parser';
 import { type ProjectModel, resolveProject } from '@toopo/resolver';
 import { describe, expect, it } from 'vitest';
 import { id, term } from '../../test/support/graph-helpers';
-import { createReactPlugin } from '../plugin';
+import { createReactPlugins } from '../plugin';
 import { createReactResolver } from './resolver';
 import { buildAliasTable } from './tsconfig';
 
@@ -14,7 +14,7 @@ const FILES: readonly { path: string; fixture: string }[] = [
 ];
 
 async function parse(): Promise<ParseResult[]> {
-  const parser = createParser([createReactPlugin()]);
+  const parser = createParser(createReactPlugins());
   const fragments: ParseResult[] = [];
   for (const file of FILES) {
     const bytes = await readFile(

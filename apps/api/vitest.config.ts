@@ -10,6 +10,9 @@ export default mergeConfig(
     test: {
       environment: 'node',
       include: ['src/**/*.spec.ts', 'test/**/*.e2e-spec.ts'],
+      // Provision a dummy env satisfying ApiEnvSchema before any app module
+      // loads, so the suite is self-contained with no ambient env vars.
+      setupFiles: ['./test/setup-env.ts'],
       globals: true,
       coverage: {
         thresholds: {

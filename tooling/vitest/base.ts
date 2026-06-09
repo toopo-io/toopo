@@ -9,7 +9,13 @@ export const baseConfig = defineConfig({
       provider: 'v8',
       reporter: ['text', 'html', 'lcov', 'json-summary'],
       include: ['src/**/*.{ts,tsx}'],
-      exclude: ['src/**/*.{test,spec}.{ts,tsx}', 'src/**/*.d.ts', 'src/**/index.ts'],
+      exclude: [
+        'src/**/*.{test,spec}.{ts,tsx}',
+        'src/**/*.d.ts',
+        'src/**/index.ts',
+        // Thin executable entrypoints (shebang shells): logic lives in tested modules.
+        'src/**/bin.ts',
+      ],
       thresholds: {
         lines: 80,
         functions: 80,

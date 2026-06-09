@@ -33,17 +33,21 @@ Dependency rules (hard, machine-enforced — see Verification gates): one-way
 on directly — dependency-light (zero bundled runtime deps; zod peer only, ADR-0015).
 
 Pipeline: Parse (tree-sitter, per file) → Resolve (cross-file heuristics, per
-language) → Serve (queryable graph + derived views). See ADR-0016.
+language) → Serve (queryable graph + derived views). See ADR-0016 (Parse/Resolve)
+and ADR-0020 (Serve).
 
 | Package | Status | Role |
 | --- | --- | --- |
 | `apps/web`, `apps/api` | existing | UI; API (thin) |
+| `apps/worker` | existing | minimal ingest→persist CLI to populate the graph DB; precursor to the queue/webhook worker (ADR-0020) |
 | `packages/{api-contracts, env, i18n, ui}` | existing | shared plumbing |
-| `packages/db` | existing | persistence: Kysely dual-backend (SQLite self-host / Postgres cloud) + Better Auth tables (ADR-0017) |
-| `packages/core` | planned | universal graph format + types (ADR-0015) |
-| `packages/parser` | planned | tree-sitter orchestration |
-| `packages/resolver` | planned | semantic resolution |
-| `packages/lang-react` | planned | React/TS rules (first language) |
+| `packages/db` | existing | persistence: Kysely dual-backend (SQLite self-host / Postgres cloud) + Better Auth tables + Serve read primitives (ADR-0017, ADR-0020) |
+| `packages/core` | existing | universal graph format + types (ADR-0015) |
+| `packages/parser` | existing | tree-sitter orchestration |
+| `packages/resolver` | existing | semantic resolution |
+| `packages/lang-react` | existing | React/TS rules (first language) |
+| `packages/ingest` | existing | Parse→Resolve pipeline driver (filesystem edge → graph document) |
+| `packages/serve` | existing | Serve pass: derived read views + composition over the graph (ADR-0020) |
 | `packages/{analysis, ai-router, queue}` | planned | AI analysis; model router; job-queue abstraction |
 
 Adding a language = a new `lang-*` package, zero change to core or pipeline.
@@ -56,6 +60,7 @@ supersede it with a new ADR. Foundational set:
 - **ADR-0015** — universal code-graph model.
 - **ADR-0016** — parsing & resolution (tree-sitter via `web-tree-sitter`; custom heuristic resolver; NOT stack-graphs, NOT LSP; file-level incremental).
 - **ADR-0017** — storage: dual-backend (SQLite self-host / Postgres cloud) via Kysely; supersedes ADR-0012.
+- **ADR-0020** — Serve pass: `packages/serve` composition + `@toopo/db` read primitives + thin `apps/api`; REST + Zod; on-read views; keyset pagination; `apps/worker` populate CLI.
 
 Read `docs/adr/README.md` before architectural work.
 

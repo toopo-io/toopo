@@ -39,3 +39,4 @@ a new ADR that supersedes the old one.
 | [0017](0017-storage-strategy.md) | Storage strategy — dual-backend persistence | Accepted |
 | [0018](0018-english-only-active-locale.md) | English-only active locale; i18n machinery retained | Accepted |
 | [0019](0019-licensing.md) | Licensing — AGPL-3.0-or-later | Accepted |
+| [0020](0020-serve-pass-architecture.md) | Serve-pass architecture — read API, derived views, pagination | Accepted |

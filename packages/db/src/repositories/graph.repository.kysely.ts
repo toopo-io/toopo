@@ -37,6 +37,7 @@ import {
   type Neighbor,
   type NeighborDirection,
   type NeighborPageOptions,
+  type PathResolution,
   type PersistGraphResult,
   type SearchOptions,
 } from './graph.repository.js';
@@ -210,13 +211,17 @@ export class KyselyGraphRepository implements GraphRepository {
     }
 
     const cte = blastRadiusCte({ startId: id, kinds, maxDepth });
-    const query = sql<{ node_id: string; depth: number }>`${cte}
-      select "node_id", min("depth") as "depth"
+    const query = sql<{ node_id: string; depth: number; path_det: number }>`${cte}
+      select "node_id", min("depth") as "depth", max("path_det") as "path_det"
       from "blast"
       where "depth" > 0
       group by "node_id"`;
     const { rows } = await query.execute(this.db);
-    return rows.map((row) => ({ nodeId: row.node_id, depth: Number(row.depth) }));
+    return rows.map((row) => ({
+      nodeId: row.node_id,
+      depth: Number(row.depth),
+      pathResolution: toPathResolution(row.path_det),
+    }));
   }
 
   async neighborsPage(
@@ -316,6 +321,7 @@ export class KyselyGraphRepository implements GraphRepository {
     const hits: BlastRadiusHit[] = rawRows.map((row) => ({
       nodeId: row.node_id,
       depth: Number(row.depth),
+      pathResolution: toPathResolution(row.path_det),
     }));
     const nodesById = await this.loadNodes(hits.map((hit) => hit.nodeId));
     const hydrated: BlastRadiusNode[] = hits.map((hit) => ({
@@ -337,14 +343,20 @@ export class KyselyGraphRepository implements GraphRepository {
     maxDepth: number,
     limit: number,
     cursor: string | undefined,
-  ): Promise<Array<{ node_id: string; depth: number; max_depth: number }>> {
+  ): Promise<Array<{ node_id: string; depth: number; path_det: number; max_depth: number }>> {
     const cte = blastRadiusCte({ startId: id, kinds, maxDepth });
     const keyset = blastKeysetClause(cursor);
-    const query = sql<{ node_id: string; depth: number; max_depth: number }>`${cte},
+    const query = sql<{
+      node_id: string;
+      depth: number;
+      path_det: number;
+      max_depth: number;
+    }>`${cte},
       "hits" as (
-        select "node_id", min("depth") as "depth" from "blast" where "depth" > 0 group by "node_id"
+        select "node_id", min("depth") as "depth", max("path_det") as "path_det"
+        from "blast" where "depth" > 0 group by "node_id"
       )
-      select "node_id", "depth", (select max("depth") from "hits") as "max_depth"
+      select "node_id", "depth", "path_det", (select max("depth") from "hits") as "max_depth"
       from "hits"
       ${keyset}
       order by "depth" asc, "node_id" asc
@@ -386,6 +398,17 @@ function nameOrPathMatches(query: string): RawBuilder<SqlBool> {
     lower(coalesce("name", '')) like ${pattern} escape ${LIKE_ESCAPE}
     or lower(coalesce("path", '')) like ${pattern} escape ${LIKE_ESCAPE}
   )`;
+}
+
+/**
+ * Map the aggregated path-determinism flag (`max(path_det)`, a 0/1 integer that
+ * may arrive as a number or driver-stringified) to its trust literal (ADR-0021):
+ * 1 — a fully-deterministic path reaches the node — is `deterministic`; anything
+ * else is `inferred`. The integer→literal step lives in TS, never in SQL, so no
+ * backend-specific boolean rendering leaks into the portable query.
+ */
+function toPathResolution(flag: number | string | bigint): PathResolution {
+  return Number(flag) === 1 ? 'deterministic' : 'inferred';
 }
 
 /** The keyset WHERE clause for blast-radius paging, or empty on the first page. */

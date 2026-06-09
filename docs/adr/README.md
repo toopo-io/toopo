@@ -40,3 +40,4 @@ a new ADR that supersedes the old one.
 | [0018](0018-english-only-active-locale.md) | English-only active locale; i18n machinery retained | Accepted |
 | [0019](0019-licensing.md) | Licensing — AGPL-3.0-or-later | Accepted |
 | [0020](0020-serve-pass-architecture.md) | Serve-pass architecture — read API, derived views, pagination | Accepted |
+| [0021](0021-blast-radius-per-hit-path-trust.md) | Blast-radius per-hit path trust | Accepted |

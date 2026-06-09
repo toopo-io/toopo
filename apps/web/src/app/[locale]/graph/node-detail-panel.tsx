@@ -212,12 +212,16 @@ function BlastSection({
   loading: boolean;
 }): JSX.Element {
   const tb = useTranslations('Graph.blast');
+  const tl = useTranslations('Graph.legend');
   const rows = page !== undefined ? blastRows(page) : [];
+  // Per-hit trust (ADR-0021): a solid mark = a proven chain reaches this dependent
+  // (certainly impacted); a dashed mark = every path is inferred (possibly
+  // impacted). This replaces the old panel-level caveat with a real distinction.
+  const trustLabel = (kind: 'deterministic' | 'inferred'): string =>
+    kind === 'inferred' ? tl('inferred') : tl('deterministic');
   return (
     <section className="mb-5 rounded-lg border border-(--toopo-impact)/50 bg-(--toopo-impact)/5 p-3">
-      <h3 className="mb-1 font-medium text-(--toopo-impact) text-sm">{tb('title')}</h3>
-      {/* Honest framing (ADR-0015 §8, Fork 6A): no per-node certainty claim. */}
-      <p className="mb-2 text-[11px] text-muted-foreground italic">{tb('caveat')}</p>
+      <h3 className="mb-2 font-medium text-(--toopo-impact) text-sm">{tb('title')}</h3>
       {loading ? (
         <p className="text-muted-foreground text-sm">{tb('loading')}</p>
       ) : rows.length === 0 ? (
@@ -228,9 +232,11 @@ function BlastSection({
             {rows.map((row) => (
               <li
                 key={row.nodeId}
-                className="flex items-center justify-between gap-2 rounded-md border border-border px-2 py-1 text-sm"
+                className="flex items-center gap-2 rounded-md border border-border border-l-2 px-2 py-1 text-sm"
+                style={{ borderLeftColor: TRUST_COLOR_VAR[row.pathResolution] }}
               >
-                <span className="min-w-0 truncate" title={row.label ?? row.nodeId}>
+                <TrustMark kind={row.pathResolution} label={trustLabel(row.pathResolution)} />
+                <span className="min-w-0 flex-1 truncate" title={row.label ?? row.nodeId}>
                   {row.label ?? <span className="text-muted-foreground italic">{row.nodeId}</span>}
                 </span>
                 <span className="shrink-0 font-mono text-[10px] text-muted-foreground">

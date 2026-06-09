@@ -29,7 +29,23 @@ pnpm exec playwright install chromium   # first run only
 pnpm test:e2e
 ```
 
-The screenshot artifact is written to `apps/web/test-results/graph-map.png`.
+The screenshot artifacts are written to `apps/web/test-results/` —
+`graph-map.png` (the V1 map) and `blast-trust.png` (the blast-radius panel with
+per-hit certain/possible trust, ADR-0021).
+
+> **`blast-trust.spec.ts` needs the production web build, not `pnpm dev`.** It
+> opens the node-detail panel and blast overlay, which fetch the Serve API
+> **client-side**. The dev server's Fast Refresh reloads the page and aborts
+> in-flight client fetches, so the panel never settles. Build and serve the app
+> first, then point Playwright at it:
+>
+> ```bash
+> pnpm --filter @toopo/web build
+> PORT=3000 pnpm --filter @toopo/web start &   # production server, no HMR
+> pnpm --filter @toopo/web exec playwright test blast-trust.spec.ts
+> ```
+>
+> The SSR-rendered `graph.spec.ts` map test is unaffected and runs on `pnpm dev`.
 
 > CI note: wiring steps 1–3 into a Playwright `globalSetup` (so the whole chain
 > is one command) is the follow-up when the e2e moves into CI. For now the

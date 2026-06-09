@@ -80,8 +80,10 @@ export function GraphExplorer({ initialLevel, initialMap }: GraphExplorerProps):
 
   const blastActive = state.blast && state.node !== undefined;
   const blast = useGraphBlastRadius(state.node, locale, blastActive);
+  // Map each impacted dependent to the trust of the path that reaches it (ADR-0021):
+  // the value IS a TrustKind, so the node renders it with the solid/dashed language.
   const impacted = useMemo(
-    () => new Set((blast.data?.items ?? []).map((item) => item.nodeId)),
+    () => new Map((blast.data?.items ?? []).map((item) => [item.nodeId, item.pathResolution])),
     [blast.data],
   );
 
@@ -94,12 +96,14 @@ export function GraphExplorer({ initialLevel, initialMap }: GraphExplorerProps):
   const displayNodes = useMemo(
     () =>
       nodes.map((node) => {
-        const isImpacted = blastActive && impacted.has(node.id);
-        const isDimmed = blastActive && !isImpacted && node.id !== state.node;
+        const impact = blastActive ? impacted.get(node.id) : undefined;
+        const isDimmed = blastActive && impact === undefined && node.id !== state.node;
         return {
           ...node,
           selected: node.id === state.node,
-          data: { ...node.data, impacted: isImpacted, dimmed: isDimmed },
+          // `impact` is set only when this node is an impacted dependent — never
+          // explicitly `undefined` (exactOptionalPropertyTypes).
+          data: { ...node.data, ...(impact !== undefined ? { impact } : {}), dimmed: isDimmed },
         };
       }),
     [nodes, state.node, blastActive, impacted],

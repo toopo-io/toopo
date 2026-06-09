@@ -44,6 +44,9 @@ interface BackendMetrics {
   readonly rowsExpanded: number;
   readonly expansionRatio: number;
   readonly radiusIds: readonly string[];
+  /** Per-hit trust split (ADR-0021): how many dependents are certainly vs possibly impacted. */
+  readonly certainCount: number;
+  readonly possibleCount: number;
   /** Worst path-multiplication seen across the busiest symbols (perf probe). */
   readonly maxRatio: number;
   readonly maxRatioSymbol: string;
@@ -143,6 +146,15 @@ for (const { backend, skip } of backends) {
       expect(radius.length).toBeGreaterThan(0);
       expect(radius.some((h) => h.nodeId === hot.id)).toBe(false);
 
+      // Every hit carries a valid per-path trust (ADR-0021) — never absent/garbage.
+      expect(
+        radius.every(
+          (h) => h.pathResolution === 'deterministic' || h.pathResolution === 'inferred',
+        ),
+      ).toBe(true);
+      const certainCount = radius.filter((h) => h.pathResolution === 'deterministic').length;
+      const possibleCount = radius.length - certainCount;
+
       const hotProbe = await measureExpansion(db, hot.id);
       expect(hotProbe.result).toBe(radius.length);
 
@@ -172,6 +184,8 @@ for (const { backend, skip } of backends) {
         rowsExpanded: hotProbe.expanded,
         expansionRatio: hotProbe.result === 0 ? 0 : hotProbe.expanded / hotProbe.result,
         radiusIds: radius.map((h) => h.nodeId).sort(),
+        certainCount,
+        possibleCount,
         maxRatio,
         maxRatioSymbol,
         sampledSymbols: hotSymbols.length,
@@ -193,6 +207,9 @@ describe('dogfood: cross-backend identity and perf report', () => {
     expect(sqlite?.hotSymbolId).toBe(postgres?.hotSymbolId);
     expect(sqlite?.radiusIds).toEqual(postgres?.radiusIds);
     expect(sqlite?.radiusSize).toBe(postgres?.radiusSize);
+    // The per-path trust split must be identical across backends (ADR-0021).
+    expect(sqlite?.certainCount).toBe(postgres?.certainCount);
+    expect(sqlite?.possibleCount).toBe(postgres?.possibleCount);
   });
 
   it('reports the dogfood metrics', () => {
@@ -207,6 +224,7 @@ describe('dogfood: cross-backend identity and perf report', () => {
         `[${backend}] nodes=${m.nodes} edges=${m.edges} persist=${m.persistMs.toFixed(1)}ms`,
         `[${backend}] hot symbol in-degree=${m.hotInDegree} id=${m.hotSymbolId}`,
         `[${backend}] blastRadius size=${m.radiusSize} maxDepth=${m.maxDepth} time=${m.blastMs.toFixed(2)}ms`,
+        `[${backend}] trust split: certain=${m.certainCount} possible=${m.possibleCount} (ADR-0021)`,
         `[${backend}] hot-symbol expansion: rows=${m.rowsExpanded} result=${m.radiusSize} ratio=${m.expansionRatio.toFixed(2)}x`,
         `[${backend}] worst expansion over ${m.sampledSymbols} busiest symbols: ratio=${m.maxRatio.toFixed(2)}x at ${m.maxRatioSymbol}`,
       );

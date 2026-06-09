@@ -25,8 +25,13 @@ export interface MapNodeData extends Record<string, unknown> {
   readonly kind: GraphNode['kind'];
   /** How many symbols this container holds — used to size the node (ADR-0020). */
   readonly childCount: number;
-  /** Set during a blast-radius overlay: this node is an impacted dependent. */
-  readonly impacted?: boolean;
+  /**
+   * Set during a blast-radius overlay on an impacted dependent: the trust of the
+   * path that reaches it (ADR-0021) — `deterministic` (certainly impacted, solid
+   * outline) or `inferred` (possibly impacted, dashed outline). Absent when this
+   * node is not an impacted dependent.
+   */
+  readonly impact?: TrustKind;
   /** Set during a blast-radius overlay: this node is outside the impact set. */
   readonly dimmed?: boolean;
 }

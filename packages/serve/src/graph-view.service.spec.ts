@@ -138,12 +138,15 @@ describe('GraphViewService pass-through', () => {
     expect(page).toEqual({ items: [{ edge: inEdge, node: nodeA }], nextCursor: 'c' });
   });
 
-  it('forwards blast-radius options and preserves the truncated flag', async () => {
+  it('forwards blast-radius options, preserving the truncated flag and per-hit trust', async () => {
     const service = new GraphViewService(
       fakeRepository({
         blastRadiusPage: () =>
           Promise.resolve({
-            items: [{ nodeId: 'caller', depth: 1, node: nodeA }],
+            items: [
+              { nodeId: 'proven', depth: 1, pathResolution: 'deterministic', node: nodeA },
+              { nodeId: 'guessed', depth: 2, pathResolution: 'inferred', node: null },
+            ],
             nextCursor: null,
             truncated: true,
           }),
@@ -153,7 +156,9 @@ describe('GraphViewService pass-through', () => {
     const page = await service.blastRadius({ id: 'sA', maxDepth: 1 });
 
     expect(page.truncated).toBe(true);
-    expect(page.items.map((h) => h.nodeId)).toEqual(['caller']);
+    expect(page.items.map((h) => h.nodeId)).toEqual(['proven', 'guessed']);
+    // pathResolution survives composition unchanged (ADR-0021).
+    expect(page.items.map((h) => h.pathResolution)).toEqual(['deterministic', 'inferred']);
   });
 
   it('maps a map view, copying its node and edge arrays', async () => {

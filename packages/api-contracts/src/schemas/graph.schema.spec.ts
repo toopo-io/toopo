@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { GRAPH_SEGMENTS, graphApiPath } from '../graph-routes.js';
 import {
+  BlastRadiusPageSchema,
   BlastRadiusQuerySchema,
   GraphNeighborSchema,
   MapQuerySchema,
@@ -133,6 +134,25 @@ describe('response schemas', () => {
       deterministic: 1,
       inferred: 2,
     });
+  });
+
+  it('carries per-hit pathResolution on the blast radius and rejects an invalid one', () => {
+    const page = BlastRadiusPageSchema.parse({
+      items: [
+        { nodeId: 'sA2', depth: 1, pathResolution: 'deterministic', node: symbolNode },
+        { nodeId: 'sA', depth: 2, pathResolution: 'inferred', node: null },
+      ],
+      nextCursor: null,
+      truncated: false,
+    });
+    expect(page.items.map((h) => h.pathResolution)).toEqual(['deterministic', 'inferred']);
+    expect(() =>
+      BlastRadiusPageSchema.parse({
+        items: [{ nodeId: 'sA', depth: 1, pathResolution: 'maybe', node: null }],
+        nextCursor: null,
+        truncated: false,
+      }),
+    ).toThrow();
   });
 
   it('validates a composed node detail', () => {

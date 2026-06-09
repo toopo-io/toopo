@@ -7,8 +7,17 @@
  * neighbors, search, declared-interface, call-sites, bounded blast-radius, and
  * the on-read aggregate map view.
  */
-import type { Edge, EdgeKind, GraphDocument, Node, SymbolId } from '@toopo/core';
+import type { Edge, EdgeKind, GraphDocument, Node, RESOLUTIONS, SymbolId } from '@toopo/core';
 import type { Page, PageOptions } from './graph-page.js';
+
+/**
+ * The trust of a blast-radius PATH (ADR-0021), mirroring an edge's `resolution`
+ * (ADR-0015 §8) but quantified over a whole reverse-dependency chain rather than
+ * one edge: `deterministic` iff a fully-deterministic path reaches the dependent
+ * (a proven chain exists); `inferred` iff every path to it traverses ≥1 inferred
+ * edge. The literal set is core's single source of truth (zero duplication).
+ */
+export type PathResolution = (typeof RESOLUTIONS)[number];
 
 export interface PersistGraphResult {
   /** Distinct nodes written (after stored-once dedup). */
@@ -61,6 +70,14 @@ export interface BlastRadiusHit {
   readonly nodeId: SymbolId;
   /** Shortest reverse distance from the queried node (always ≥ 1). */
   readonly depth: number;
+  /**
+   * Whether a PROVEN reverse-dependency chain reaches this dependent (ADR-0021):
+   * `deterministic` iff some fully-deterministic path exists, else `inferred`.
+   * Independent of {@link depth} — the shortest path may be inferred while a
+   * longer, fully-deterministic one exists. So `depth` is proximity, never a
+   * trust claim; the two are never coupled (no false certainty, ADR-0015 §8).
+   */
+  readonly pathResolution: PathResolution;
 }
 
 /** Page inputs for {@link GraphRepository.neighborsPage}, with the kind filter. */

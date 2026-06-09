@@ -118,26 +118,42 @@ describe('<NodeDetailPanel />', () => {
     await waitFor(() => expect(screen.getByText(/Failed to load node: nope/)).toBeInTheDocument());
   });
 
-  it('renders the blast-radius section with the honest no-certainty caveat when active', async () => {
+  it('marks each blast-radius dependent certain (solid) vs possible (dashed)', async () => {
     node.mockResolvedValue(DETAIL);
     renderPanel({
       blastActive: true,
       blastPage: {
         items: [
           {
-            nodeId: 'dep#',
+            nodeId: 'certain#',
             depth: 1,
-            node: { kind: 'symbol', id: 'dep#', name: 'Dep', properties: {} },
+            pathResolution: 'deterministic',
+            node: { kind: 'symbol', id: 'certain#', name: 'CertainDep', properties: {} },
+          },
+          {
+            nodeId: 'possible#',
+            depth: 2,
+            pathResolution: 'inferred',
+            node: { kind: 'symbol', id: 'possible#', name: 'PossibleDep', properties: {} },
           },
         ],
         nextCursor: null,
         truncated: true,
       },
     });
-    expect(await screen.findByText(messages.Graph.blast.title)).toBeInTheDocument();
-    expect(screen.getByText('Dep')).toBeInTheDocument();
-    // The honest framing must be present — no per-node certainty claim (Fork 6A).
-    expect(screen.getByText(messages.Graph.blast.caveat)).toBeInTheDocument();
+    const blast = (await screen.findByText(messages.Graph.blast.title)).closest('section');
+    expect(blast).not.toBeNull();
+    const section = blast as HTMLElement;
+    expect(screen.getByText('CertainDep')).toBeInTheDocument();
+    expect(screen.getByText('PossibleDep')).toBeInTheDocument();
+    // Per-node trust replaces the old caveat: one solid (certain) and one dashed
+    // (possible) trust mark, in the same solid/dashed language as the edges (ADR-0021).
+    expect(section.querySelector('[data-trust="deterministic"]')).not.toBeNull();
+    expect(section.querySelector('[data-trust="inferred"]')).not.toBeNull();
     expect(screen.getByText(messages.Graph.blast.truncated)).toBeInTheDocument();
+  });
+
+  it('no longer renders a panel-level certainty caveat', () => {
+    expect((messages.Graph.blast as Record<string, string>)['caveat']).toBeUndefined();
   });
 });

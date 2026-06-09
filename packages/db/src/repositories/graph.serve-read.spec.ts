@@ -270,6 +270,16 @@ for (const { backend, skip } of backends) {
         );
         expect(items.map((h) => h.nodeId)).toEqual(['sA', 'sA2']);
       });
+
+      it('carries per-hit pathResolution (ADR-0021)', async () => {
+        const page = await repository.blastRadiusPage('sB');
+        const byId = new Map(page.items.map((h) => [h.nodeId, h.pathResolution]));
+        // sA2 → sB is a deterministic `imports`: proven, certain.
+        expect(byId.get('sA2')).toBe('deterministic');
+        // sA reaches sB by an inferred `references` (depth 1) AND a proven
+        // sA→sA2→sB chain (depth 2) — the proven chain makes it deterministic.
+        expect(byId.get('sA')).toBe('deterministic');
+      });
     });
 
     describe('mapView', () => {

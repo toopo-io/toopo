@@ -114,6 +114,13 @@ for (const { backend, skip } of backends) {
       expect(hits.some((h) => h.nodeId === 'A')).toBe(false);
     });
 
+    it('marks every hit deterministic when all paths are deterministic', async () => {
+      // The whole fixture is deterministic `calls` edges, so every dependent is
+      // reached by a proven chain — none may be reported as inferred (ADR-0021).
+      const hits = await repository.blastRadius('A');
+      expect(hits.every((h) => h.pathResolution === 'deterministic')).toBe(true);
+    });
+
     it('honours the depth cap', async () => {
       const hits = shape(await repository.blastRadius('A', { maxDepth: 1 }));
       expect(hits).toEqual([{ nodeId: 'B', depth: 1 }]);

@@ -110,6 +110,10 @@ describe('Serve read API /v1/graph (e2e)', () => {
     const fullPage = BlastRadiusPageSchema.parse(full.json());
     expect(fullPage.items.map((h) => h.nodeId).sort()).toEqual(['sA', 'sA2']);
     expect(fullPage.truncated).toBe(false);
+    // Per-hit trust surfaces end to end (ADR-0021): a proven `imports` chain
+    // makes sA2 certain; the schema parse already enforced a valid value.
+    const trust = new Map(fullPage.items.map((h) => [h.nodeId, h.pathResolution]));
+    expect(trust.get('sA2')).toBe('deterministic');
 
     const capped = await get(`${graphApiPath(GRAPH_SEGMENTS.BLAST_RADIUS)}?id=sB&maxDepth=1`);
     expect(BlastRadiusPageSchema.parse(capped.json()).truncated).toBe(true);

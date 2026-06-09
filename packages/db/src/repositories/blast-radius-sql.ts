@@ -28,9 +28,21 @@ export interface BlastRadiusCteParams {
 }
 
 /**
- * Build the `with recursive blast(node_id, depth, path) as (...)` clause. The
- * caller appends a final `select ... from blast where depth > 0`. Requires a
- * non-empty `kinds` (an empty `in ()` is invalid SQL — callers short-circuit).
+ * Build the `with recursive blast(node_id, depth, path, path_det) as (...)`
+ * clause. The caller appends a final `select ... from blast where depth > 0`,
+ * grouping by `node_id` with `min(depth)` for proximity and `max(path_det)` for
+ * trust. Requires a non-empty `kinds` (an empty `in ()` is invalid SQL — callers
+ * short-circuit).
+ *
+ * `path_det` (ADR-0021) tracks per-path determinism as an INTEGER 0/1: the anchor
+ * is `1` (a zero-length path is trivially proven), and each recursive step
+ * multiplies by `1` for a deterministic edge or `0` for an inferred one — so it
+ * stays `1` only while every edge traversed is deterministic. Integer
+ * multiplication with a `case` is used instead of a boolean `AND` because
+ * Postgres will not coerce an integer to boolean for a logical `AND`, whereas
+ * `*` and `case` are byte-identical on libSQL-SQLite ≥3.38 and Postgres
+ * (ADR-0017 §6). At the final `group by`, `max(path_det)` is 1 iff ANY
+ * fully-deterministic path reaches the node — the "certainly impacted" predicate.
  */
 export function blastRadiusCte(params: BlastRadiusCteParams): RawBuilder<unknown> {
   const sep = BLAST_PATH_SEPARATOR;
@@ -39,10 +51,11 @@ export function blastRadiusCte(params: BlastRadiusCteParams): RawBuilder<unknown
   const escapedSource = escapeLikeOperand(sql`"e"."source_id"`);
 
   return sql`
-    with recursive "blast"("node_id", "depth", "path") as (
-      select cast(${params.startId} as text), 0, ${sep} || ${params.startId} || ${sep}
+    with recursive "blast"("node_id", "depth", "path", "path_det") as (
+      select cast(${params.startId} as text), 0, ${sep} || ${params.startId} || ${sep}, 1
       union all
-      select "e"."source_id", "b"."depth" + 1, "b"."path" || "e"."source_id" || ${sep}
+      select "e"."source_id", "b"."depth" + 1, "b"."path" || "e"."source_id" || ${sep},
+        "b"."path_det" * (case when "e"."resolution" = 'deterministic' then 1 else 0 end)
       from "blast" as "b"
       join "edge" as "e" on "e"."target_id" = "b"."node_id"
       where "b"."depth" < ${params.maxDepth}

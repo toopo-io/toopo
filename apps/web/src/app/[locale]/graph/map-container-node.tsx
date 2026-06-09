@@ -14,11 +14,18 @@ import { MAP_NODE_SIZE, type MapFlowNode } from '../../../lib/graph/map-adapter'
 
 export function MapContainerNode({ data, selected }: NodeProps<MapFlowNode>): JSX.Element {
   const t = useTranslations('Graph');
-  const border = data.impacted
-    ? 'border-(--toopo-impact) ring-2 ring-(--toopo-impact)/50'
-    : selected
-      ? 'border-ring ring-2 ring-ring/40'
-      : 'border-border';
+  // Blast-radius impact outline (ADR-0021): the impact colour is constant; the
+  // STROKE carries trust — a SOLID outline is certainly impacted (a proven chain
+  // reaches it), a DASHED outline is possibly impacted (every path is inferred),
+  // the same solid/dashed language the map's edges and the panel rows use.
+  const border =
+    data.impact !== undefined
+      ? `border-2 border-(--toopo-impact) ring-2 ring-(--toopo-impact)/40${
+          data.impact === 'inferred' ? ' border-dashed' : ''
+        }`
+      : selected
+        ? 'border-ring ring-2 ring-ring/40'
+        : 'border-border';
   return (
     <div
       className={`flex cursor-pointer flex-col justify-center gap-1 rounded-lg border bg-card px-4 py-2 text-card-foreground shadow-sm transition-all hover:border-ring/70 ${border} ${

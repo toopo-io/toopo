@@ -12,7 +12,7 @@
  * Node ids (SCIP descriptor paths) contain `/`, spaces and backticks, so every
  * id-bearing endpoint takes the id as a query parameter, never a path segment.
  */
-import { EDGE_KINDS, EdgeSchema, NODE_KINDS, NodeSchema } from '@toopo/core';
+import { EDGE_KINDS, EdgeSchema, NODE_KINDS, NodeSchema, RESOLUTIONS } from '@toopo/core';
 import { z } from 'zod';
 
 /** The containment level a map view aggregates to (ADR-0015 §2). */
@@ -118,9 +118,23 @@ export type NodePage = z.infer<typeof NodePageSchema>;
 export const NeighborPageSchema = paginated(GraphNeighborSchema);
 export type NeighborPage = z.infer<typeof NeighborPageSchema>;
 
-/** A blast-radius dependent, hydrated with its node and shortest depth. */
+/**
+ * A blast-radius dependent, hydrated with its node and shortest depth, plus the
+ * trust of the reverse-dependency PATH that reaches it (ADR-0021): `deterministic`
+ * iff a fully-deterministic chain proves the impact, `inferred` iff every path
+ * traverses ≥1 inferred edge. This makes certainly-impacted and possibly-impacted
+ * dependents distinguishable per node, in the data and the UI (ADR-0015 §8) —
+ * superseding the prior panel-level caveat. `depth` (proximity) and
+ * `pathResolution` (trust) are independent: a node's shortest path may be inferred
+ * while a longer, fully-deterministic path exists.
+ */
 export const BlastRadiusNodeSchema = z
-  .object({ nodeId: idField, depth: z.number().int().nonnegative(), node: NodeSchema.nullable() })
+  .object({
+    nodeId: idField,
+    depth: z.number().int().nonnegative(),
+    pathResolution: z.enum(RESOLUTIONS),
+    node: NodeSchema.nullable(),
+  })
   .strict();
 export type BlastRadiusNode = z.infer<typeof BlastRadiusNodeSchema>;
 

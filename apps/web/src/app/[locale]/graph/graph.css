@@ -1,0 +1,22 @@
+/*
+ * Trust palette for the cartography (ADR-0015 §8). Two unmistakably distinct
+ * hues, themed for light and dark: deterministic reads as a confident, cool
+ * blue; inferred as a cautious amber. Paired with solid-vs-dashed strokes
+ * (see `trust.ts`), the two are never confusable. Defined once here and
+ * referenced via CSS custom properties so the whole map restyles in one place.
+ */
+:root {
+  --toopo-trust-deterministic: oklch(0.55 0.16 255);
+  --toopo-trust-inferred: oklch(0.68 0.16 70);
+}
+
+.dark {
+  --toopo-trust-deterministic: oklch(0.72 0.15 255);
+  --toopo-trust-inferred: oklch(0.78 0.15 75);
+}
+
+/* The explorer canvas fills its container; the page gives it a fixed viewport. */
+.toopo-graph-canvas {
+  width: 100%;
+  height: 100%;
+}

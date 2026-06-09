@@ -21,6 +21,23 @@
       "timestamp": "Timestamp"
     }
   },
+  "Graph": {
+    "title": "Cartography",
+    "subtitle": "The package map of the analysed graph. Solid edges are proven; dashed edges are inferred.",
+    "loading": "Loading the map…",
+    "error": "Failed to load the map: {message}",
+    "unknownError": "unknown error",
+    "empty": "No graph yet. Populate one with the worker CLI, then refresh.",
+    "truncated": "Showing a capped subset of the graph — more containers exist beyond the view limit.",
+    "legend": {
+      "title": "Trust",
+      "deterministic": "Deterministic — statically proven",
+      "inferred": "Inferred — a heuristic guess"
+    },
+    "node": {
+      "children": "{count, plural, =0 {no symbols} one {# symbol} other {# symbols}}"
+    }
+  },
   "LocaleSwitcher": {
     "label": "Language",
     "locale": {

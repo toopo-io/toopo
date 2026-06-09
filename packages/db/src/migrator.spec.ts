@@ -83,6 +83,7 @@ for (const { backend, skip } of backends) {
       expect(results.map((r) => r.migrationName)).toEqual([
         '0000_better_auth',
         '0001_user_deleted_at_idx',
+        '0002_graph',
       ]);
       expect(results.every((r) => r.status === 'Success')).toBe(true);
     });

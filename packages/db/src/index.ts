@@ -38,3 +38,4 @@ export type {
   UserTable,
   VerificationTable,
 } from './schema/auth-types.js';
+export type { EdgeTable, GraphDatabase, NodeTable } from './schema/graph-types.js';

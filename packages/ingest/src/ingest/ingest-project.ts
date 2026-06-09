@@ -34,10 +34,13 @@ export interface IngestOptions {
   readonly gitignore?: boolean;
 }
 
-/** One discovered file's parse outcome — pipeline data for metrics, not the graph. */
+/** One discovered file's parse outcome — pipeline data for metrics, not the graph.
+ *  `reason` is the degradation cause for a non-`analyzed` status (so a parse
+ *  error is named in the report, never silently counted). */
 export interface FileOutcome {
   readonly path: string;
   readonly status: AnalysisStatus;
+  readonly reason?: string;
 }
 
 /** Wall-clock timings per pipeline phase (observability; never part of the graph). */
@@ -92,7 +95,7 @@ export async function ingestProject(
     const bytes = await readFile(join(rootDir, path));
     const fragment = await parser.parseFile({ path, bytes });
     fragments.push(fragment);
-    files.push({ path, status: outcomeStatus(fragment) });
+    files.push(fileOutcome(path, fragment));
   }
   const resolveStart = performance.now();
 
@@ -116,8 +119,11 @@ export async function ingestProject(
   };
 }
 
-/** The analysis status of a parsed fragment's file node (always present). */
-function outcomeStatus(fragment: ParseResult): AnalysisStatus {
-  const file = fragment.document.nodes.find(isFileNode);
-  return file?.analysis.status ?? 'skipped';
+/** The parse outcome of a fragment's file node — status plus a degradation reason. */
+function fileOutcome(path: string, fragment: ParseResult): FileOutcome {
+  const analysis = fragment.document.nodes.find(isFileNode)?.analysis;
+  if (analysis === undefined || analysis.status === 'analyzed') {
+    return { path, status: analysis?.status ?? 'skipped' };
+  }
+  return { path, status: analysis.status, reason: analysis.reason };
 }

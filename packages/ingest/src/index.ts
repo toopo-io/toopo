@@ -8,6 +8,16 @@ export {
   ingestProject,
   type ProjectModelBuilder,
 } from './ingest/ingest-project.js';
+export {
+  computeMetrics,
+  type DiscoveryMetrics,
+  type GraphCounts,
+  type IngestMetrics,
+  type ParseErrorCause,
+  type RelationshipMetrics,
+  type ResolutionMetrics,
+} from './metrics/metrics.js';
+export { formatReportText } from './metrics/report.js';
 export { buildTypescriptProjectModel } from './typescript/project-model.js';
 export { loadTsconfigAliases } from './typescript/tsconfig.js';
 export { matchesWorkspaceGlobs } from './typescript/workspace-globs.js';

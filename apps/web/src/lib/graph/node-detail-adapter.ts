@@ -12,6 +12,21 @@ import type { Confidence, Edge, EdgeKind, Node } from '@toopo/core';
 import { nodeLabel } from './node-label';
 import type { TrustKind } from './trust';
 
+/**
+ * The edge kinds that are DEPENDENCIES (who calls/uses whom), as opposed to
+ * structure (`contains`/`exports`). Callers/callees show only these — the same
+ * definition the map projection and blast radius use — so the panel does not
+ * echo a symbol's own params/call-sites (which have their own sections) as
+ * "callees".
+ */
+const DEPENDENCY_EDGE_KINDS: ReadonlySet<EdgeKind> = new Set([
+  'imports',
+  'references',
+  'calls',
+  'extends',
+  'implements',
+]);
+
 export interface InterfaceRow {
   readonly id: string;
   readonly label: string;
@@ -64,8 +79,12 @@ export function nodeDetailToViewModel(detail: NodeDetail): NodeDetailViewModel {
     ...(node.subKind !== undefined ? { subKind: node.subKind } : {}),
     ...(node.analysis !== undefined ? { analysisStatus: node.analysis.status } : {}),
     declaredInterface: detail.declaredInterface.items.map(toInterfaceRow),
-    callers: detail.incoming.items.map((neighbor) => toNeighborRow(neighbor, 'in')),
-    callees: detail.outgoing.items.map((neighbor) => toNeighborRow(neighbor, 'out')),
+    callers: detail.incoming.items
+      .filter((neighbor) => DEPENDENCY_EDGE_KINDS.has(neighbor.edge.kind))
+      .map((neighbor) => toNeighborRow(neighbor, 'in')),
+    callees: detail.outgoing.items
+      .filter((neighbor) => DEPENDENCY_EDGE_KINDS.has(neighbor.edge.kind))
+      .map((neighbor) => toNeighborRow(neighbor, 'out')),
     callSites: detail.callSites.items.map(toCallSiteRow),
   };
 }

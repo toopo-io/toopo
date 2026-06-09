@@ -106,6 +106,23 @@ describe('nodeDetailToViewModel', () => {
     });
   });
 
+  it('excludes structural contains edges from callers/callees (dependencies only)', () => {
+    const withContains: NodeDetail = {
+      ...DETAIL,
+      outgoing: {
+        items: [
+          { edge: detEdge('sA', 'sA/child#'), node: symbol('sA/child#', 'child') },
+          { edge: { ...detEdge('sA', 'sB'), kind: 'contains' }, node: symbol('sB', 'B') },
+        ],
+        nextCursor: null,
+      },
+    };
+    const vm = nodeDetailToViewModel(withContains);
+    // The 'calls' edge is a dependency; the 'contains' edge is structure — excluded.
+    expect(vm.callees).toHaveLength(1);
+    expect(vm.callees[0]?.edgeKind).toBe('calls');
+  });
+
   it('surfaces call-site payload args with per-argument trust', () => {
     const vm = nodeDetailToViewModel(DETAIL);
     expect(vm.callSites).toHaveLength(1);

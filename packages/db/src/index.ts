@@ -21,7 +21,12 @@ export {
   SqlFileMigrationProvider,
   splitSqlStatements,
 } from './migrator.js';
-export type { GraphRepository, PersistGraphResult } from './repositories/graph.repository.js';
+export type {
+  GraphRepository,
+  Neighbor,
+  NeighborDirection,
+  PersistGraphResult,
+} from './repositories/graph.repository.js';
 export { KyselyGraphRepository } from './repositories/graph.repository.kysely.js';
 export type { UserRepository } from './repositories/user.repository.js';
 export { KyselyUserRepository } from './repositories/user.repository.kysely.js';

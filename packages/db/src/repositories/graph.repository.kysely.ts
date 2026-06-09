@@ -9,12 +9,23 @@
  * re-persisting the same graph leaves the row count unchanged. Bulk inserts are
  * chunked to stay within SQLite's bound-parameter limit on large graphs.
  */
-import { type GraphDocument, GraphDocumentSchema, type Node, type SymbolId } from '@toopo/core';
+import {
+  type EdgeKind,
+  type GraphDocument,
+  GraphDocumentSchema,
+  type Node,
+  type SymbolId,
+} from '@toopo/core';
 import type { Kysely } from 'kysely';
 import type { GraphDatabase } from '../schema/graph-types.js';
 import { buildFileIndex } from './file-association.js';
-import type { GraphRepository, PersistGraphResult } from './graph.repository.js';
-import { edgeToInsert, nodeToInsert, rowToNode } from './graph-records.js';
+import type {
+  GraphRepository,
+  Neighbor,
+  NeighborDirection,
+  PersistGraphResult,
+} from './graph.repository.js';
+import { edgeToInsert, nodeToInsert, rowToEdge, rowToNode } from './graph-records.js';
 
 /** Rows per bulk insert. Node is the widest table (16 columns); 500 rows stays
  *  well under SQLite's default 32766 bound-parameter ceiling on both drivers. */
@@ -112,5 +123,38 @@ export class KyselyGraphRepository implements GraphRepository {
       .where('id', '=', id)
       .executeTakeFirst();
     return row === undefined ? null : rowToNode(row);
+  }
+
+  async neighbors(
+    id: SymbolId,
+    direction: NeighborDirection,
+    kind?: EdgeKind,
+  ): Promise<readonly Neighbor[]> {
+    const anchorColumn = direction === 'out' ? 'source_id' : 'target_id';
+    let query = this.db.selectFrom('edge').selectAll().where(anchorColumn, '=', id);
+    if (kind !== undefined) {
+      query = query.where('kind', '=', kind);
+    }
+    // Deterministic order so callers and tests see a stable result.
+    const edgeRows = await query.orderBy('edge_key').execute();
+    const edges = edgeRows.map(rowToEdge);
+
+    // The far end is the target for `out`, the source for `in`. Batch-load those
+    // nodes in one query to avoid an N+1 fan-out.
+    const farEndId = (edge: (typeof edges)[number]): SymbolId =>
+      direction === 'out' ? edge.targetId : edge.sourceId;
+    const nodesById = await this.loadNodes(edges.map(farEndId));
+
+    return edges.map((edge) => ({ edge, node: nodesById.get(farEndId(edge)) ?? null }));
+  }
+
+  /** Batch-load validated nodes by id into a lookup map (absent ids are simply omitted). */
+  private async loadNodes(ids: readonly SymbolId[]): Promise<Map<SymbolId, Node>> {
+    const distinct = [...new Set(ids)];
+    if (distinct.length === 0) {
+      return new Map();
+    }
+    const rows = await this.db.selectFrom('node').selectAll().where('id', 'in', distinct).execute();
+    return new Map(rows.map((row) => [row.id, rowToNode(row)]));
   }
 }

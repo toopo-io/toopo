@@ -1,0 +1,55 @@
+{
+  "discovery": {
+    "discovered": 299,
+    "analyzed": 299,
+    "parseError": 0,
+    "unsupported": 0,
+    "skipped": 0
+  },
+  "graph": {
+    "nodesByKind": {
+      "file": 299,
+      "symbol": 877,
+      "callSite": 1508
+    },
+    "symbolsBySubKind": {
+      "ts:function": 311,
+      "ts:parameter": 489,
+      "react:component": 45,
+      "react:prop": 30,
+      "react:hook": 2
+    },
+    "edgesByKind": {
+      "imports": 1267,
+      "contains": 2385,
+      "calls": 572,
+      "exports": 182,
+      "references": 336
+    }
+  },
+  "imports": {
+    "deterministic": 256,
+    "inferred": 1,
+    "external": 1010,
+    "ambiguous": 0,
+    "unresolved": 275,
+    "total": 1542,
+    "resolved": 1267,
+    "overallResolutionRate": 0.8216601815823605,
+    "deterministicShare": 0.16601815823605706
+  },
+  "relationships": {
+    "renders": 121,
+    "calls": 451,
+    "propBindings": 13,
+    "argBindings": 323,
+    "crossFile": 307,
+    "intraFile": 4435
+  },
+  "parseErrors": [],
+  "timings": {
+    "discoverMs": 9.691699999999997,
+    "parseMs": 513.7458999999999,
+    "resolveMs": 40.65460000000007
+  }
+}

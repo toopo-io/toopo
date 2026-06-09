@@ -49,6 +49,7 @@ module.exports = {
         'parser',
         'lang-react',
         'resolver',
+        'ingest',
         'env',
         'i18n',
         'tailwind',

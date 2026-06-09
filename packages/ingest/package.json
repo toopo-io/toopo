@@ -1,0 +1,45 @@
+{
+  "name": "@toopo/ingest",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "clean": "rimraf dist *.tsbuildinfo",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@toopo/core": "workspace:*",
+    "@toopo/parser": "workspace:*",
+    "@toopo/resolver": "workspace:*",
+    "fdir": "6.5.0",
+    "ignore": "7.0.5"
+  },
+  "peerDependencies": {
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@toopo/tsconfig": "workspace:*",
+    "@toopo/vitest-config": "workspace:*",
+    "@types/node": "25.8.0",
+    "@vitest/coverage-v8": "4.1.6",
+    "typescript": "6.0.3",
+    "vitest": "4.1.6",
+    "zod": "4.4.3"
+  }
+}

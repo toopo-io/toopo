@@ -65,6 +65,34 @@ const exportTable: Record<string, ExportResolution> = {
     exportedName: 'C',
     certainty: DET,
   },
+  // Multi-star barrels: probe ./p and ./q (and 'react') for the name.
+  'multi.|U': {
+    status: 'multi-star',
+    specifiers: ['./p', './q'],
+    importerPath: 'i',
+    exportedName: 'U',
+  },
+  'multi.|D': {
+    status: 'multi-star',
+    specifiers: ['./p', './q'],
+    importerPath: 'i',
+    exportedName: 'D',
+  },
+  'multi.|N': {
+    status: 'multi-star',
+    specifiers: ['./p', './q'],
+    importerPath: 'i',
+    exportedName: 'N',
+  },
+  'multi.|R': {
+    status: 'multi-star',
+    specifiers: ['./p', 'react'],
+    importerPath: 'i',
+    exportedName: 'R',
+  },
+  'p.|U': { status: 'symbol', symbolId: 'Up.', certainty: DET },
+  'p.|D': { status: 'symbol', symbolId: 'Dp.', certainty: DET },
+  'q.|D': { status: 'symbol', symbolId: 'Dq.', certainty: DET },
 };
 const moduleTable: Record<string, ModuleResolution> = {
   './Button': { status: 'internal', fileId: 'Button.', certainty: DET },
@@ -72,6 +100,8 @@ const moduleTable: Record<string, ModuleResolution> = {
   './a': { status: 'internal', fileId: 'a.', certainty: DET },
   './b': { status: 'internal', fileId: 'b.', certainty: DET },
   './ambig': { status: 'ambiguous', candidates: ['c1', 'c2'] },
+  './p': { status: 'internal', fileId: 'p.', certainty: DET },
+  './q': { status: 'internal', fileId: 'q.', certainty: DET },
   react: { status: 'external', coordinate: { manager: 'npm', name: 'react' } },
 };
 
@@ -153,6 +183,31 @@ describe('resolveExportChain', () => {
       coordinate: { manager: 'npm', name: 'lib' },
       name: 'E',
     });
+  });
+
+  it('resolves a multi-star name to its UNIQUE provider, deterministically', () => {
+    // U lives only behind ./p; probing both stars proves it unique.
+    expect(
+      resolveExportChain(start('multi.', 'U'), plugin, moduleIndex, exportIndex, project),
+    ).toEqual({ status: 'symbol', symbolId: 'Up.', certainty: { resolution: 'deterministic' } });
+  });
+
+  it('leaves a multi-star name exported by two stars ambiguous', () => {
+    expect(
+      resolveExportChain(start('multi.', 'D'), plugin, moduleIndex, exportIndex, project),
+    ).toEqual({ status: 'ambiguous', candidates: ['Dp.', 'Dq.'] });
+  });
+
+  it('leaves a multi-star name provided by no star unresolved', () => {
+    expect(
+      resolveExportChain(start('multi.', 'N'), plugin, moduleIndex, exportIndex, project).status,
+    ).toBe('unresolved');
+  });
+
+  it('resolves a multi-star name to an external star provider', () => {
+    expect(
+      resolveExportChain(start('multi.', 'R'), plugin, moduleIndex, exportIndex, project),
+    ).toEqual({ status: 'external', coordinate: { manager: 'npm', name: 'react' }, name: 'R' });
   });
 
   it('ends unresolved or ambiguous when a redirect module fails to resolve', () => {

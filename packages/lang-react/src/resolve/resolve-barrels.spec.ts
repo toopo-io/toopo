@@ -16,9 +16,17 @@ const FILES: readonly { path: string; fixture: string }[] = [
   { path: 'src/all/Widget.tsx', fixture: 'all/Widget.tsx' },
   { path: 'src/MemberConsumer.tsx', fixture: 'MemberConsumer.tsx' },
   { path: 'src/Form.tsx', fixture: 'Form.tsx' },
+  { path: 'src/MultiConsumer.tsx', fixture: 'MultiConsumer.tsx' },
+  { path: 'src/multi/index.tsx', fixture: 'multi/index.tsx' },
+  { path: 'src/multi/first.tsx', fixture: 'multi/first.tsx' },
+  { path: 'src/multi/second.tsx', fixture: 'multi/second.tsx' },
 ];
 
-async function resolveFixtures(): Promise<{ document: GraphDocument; edges: ResolveEdge[] }> {
+async function resolveFixtures(): Promise<{
+  document: GraphDocument;
+  edges: ResolveEdge[];
+  diagnostics: readonly { code: string; specifier: string }[];
+}> {
   const parser = createParser(createReactPlugins());
   const fragments: ParseResult[] = [];
   for (const file of FILES) {
@@ -27,8 +35,8 @@ async function resolveFixtures(): Promise<{ document: GraphDocument; edges: Reso
     );
     fragments.push(await parser.parseFile({ path: file.path, bytes }));
   }
-  const { document } = resolveProject(fragments, [createReactResolver()]);
-  return { document, edges: resolveEdges(document) };
+  const { document, diagnostics } = resolveProject(fragments, [createReactResolver()]);
+  return { document, edges: resolveEdges(document), diagnostics };
 }
 
 interface ResolveEdge {
@@ -138,5 +146,45 @@ describe('createReactResolver — Slice 3 barrels, stars, and member roots', () 
     });
     // No prop binding for a member-root (props belong to the unresolved member).
     expect(edges.some((edge) => edge.sourceId === site && edge.kind === 'references')).toBe(false);
+  });
+
+  it('resolves a name through MULTIPLE export * to its unique provider, deterministically', async () => {
+    const { edges } = await resolveFixtures();
+    // Alpha lives only in multi/first; Beta only in multi/second — each is proven
+    // unique by probing both stars, so each resolves deterministically.
+    expect(edges).toContainEqual({
+      kind: 'imports',
+      sourceId: id('src/MultiConsumer.tsx'),
+      targetId: id('src/multi/first.tsx', term('Alpha')),
+      rule: 'resolve/import',
+      subKind: undefined,
+      resolution: 'deterministic',
+      confidence: undefined,
+    });
+    expect(edges).toContainEqual({
+      kind: 'imports',
+      sourceId: id('src/MultiConsumer.tsx'),
+      targetId: id('src/multi/second.tsx', term('Beta')),
+      rule: 'resolve/import',
+      subKind: undefined,
+      resolution: 'deterministic',
+      confidence: undefined,
+    });
+  });
+
+  it('leaves a name exported by TWO stars ambiguous — no edge, a diagnostic instead', async () => {
+    const { edges, diagnostics } = await resolveFixtures();
+    // Dup is exported by both multi/first and multi/second → never pick one.
+    const dupEdge = edges.some(
+      (edge) =>
+        edge.kind === 'imports' &&
+        edge.sourceId === id('src/MultiConsumer.tsx') &&
+        (edge.targetId === id('src/multi/first.tsx', term('Dup')) ||
+          edge.targetId === id('src/multi/second.tsx', term('Dup'))),
+    );
+    expect(dupEdge).toBe(false);
+    expect(diagnostics).toContainEqual(
+      expect.objectContaining({ code: 'ambiguous-export', specifier: './multi/index.js' }),
+    );
   });
 });

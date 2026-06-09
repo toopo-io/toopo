@@ -71,6 +71,9 @@ export function resolveExportChain(
     if (hop.status === 'unresolved') {
       return { status: 'unresolved', reason: hop.reason };
     }
+    if (hop.status === 'multi-star') {
+      return probeStars(hop.specifiers, hop.importerPath, hop.exportedName, fileId, accumulated);
+    }
 
     // A re-export redirect: resolve its module, then recurse into it.
     const module = plugin.resolveModule(
@@ -97,6 +100,57 @@ export function resolveExportChain(
       combineCertainty(hop.certainty, module.certainty),
     );
     return step(module.fileId, hop.exportedName, nextCertainty);
+  };
+
+  /**
+   * Resolve a name reaching ≥2 `export *` barrels (ADR-0016 Fork 3): probe each
+   * star target for the name and take the UNIQUE provider — the TypeScript rule.
+   * Exactly one distinct provider is a proof (deterministic, carrying its own
+   * sub-chain certainty); two or more is genuinely `ambiguous` (no edge); none
+   * is unresolved. The disambiguation itself adds no inferred step — only a
+   * deeper wildcard in the winning sub-chain can make the outcome inferred.
+   */
+  const probeStars = (
+    specifiers: readonly string[],
+    importerPath: string,
+    exportedName: string,
+    fileId: SymbolId,
+    accumulated: Certainty,
+  ): ExportChainResult => {
+    const bySymbol = new Map<SymbolId, ExportChainResult>();
+    const byExternal = new Map<string, ExportChainResult>();
+    for (const specifier of specifiers) {
+      const module = plugin.resolveModule(
+        { specifier, importerPath, importerFileId: fileId, typeOnly: start.typeOnly },
+        moduleIndex,
+        project,
+      );
+      if (module.status === 'internal') {
+        const sub = step(module.fileId, exportedName, accumulated);
+        if (sub.status === 'symbol') {
+          bySymbol.set(sub.symbolId, sub);
+        } else if (sub.status === 'external') {
+          byExternal.set(`${sub.coordinate.manager} ${sub.coordinate.name} ${sub.name}`, sub);
+        }
+      } else if (module.status === 'external') {
+        const key = `${module.coordinate.manager} ${module.coordinate.name} ${exportedName}`;
+        byExternal.set(key, {
+          status: 'external',
+          coordinate: module.coordinate,
+          name: exportedName,
+        });
+      }
+      // unresolved / ambiguous star target → it does not provide the name; skip.
+    }
+    const providers = [...bySymbol.values(), ...byExternal.values()];
+    const [only] = providers;
+    if (only === undefined) {
+      return { status: 'unresolved', reason: `"${exportedName}" found via no star re-export.` };
+    }
+    if (providers.length > 1) {
+      return { status: 'ambiguous', candidates: [...bySymbol.keys()] };
+    }
+    return only;
   };
 
   return step(start.fileId, start.exportedName, { resolution: 'deterministic' });

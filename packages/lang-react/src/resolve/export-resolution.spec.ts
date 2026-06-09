@@ -72,12 +72,17 @@ describe('resolveExport (React)', () => {
     });
   });
 
-  it('marks two star sources AMBIGUOUS (never picks one)', () => {
+  it('defers two star sources to the engine as MULTI-STAR (it probes each target)', () => {
     const result = resolveExport(
       request('Button'),
       index({ reExports: [reExport('star', './a'), reExport('star', './b')] }),
     );
-    expect(result).toEqual({ status: 'ambiguous', candidates: ['./a', './b'] });
+    expect(result).toEqual({
+      status: 'multi-star',
+      specifiers: ['./a', './b'],
+      importerPath: 'src/index.tsx',
+      exportedName: 'Button',
+    });
   });
 
   it('prefers an explicit named re-export over a star (named wins, deterministic)', () => {

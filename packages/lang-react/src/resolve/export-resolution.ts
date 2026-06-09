@@ -11,8 +11,10 @@ import type { Certainty, ExportIndex, ExportRequest, ExportResolution } from '@t
  *      `re-export` redirect, `deterministic` (the mapping is explicit). Two
  *      explicit re-exports of one name → `ambiguous` (no edge);
  *   3. otherwise a STAR re-export (`export * from`): exactly one source → an
- *      `inferred` redirect (a wildcard, not a proof); two or more → `ambiguous`
- *      → no edge (the name could come from any, and we never pick one).
+ *      `inferred` redirect (a wildcard, not a proof); two or more → a
+ *      `multi-star` deferral the engine resolves by probing each star target for
+ *      the name (exactly one provider → deterministic, ≥2 → ambiguous, none →
+ *      tail). We never pick one of equals.
  *
  * A namespace re-export (`export * as ns from`) provides a namespace object, not
  * a single named symbol, so it is not matched here — honestly unresolved.
@@ -42,16 +44,23 @@ function matchReExport(reExports: readonly ReExport[], name: string): ExportReso
 
   const stars = reExports.filter((reExport) => reExport.kind === 'star');
   const [firstStar] = stars;
-  if (stars.length === 1 && firstStar !== undefined) {
+  if (firstStar === undefined) {
+    return {
+      status: 'unresolved',
+      reason: `"${name}" is not a local export, named re-export, or star re-export.`,
+    };
+  }
+  if (stars.length === 1) {
+    // A lone wildcard is trusted but not proven — inferred (the engine recurses).
     return redirect(firstStar, name, { resolution: 'inferred', confidence: 'high' });
   }
-  if (stars.length > 1) {
-    return { status: 'ambiguous', candidates: stars.map((reExport) => reExport.specifier) };
-  }
-
+  // Two or more `export *`: the engine probes each star target for the name (it
+  // holds the module index); a single proven provider is deterministic.
   return {
-    status: 'unresolved',
-    reason: `"${name}" is not a local export, named re-export, or single star re-export.`,
+    status: 'multi-star',
+    specifiers: stars.map((reExport) => reExport.specifier),
+    importerPath: firstStar.exporterPath,
+    exportedName: name,
   };
 }
 

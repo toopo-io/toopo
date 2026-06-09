@@ -118,9 +118,13 @@ export type ModuleResolution =
  * Where an exported name resolves to within a module-resolved file (single hop).
  * `re-export` is a redirect through a barrel (`export … from`): the engine
  * resolves the new module and recurses, accumulating certainty and detecting
- * cycles, so the plugin stays single-hop. `external` carries the package
- * coordinate and the still-external name; `ambiguous`/`unresolved` follow the
- * same honesty rule as {@link ModuleResolution}.
+ * cycles, so the plugin stays single-hop. `multi-star` defers a name reaching
+ * two or more `export *` barrels to the engine, which alone holds the module
+ * index needed to probe each star target for the name (the plugin stays
+ * filesystem-free): exactly one provider resolves deterministically (proven),
+ * two or more is `ambiguous`, none continues the tail. `external` carries the
+ * package coordinate and the still-external name; `ambiguous`/`unresolved`
+ * follow the same honesty rule as {@link ModuleResolution}.
  */
 export type ExportResolution =
   | { readonly status: 'symbol'; readonly symbolId: SymbolId; readonly certainty: Certainty }
@@ -130,6 +134,12 @@ export type ExportResolution =
       readonly importerPath: string;
       readonly exportedName: string;
       readonly certainty: Certainty;
+    }
+  | {
+      readonly status: 'multi-star';
+      readonly specifiers: readonly string[];
+      readonly importerPath: string;
+      readonly exportedName: string;
     }
   | { readonly status: 'external'; readonly coordinate: PackageCoordinate; readonly name: string }
   | { readonly status: 'ambiguous'; readonly candidates: readonly SymbolId[] }

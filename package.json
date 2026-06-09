@@ -24,8 +24,6 @@
     "clean": "turbo run clean",
     "db:generate": "pnpm --filter @toopo/db db:generate",
     "db:migrate": "pnpm --filter @toopo/db db:migrate",
-    "db:push": "pnpm --filter @toopo/db db:push",
-    "db:studio": "pnpm --filter @toopo/db db:studio",
     "prepare": "lefthook install"
   },
   "devDependencies": {

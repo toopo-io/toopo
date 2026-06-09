@@ -13,7 +13,6 @@ import type { Logger } from 'nestjs-pino';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { type Auth, createAuth } from '../src/modules/auth/auth.factory';
 import type { AuthEmailService } from '../src/modules/auth/email/email.service';
-import type { DatabaseService } from '../src/modules/database/database.module';
 import { type AuthBackend, SKIP_POSTGRES, startAuthBackend } from './support/auth-backend';
 
 class FakeEmailService {
@@ -60,12 +59,10 @@ for (const { backend, skip } of backends) {
     beforeAll(async () => {
       harness = await startAuthBackend(backend);
       email = new FakeEmailService();
-      auth = createAuth(
-        noopLogger,
-        email as unknown as AuthEmailService,
-        { db: harness.db, type: harness.type } as unknown as DatabaseService,
-        harness.repository,
-      );
+      auth = createAuth(noopLogger, email as unknown as AuthEmailService, {
+        betterAuthDatabase: harness.betterAuthDatabase,
+        userRepository: harness.repository,
+      });
     }, 120_000);
 
     afterAll(async () => {

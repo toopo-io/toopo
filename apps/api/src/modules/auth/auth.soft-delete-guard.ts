@@ -15,7 +15,7 @@
  * Consistent failure modes prevent leaking the existence of a deleted
  * account through a distinguishable error surface.
  *
- * The Drizzle lookup is injected as a `getUserDeletedAt` callback so this
+ * The repository lookup is injected as a `getUserDeletedAt` callback so this
  * module has no DB dependency — unit tests pass a synchronous fake.
  *
  * `SessionGuard` provides defense-in-depth at the request layer in case

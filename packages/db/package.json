@@ -10,22 +10,11 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
-    },
-    "./client": {
-      "types": "./dist/client.d.ts",
-      "import": "./dist/client.js",
-      "default": "./dist/client.js"
-    },
-    "./schema": {
-      "types": "./dist/schema/index.d.ts",
-      "import": "./dist/schema/index.js",
-      "default": "./dist/schema/index.js"
     }
   },
   "files": [
     "dist",
     "src",
-    "drizzle",
     "migrations"
   ],
   "scripts": {
@@ -35,14 +24,10 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "db:generate": "node --import tsx src/bin/generate.ts",
-    "db:migrate": "node --env-file=../../apps/api/.env --import tsx src/bin/migrate.ts",
-    "db:push": "node --env-file=../../apps/api/.env ./node_modules/drizzle-kit/bin.cjs push",
-    "db:studio": "node --env-file=../../apps/api/.env ./node_modules/drizzle-kit/bin.cjs studio"
+    "db:migrate": "node --env-file=../../apps/api/.env --import tsx src/bin/migrate.ts"
   },
   "dependencies": {
     "@libsql/kysely-libsql": "0.4.1",
-    "@neondatabase/serverless": "1.1.0",
-    "drizzle-orm": "0.45.2",
     "kysely": "0.29.2",
     "pg": "8.21.0"
   },
@@ -57,7 +42,6 @@
     "@types/pg": "8.20.0",
     "@vitest/coverage-v8": "4.1.6",
     "better-auth": "~1.6.11",
-    "drizzle-kit": "0.31.10",
     "tsx": "4.22.4",
     "typescript": "6.0.3",
     "vitest": "4.1.6",

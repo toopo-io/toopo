@@ -1,4 +1,4 @@
-import { authSchemaOptions, type UserRepository } from '@toopo/db';
+import { authSchemaOptions } from '@toopo/db';
 import { negotiateLocale } from '@toopo/i18n';
 import { betterAuth } from 'better-auth';
 import type { Logger } from 'nestjs-pino';
@@ -10,15 +10,13 @@ import { buildResetPasswordUrl, buildVerifyEmailUrl } from './email/url-builders
 
 export type Auth = ReturnType<typeof createAuth>;
 
-export function createAuth(
-  logger: Logger,
-  email: AuthEmailService,
-  database: DatabaseService,
-  userRepository: UserRepository,
-) {
+/** The persistence surface the auth instance needs (from @toopo/db, F4). */
+type AuthDatabaseDeps = Pick<DatabaseService, 'betterAuthDatabase' | 'userRepository'>;
+
+export function createAuth(logger: Logger, email: AuthEmailService, database: AuthDatabaseDeps) {
   const sessionCreateBefore = createSessionCreateBeforeHook({
     logger,
-    getUserDeletedAt: (userId) => userRepository.findDeletedAt(userId),
+    getUserDeletedAt: (userId) => database.userRepository.findDeletedAt(userId),
   });
 
   const googleClientId = Env.GOOGLE_CLIENT_ID;
@@ -36,7 +34,7 @@ export function createAuth(
   // generator, so the running schema and the committed migrations never differ.
   return betterAuth({
     ...authSchemaOptions,
-    database: { db: database.db, type: database.type },
+    database: database.betterAuthDatabase,
     secret: Env.BETTER_AUTH_SECRET,
     baseURL: Env.BETTER_AUTH_URL,
     basePath: '/v1/auth',

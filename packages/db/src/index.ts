@@ -1,5 +1,9 @@
+export {
+  type AuthDatabaseHandle,
+  type BetterAuthDatabase,
+  createAuthDatabase,
+} from './auth-database.js';
 export { authAdditionalUserFields, authSchemaOptions } from './auth-schema.js';
-export { type CreateDbOptions, createDb, type Db, type Schema } from './client.js';
 export {
   type DatabaseBackend,
   type DatabaseConfig,

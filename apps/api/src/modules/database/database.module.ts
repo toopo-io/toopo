@@ -1,42 +1,40 @@
 /**
- * Owns the single Kysely connection for the whole API (ADR-0017 §1). The same
- * instance backs Better Auth's Kysely adapter and the UserRepository, so auth
- * and application queries share one connection. The backend (SQLite self-host /
- * Postgres cloud) is selected by the DATABASE_URL scheme inside `createDatabase`.
+ * Owns the single shared connection for the whole API (ADR-0017 §1). Everything
+ * comes from @toopo/db's surface — the object Better Auth's adapter expects, the
+ * UserRepository, and a close function — so apps/api never names Kysely or the
+ * persistence implementation (fork F4). The backend (SQLite self-host / Postgres
+ * cloud) is selected by the DATABASE_URL scheme inside `createAuthDatabase`.
  */
 import { Global, Injectable, Module, type OnModuleDestroy } from '@nestjs/common';
 import {
-  type AuthDatabase,
-  createDatabase,
-  type KyselyBackendType,
-  KyselyUserRepository,
-  type ToopoDatabase,
+  type AuthDatabaseHandle,
+  type BetterAuthDatabase,
+  createAuthDatabase,
   type UserRepository,
 } from '@toopo/db';
-import type { Kysely } from 'kysely';
 import { Env } from '../../env';
 
 export const USER_REPOSITORY = Symbol.for('toopo.user-repository');
 
 @Injectable()
 export class DatabaseService implements OnModuleDestroy {
-  private readonly handle: ToopoDatabase<AuthDatabase>;
+  private readonly handle: AuthDatabaseHandle;
 
   constructor() {
-    this.handle = createDatabase<AuthDatabase>({ databaseUrl: Env.DATABASE_URL });
+    this.handle = createAuthDatabase({ databaseUrl: Env.DATABASE_URL });
   }
 
-  get db(): Kysely<AuthDatabase> {
-    return this.handle.db;
+  /** The `database` value passed straight to `betterAuth(...)`. */
+  get betterAuthDatabase(): BetterAuthDatabase {
+    return this.handle.betterAuthDatabase;
   }
 
-  /** Better Auth's `database.type` for the active backend. */
-  get type(): KyselyBackendType {
-    return this.handle.type;
+  get userRepository(): UserRepository {
+    return this.handle.userRepository;
   }
 
   async onModuleDestroy(): Promise<void> {
-    await this.handle.db.destroy();
+    await this.handle.close();
   }
 }
 
@@ -46,8 +44,7 @@ export class DatabaseService implements OnModuleDestroy {
     DatabaseService,
     {
       provide: USER_REPOSITORY,
-      useFactory: (database: DatabaseService): UserRepository =>
-        new KyselyUserRepository(database.db),
+      useFactory: (database: DatabaseService): UserRepository => database.userRepository,
       inject: [DatabaseService],
     },
   ],

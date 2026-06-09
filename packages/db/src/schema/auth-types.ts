@@ -10,9 +10,9 @@
  *   - booleans: `boolean` from Postgres, `0 | 1` integer from libSQL.
  * We write timestamps as ISO strings, which both backends accept.
  *
- * This is a small, typecheck-guarded type surface (not DDL), distinct from the
- * retired hand-written Drizzle schema. `kysely-codegen` from the migrated DB is
- * the scale-up path when the graph schema lands (Chunk 2).
+ * This is a small, typecheck-guarded type surface (not DDL). `kysely-codegen`
+ * from the migrated DB is the scale-up path when the graph schema lands
+ * (Chunk 2).
  */
 type DbTimestamp = Date | string;
 type DbBoolean = boolean | number;

@@ -16,7 +16,7 @@ export function MapContainerNode({ data, selected }: NodeProps<MapFlowNode>): JS
   const t = useTranslations('Graph');
   return (
     <div
-      className={`flex flex-col justify-center gap-1 rounded-lg border bg-card px-4 py-2 text-card-foreground shadow-sm transition-colors ${
+      className={`flex cursor-pointer flex-col justify-center gap-1 rounded-lg border bg-card px-4 py-2 text-card-foreground shadow-sm transition-colors hover:border-ring/70 ${
         selected ? 'border-ring ring-2 ring-ring/40' : 'border-border'
       }`}
       style={{ width: MAP_NODE_SIZE.width, height: MAP_NODE_SIZE.height }}

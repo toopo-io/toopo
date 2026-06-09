@@ -27,12 +27,16 @@ import {
   mapViewToFlowEdges,
   mapViewToFlowNodes,
 } from '../../../lib/graph/map-adapter';
+import { drillTarget } from '../../../lib/graph/navigation';
 import { useGraphMap } from '../../../lib/graph/use-graph-queries';
 import './graph.css';
+import { useGraphViewState } from '../../../lib/graph/use-graph-view-state';
+import { Breadcrumb } from './breadcrumb';
 import { MapCanvas } from './map-canvas';
 import { MapContainerNode } from './map-container-node';
 import { TrustEdge } from './trust-edge';
 import { TrustLegend } from './trust-legend';
+import { useScopeTrail } from './use-scope-trail';
 
 const NODE_TYPES: NodeTypes = { mapContainer: MapContainerNode };
 const EDGE_TYPES: EdgeTypes = { trustEdge: TrustEdge };
@@ -46,12 +50,28 @@ interface GraphExplorerProps {
 export function GraphExplorer({ initialLevel, initialMap }: GraphExplorerProps): JSX.Element {
   const locale = useLocale();
   const t = useTranslations('Graph');
+  const { state, setState } = useGraphViewState();
+
+  // The canonical root URL (`/graph`, no scope) shows the coarsest populated
+  // tier; once the viewer drills, the URL's level+scope drive the view.
+  const atRoot = state.level === 'package' && state.scope === undefined;
+  const level = atRoot ? initialLevel : state.level;
+  const scope = atRoot ? undefined : state.scope;
 
   const { data, isLoading, error } = useGraphMap(
-    { level: initialLevel },
+    { level, ...(scope !== undefined ? { scope } : {}) },
     locale,
-    initialMap ?? undefined,
+    atRoot ? (initialMap ?? undefined) : undefined,
   );
+
+  const crumbs = useScopeTrail(level, scope, locale, t(`level.${initialLevel}`));
+
+  const onNodeClick = (nodeId: string): void => {
+    const target = drillTarget(level, nodeId);
+    if (target !== null) {
+      setState({ level: target.level, scope: target.scope, blast: false });
+    }
+  };
 
   const [nodes, setNodes] = useState<MapFlowNode[]>([]);
   const [edges, setEdges] = useState<MapFlowEdge[]>([]);
@@ -96,17 +116,26 @@ export function GraphExplorer({ initialLevel, initialMap }: GraphExplorerProps):
 
   return (
     <div className="relative h-full w-full">
-      {data?.truncated ? (
-        <div
-          role="status"
-          className="absolute top-3 left-3 z-10 max-w-md rounded-lg border border-(--toopo-trust-inferred) bg-card/90 px-3 py-2 text-xs shadow-sm backdrop-blur"
-        >
-          {t('truncated')}
-        </div>
-      ) : null}
+      <div className="absolute top-3 left-3 z-10 flex max-w-[70%] flex-col gap-2">
+        <Breadcrumb crumbs={crumbs} onNavigate={setState} ariaLabel={t('breadcrumb.aria')} />
+        {data?.truncated ? (
+          <div
+            role="status"
+            className="max-w-md rounded-lg border border-(--toopo-trust-inferred) bg-card/90 px-3 py-2 text-xs shadow-sm backdrop-blur"
+          >
+            {t('truncated')}
+          </div>
+        ) : null}
+      </div>
       <TrustLegend />
       <ReactFlowProvider>
-        <MapCanvas nodes={nodes} edges={edges} nodeTypes={NODE_TYPES} edgeTypes={EDGE_TYPES} />
+        <MapCanvas
+          nodes={nodes}
+          edges={edges}
+          nodeTypes={NODE_TYPES}
+          edgeTypes={EDGE_TYPES}
+          onNodeClick={onNodeClick}
+        />
       </ReactFlowProvider>
     </div>
   );

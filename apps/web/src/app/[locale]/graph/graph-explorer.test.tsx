@@ -28,6 +28,13 @@ beforeAll(() => {
   })) as unknown as typeof globalThis.matchMedia;
 });
 
+// The explorer reads its view from the URL via next/navigation.
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn() }),
+  usePathname: () => '/en/graph',
+  useSearchParams: () => new URLSearchParams(''),
+}));
+
 const map = vi.fn();
 vi.mock('../../../lib/graph/api', () => ({
   graphApi: { map: (...args: unknown[]) => map(...args) },
@@ -72,6 +79,10 @@ describe('<GraphExplorer /> (V1 package map)', () => {
     expect(screen.getByText(messages.Graph.legend.title)).toBeInTheDocument();
     expect(screen.getByText(messages.Graph.legend.deterministic)).toBeInTheDocument();
     expect(screen.getByText(messages.Graph.legend.inferred)).toBeInTheDocument();
+    // The breadcrumb roots at the entry tier ("Packages").
+    expect(
+      screen.getByRole('navigation', { name: messages.Graph.breadcrumb.aria }),
+    ).toHaveTextContent(messages.Graph.level.package);
   });
 
   it('shows an honest truncated banner when the view is capped', () => {

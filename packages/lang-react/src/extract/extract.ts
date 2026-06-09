@@ -1,5 +1,6 @@
 import type { ExtractContext, GraphFragment } from '@toopo/parser';
 import { extractExports } from './exports.js';
+import { bindHeritageEdges } from './heritage-edges.js';
 import { extractImports } from './imports.js';
 import { extractInvocations } from './invocations.js';
 import { extractSymbols } from './symbols.js';
@@ -19,14 +20,17 @@ export interface ExtractOptions {
  * Map one parsed TypeScript file to a `@toopo/core` graph fragment (ADR-0016).
  * The orchestration stays thin: each concern is its own pure module.
  *
- *   - symbols/params (Phase C): components/hooks/functions and their declared
- *     interface, with `contains` edges;
+ *   - symbols/params: top-level functions, components, hooks, value variables,
+ *     classes, interfaces, and type aliases (Fix B) plus function-like declared
+ *     params/props, with `contains` edges;
  *   - imports: external bindings as deterministic `imports` edges, relative/
  *     alias imports as structured `unresolved` data for the resolver;
  *   - invocations: intra-file `callSite` nodes (calls and, in `.tsx`, JSX
  *     renders) with their payloads, `calls`/`react:renders` edges, and
  *     `references` bindings only where the callee/receiver is lexically
- *     resolvable here.
+ *     resolvable here;
+ *   - heritage: class `extends`/`implements` edges to in-file or imported-
+ *     external supertypes (Fix B).
  *
  * `options.jsx` gates every JSX pass: the `.ts` grammar lacks JSX node types,
  * so those passes are skipped (and would otherwise throw at query compilation).
@@ -44,6 +48,7 @@ export function extractReact(ctx: ExtractContext, options: ExtractOptions): Grap
     importResult.externalBindings,
     options.jsx,
   );
+  const heritageEdges = bindHeritageEdges(symbolResult.symbols, importResult.externalBindings);
 
   return {
     nodes: [...symbolResult.nodes, ...invocationResult.nodes],
@@ -52,6 +57,7 @@ export function extractReact(ctx: ExtractContext, options: ExtractOptions): Grap
       ...importResult.edges,
       ...exportResult.edges,
       ...invocationResult.edges,
+      ...heritageEdges,
     ],
     unresolved: importResult.unresolved,
     exports: exportResult.exports,

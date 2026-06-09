@@ -6,24 +6,38 @@
  */
 
 /**
- * TOP-LEVEL function-like declarations only (ADR-0015 grain: file-contained
- * symbols). A symbol is a `function_declaration`, or a `variable_declarator`
- * whose value is an arrow/function expression — either at file scope or under a
- * top-level `export_statement`. Nested declarations are deliberately excluded
- * for v1. The `declaration:` field excludes anonymous `export default (…) =>`
- * / `export default function() {}` (no name → no stable identity), which
- * degrade to "no symbol" rather than a fabricated one.
+ * TOP-LEVEL declarations (ADR-0015 grain: file-contained symbols), captured at
+ * file scope or under a top-level `export_statement`. The set covers what real
+ * code exports and other files import (Fix B):
+ *
+ *   - `function_declaration` — functions, components, hooks;
+ *   - `variable_declarator` — ANY value const/let/var: arrow/function values are
+ *     functions/components/hooks, a `forwardRef`/`memo` wrapper is a component,
+ *     and every other value is a `ts:variable` (the kind is decided in code);
+ *   - `class_declaration` / `abstract_class_declaration` — `ts:class`;
+ *   - `interface_declaration` — `ts:interface`;
+ *   - `type_alias_declaration` — `ts:type`.
+ *
+ * Nested declarations and class/interface MEMBERS are deliberately deferred. The
+ * `declaration:` field excludes anonymous `export default (…) =>` / `export
+ * default function() {}` (no name → no stable identity), which degrade to "no
+ * symbol" rather than a fabricated one.
  */
 export const SYMBOL_QUERY = `
   (program (function_declaration) @symbol)
   (program (export_statement declaration: (function_declaration) @symbol))
-  (program
-    (lexical_declaration
-      (variable_declarator value: [(arrow_function) (function_expression)]) @symbol))
-  (program
-    (export_statement
-      declaration: (lexical_declaration
-        (variable_declarator value: [(arrow_function) (function_expression)]) @symbol)))
+  (program (lexical_declaration (variable_declarator) @symbol))
+  (program (variable_declaration (variable_declarator) @symbol))
+  (program (export_statement declaration: (lexical_declaration (variable_declarator) @symbol)))
+  (program (export_statement declaration: (variable_declaration (variable_declarator) @symbol)))
+  (program (class_declaration) @symbol)
+  (program (abstract_class_declaration) @symbol)
+  (program (export_statement declaration: (class_declaration) @symbol))
+  (program (export_statement declaration: (abstract_class_declaration) @symbol))
+  (program (interface_declaration) @symbol)
+  (program (export_statement declaration: (interface_declaration) @symbol))
+  (program (type_alias_declaration) @symbol)
+  (program (export_statement declaration: (type_alias_declaration) @symbol))
 `;
 
 /**

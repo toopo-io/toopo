@@ -12,6 +12,10 @@ export const SUBKIND = {
   function: 'ts:function',
   parameter: 'ts:parameter',
   prop: 'react:prop',
+  variable: 'ts:variable',
+  type: 'ts:type',
+  interface: 'ts:interface',
+  class: 'ts:class',
 } as const;
 
 export type SymbolSubKind = (typeof SUBKIND)[keyof typeof SUBKIND];

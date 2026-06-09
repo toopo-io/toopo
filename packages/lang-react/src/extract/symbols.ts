@@ -1,13 +1,14 @@
 import type { Descriptor, Edge, Node, SymbolId } from '@toopo/core';
 import type { ExtractContext } from '@toopo/parser';
 import type { Node as SyntaxNode } from 'web-tree-sitter';
-import { SUBKIND, type SymbolSubKind } from '../subkinds.js';
-import { classifySymbol } from './classify.js';
+import type { SymbolSubKind } from '../subkinds.js';
+import { classifyDeclaration } from './declarations.js';
 import { parseEdge } from './edges.js';
+import type { Heritage } from './heritage.js';
 import { type DeclaredChild, extractParameters } from './params.js';
-import { JSX_QUERY, SYMBOL_QUERY } from './queries.js';
+import { SYMBOL_QUERY } from './queries.js';
 
-/** A top-level symbol the file declares, kept for the call/render passes. */
+/** A top-level symbol the file declares, kept for the call/render/heritage passes. */
 export interface ExtractedSymbol {
   readonly id: SymbolId;
   readonly name: string;
@@ -16,6 +17,8 @@ export interface ExtractedSymbol {
   readonly subKind: SymbolSubKind;
   /** Declared params/props, for binding call/render payloads to receivers. */
   readonly declared: DeclaredChild[];
+  /** Class supertype names (extends/implements), for the heritage-edge pass. */
+  readonly heritage: Heritage;
 }
 
 export interface SymbolExtraction {
@@ -24,13 +27,13 @@ export interface SymbolExtraction {
   readonly symbols: ExtractedSymbol[];
 }
 
-const JSX_BODY_TYPES = new Set(['jsx_element', 'jsx_self_closing_element']);
-
 /**
- * Extract the file's top-level component/hook/function symbols plus their
- * declared params/props (ADR-0015 §6), each linked by `contains`. Anonymous
- * declarations (no name node) are skipped — a symbol's identity is its name
- * path, and inventing one would be a guess.
+ * Extract the file's top-level symbols — functions, components, hooks, value
+ * variables, classes, interfaces, and type aliases (ADR-0015 §6, Fix B) — plus
+ * the declared params/props of function-likes, each linked by `contains`. The
+ * per-kind classification lives in `classifyDeclaration`; declarations with no
+ * stable name (anonymous default, destructuring) are skipped rather than given
+ * a fabricated identity.
  */
 export function extractSymbols(ctx: ExtractContext, jsx: boolean): SymbolExtraction {
   const nodes: Node[] = [];
@@ -39,21 +42,19 @@ export function extractSymbols(ctx: ExtractContext, jsx: boolean): SymbolExtract
 
   for (const capture of ctx.query(SYMBOL_QUERY).captures(ctx.tree.rootNode)) {
     const definition = capture.node;
-    const parts = functionParts(definition);
-    if (parts.name === null) {
+    const declaration = classifyDeclaration(ctx, definition, jsx);
+    if (declaration === null) {
       continue;
     }
 
-    const name = parts.name.text;
-    const subKind = classifySymbol(name, jsx && bodyReturnsJsx(ctx, parts.body));
-    const descriptor: Descriptor = { name, suffix: 'term' };
+    const descriptor: Descriptor = { name: declaration.name, suffix: 'term' };
     const id = ctx.childId([descriptor]);
 
     nodes.push({
       kind: 'symbol',
       id,
-      name,
-      subKind,
+      name: declaration.name,
+      subKind: declaration.subKind,
       location: ctx.locate(definition),
       properties: {},
     });
@@ -61,56 +62,23 @@ export function extractSymbols(ctx: ExtractContext, jsx: boolean): SymbolExtract
 
     const declared = extractParameters(
       ctx,
-      parts.params,
+      declaration.params,
       descriptor,
       id,
-      subKind === SUBKIND.component,
+      declaration.isComponent,
     );
     nodes.push(...declared.nodes);
     edges.push(...declared.edges);
 
-    symbols.push({ id, name, node: definition, subKind, declared: declared.children });
+    symbols.push({
+      id,
+      name: declaration.name,
+      node: definition,
+      subKind: declaration.subKind,
+      declared: declared.children,
+      heritage: declaration.heritage,
+    });
   }
 
   return { nodes, edges, symbols };
-}
-
-interface FunctionParts {
-  readonly name: SyntaxNode | null;
-  readonly params: SyntaxNode | null;
-  readonly body: SyntaxNode | null;
-}
-
-/** Resolve the name/parameters/body of a function declaration or arrow/fn const. */
-function functionParts(definition: SyntaxNode): FunctionParts {
-  if (definition.type === 'variable_declarator') {
-    const value = definition.childForFieldName('value');
-    return {
-      name: definition.childForFieldName('name'),
-      params: value?.childForFieldName('parameters') ?? null,
-      body: value?.childForFieldName('body') ?? null,
-    };
-  }
-  return {
-    name: definition.childForFieldName('name'),
-    params: definition.childForFieldName('parameters'),
-    body: definition.childForFieldName('body'),
-  };
-}
-
-/**
- * Whether a function body returns JSX. An arrow body that IS a JSX node counts
- * directly; otherwise any JSX descendant of the body counts. This is a
- * documented heuristic: it can see JSX created inside a nested callback, but
- * combined with the Capitalized-name gate it classifies the subKind only and
- * never an edge, so a false positive is recoverable.
- */
-function bodyReturnsJsx(ctx: ExtractContext, body: SyntaxNode | null): boolean {
-  if (body === null) {
-    return false;
-  }
-  if (JSX_BODY_TYPES.has(body.type)) {
-    return true;
-  }
-  return ctx.query(JSX_QUERY).captures(body).length > 0;
 }

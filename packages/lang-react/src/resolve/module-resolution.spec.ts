@@ -100,4 +100,64 @@ describe('resolveModule (React)', () => {
   it('is unresolved when a relative specifier matches no parsed file', () => {
     expect(resolveModule(request('./Nowhere'), emptyIndex, project()).status).toBe('unresolved');
   });
+
+  describe('TS-ESM (NodeNext) extension mapping', () => {
+    it('maps a ./foo.js specifier to its ./foo.ts source', () => {
+      const result = resolveModule(
+        request('./foo.js'),
+        indexWith({ 'src/foo.ts': 'Foo.' }),
+        project(),
+      );
+      expect(result).toEqual({
+        status: 'internal',
+        fileId: 'Foo.',
+        certainty: { resolution: 'deterministic' },
+      });
+    });
+
+    it('maps a ./Comp.js specifier to a ./Comp.tsx source', () => {
+      const result = resolveModule(
+        request('./Comp.js'),
+        indexWith({ 'src/Comp.tsx': 'Comp.' }),
+        project(),
+      );
+      expect(result).toMatchObject({ status: 'internal', fileId: 'Comp.' });
+    });
+
+    it('maps .mjs to .mts and .cjs to .cts', () => {
+      expect(
+        resolveModule(request('./esm.mjs'), indexWith({ 'src/esm.mts': 'E.' }), project()),
+      ).toMatchObject({ status: 'internal', fileId: 'E.' });
+      expect(
+        resolveModule(request('./cm.cjs'), indexWith({ 'src/cm.cts': 'C.' }), project()),
+      ).toMatchObject({ status: 'internal', fileId: 'C.' });
+    });
+
+    it('prefers the TS source over a literal .js file of the same name', () => {
+      const result = resolveModule(
+        request('./foo.js'),
+        indexWith({ 'src/foo.ts': 'Src.', 'src/foo.js': 'Js.' }),
+        project(),
+      );
+      expect(result).toMatchObject({ status: 'internal', fileId: 'Src.' });
+    });
+
+    it('falls back to the literal .js file when no TS source exists', () => {
+      const result = resolveModule(
+        request('./legacy.js'),
+        indexWith({ 'src/legacy.js': 'Legacy.' }),
+        project(),
+      );
+      expect(result).toMatchObject({ status: 'internal', fileId: 'Legacy.' });
+    });
+
+    it('maps a .js specifier through a tsconfig alias to its .ts source', () => {
+      const result = resolveModule(
+        request('@/util.js'),
+        indexWith({ 'src/util.ts': 'Util.' }),
+        project([{ pattern: '@/*', targets: ['src/*'] }]),
+      );
+      expect(result).toMatchObject({ status: 'internal', fileId: 'Util.' });
+    });
+  });
 });

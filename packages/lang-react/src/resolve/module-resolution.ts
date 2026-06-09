@@ -120,11 +120,39 @@ function matchPattern(
   };
 }
 
-/** The ordered candidate paths for a base path: literal, extension, then index. */
+/**
+ * TS-ESM (NodeNext) output→source extension rules (TS Handbook, Module
+ * Resolution): an import written with the EMITTED extension resolves to its
+ * TypeScript source — `./x.js` → `./x.ts`|`./x.tsx`, `./x.mjs` → `./x.mts`,
+ * `./x.cjs` → `./x.cts`. The TS source is tried first; the literal specifier
+ * remains a fallback (a genuine `.js`/`.mjs`/`.cjs` file still resolves).
+ */
+const ESM_SOURCE_EXTENSIONS: readonly (readonly [string, readonly string[]])[] = [
+  ['.js', ['.ts', '.tsx']],
+  ['.mjs', ['.mts']],
+  ['.cjs', ['.cts']],
+];
+
+/**
+ * The ordered candidate paths for a base path: NodeNext TS-source remaps first
+ * (so `./x.js` finds `./x.ts`), then the literal, then extension and index forms.
+ */
 function candidatePaths(base: string): string[] {
   return [
+    ...esmSourceCandidates(base),
     base,
     ...FILE_EXTENSIONS.map((extension) => `${base}${extension}`),
     ...FILE_EXTENSIONS.map((extension) => `${base}/index${extension}`),
   ];
+}
+
+/** Map an emitted-extension base to its TypeScript source candidates (NodeNext). */
+function esmSourceCandidates(base: string): string[] {
+  for (const [emitted, sources] of ESM_SOURCE_EXTENSIONS) {
+    if (base.endsWith(emitted)) {
+      const stem = base.slice(0, -emitted.length);
+      return sources.map((source) => `${stem}${source}`);
+    }
+  }
+  return [];
 }

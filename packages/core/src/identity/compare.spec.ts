@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import type { Edge } from '../edges/edge';
 import type { Node } from '../nodes/node';
-import { compareEdges, compareNodes, compareSymbolIds, sortEdges, sortNodes } from './compare';
+import {
+  compareEdges,
+  compareNodes,
+  compareSymbolIds,
+  edgeIdentityKey,
+  sortEdges,
+  sortNodes,
+} from './compare';
 
 function symbol(id: string): Node {
   return { kind: 'symbol', id, name: id, properties: {} };
@@ -81,5 +88,45 @@ describe('compareNodes / compareEdges', () => {
     };
     expect(compareEdges(deterministic, inferred)).toBe(-1);
     expect(compareEdges(inferred, deterministic)).toBe(1);
+  });
+});
+
+describe('edgeIdentityKey', () => {
+  it('is equal exactly when compareEdges treats two edges as identical', () => {
+    const a = edge('a', 'b', 'calls');
+    const b = edge('a', 'b', 'calls');
+    expect(compareEdges(a, b)).toBe(0);
+    expect(edgeIdentityKey(a)).toBe(edgeIdentityKey(b));
+  });
+
+  it('ignores provenance and confidence (not part of identity)', () => {
+    const base = edge('a', 'b', 'calls');
+    const otherProvenance: Edge = { ...base, provenance: { pass: 'parse', rule: 'other' } };
+    expect(edgeIdentityKey(base)).toBe(edgeIdentityKey(otherProvenance));
+  });
+
+  it('separates on each identity field', () => {
+    const base = edge('a', 'b', 'calls');
+    expect(edgeIdentityKey(base)).not.toBe(edgeIdentityKey(edge('a', 'b', 'imports')));
+    expect(edgeIdentityKey(base)).not.toBe(edgeIdentityKey(edge('a', 'c', 'calls')));
+    expect(edgeIdentityKey(base)).not.toBe(edgeIdentityKey(edge('z', 'b', 'calls')));
+    expect(edgeIdentityKey(base)).not.toBe(edgeIdentityKey({ ...base, subKind: 'ts:call' }));
+    const inferred: Edge = { ...base, resolution: 'inferred', confidence: 'high' };
+    expect(edgeIdentityKey(base)).not.toBe(edgeIdentityKey(inferred));
+  });
+
+  it('distinguishes an absent subKind from any string subKind via a null sentinel', () => {
+    const withoutSubKind = edge('a', 'b', 'calls');
+    const emptyish: Edge = { ...withoutSubKind, subKind: 'x:null' };
+    expect(edgeIdentityKey(withoutSubKind)).toContain('null');
+    expect(edgeIdentityKey(withoutSubKind)).not.toBe(edgeIdentityKey(emptyish));
+  });
+
+  it('encodes arbitrary characters in ids without collision', () => {
+    // A naive `source + delimiter + target` join would render these identically;
+    // JSON encoding of the fixed-arity tuple keeps the identity total.
+    const a = edgeIdentityKey(edge('a', 'b","c', 'calls'));
+    const b = edgeIdentityKey(edge('a","b', 'c', 'calls'));
+    expect(a).not.toBe(b);
   });
 });

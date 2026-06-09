@@ -40,7 +40,6 @@ const EDGE_COLUMNS = [
   'provenance_pass',
   'provenance_rule',
   'file_id',
-  'properties',
 ] as const;
 
 const GRAPH_INDEXES = [

@@ -56,6 +56,29 @@ export function compareNodes(a: Node, b: Node): number {
   return NODE_KIND_ORDER[a.kind] - NODE_KIND_ORDER[b.kind];
 }
 
+/**
+ * The canonical identity of an edge as a single deterministic string — the
+ * serialization counterpart of {@link compareEdges} (two edges are identical iff
+ * their keys are equal), mirroring how `formatSymbolId` serializes node
+ * identity. The identity is the forward-edge "stored once" tuple of ADR-0015 §11
+ * — `(sourceId, kind, targetId, subKind, resolution)` — exactly the fields
+ * `compareEdges` orders by; `provenance` and `confidence` are NOT identity.
+ *
+ * Storage uses this as the edge primary key so re-persisting a graph dedups to
+ * one row per logical edge. `JSON.stringify` of a fixed-arity tuple is a total,
+ * unambiguous encoding even when ids contain arbitrary characters (every value
+ * is escaped), and `null` distinguishes "no subKind" from any string subKind.
+ */
+export function edgeIdentityKey(edge: Edge): string {
+  return JSON.stringify([
+    edge.sourceId,
+    edge.kind,
+    edge.targetId,
+    edge.subKind ?? null,
+    edge.resolution,
+  ]);
+}
+
 export function compareEdges(a: Edge, b: Edge): number {
   const bySource = compareSymbolIds(a.sourceId, b.sourceId);
   if (bySource !== 0) {

@@ -16,7 +16,7 @@ create index "node_file_id_idx" on "node" ("file_id");
 
 -- Forward edges stored once (ADR-0015 section 11). edge_key is the deterministic
 -- encoding of the canonical identity tuple, so re-persist is an idempotent upsert.
-create table "edge" ("edge_key" text not null primary key, "source_id" text not null, "target_id" text not null, "kind" text not null, "sub_kind" text, "resolution" text not null, "confidence" text, "provenance_pass" text not null, "provenance_rule" text not null, "file_id" text, "properties" text not null default '{}');
+create table "edge" ("edge_key" text not null primary key, "source_id" text not null, "target_id" text not null, "kind" text not null, "sub_kind" text, "resolution" text not null, "confidence" text, "provenance_pass" text not null, "provenance_rule" text not null, "file_id" text);
 
 -- Forward (what X depends on) and reverse (who depends on X, the blast-radius
 -- index) traversal. Reverse is an index, never duplicated rows.

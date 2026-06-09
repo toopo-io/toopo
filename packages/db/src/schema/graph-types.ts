@@ -38,6 +38,13 @@ export interface NodeTable {
   properties: JsonColumn;
 }
 
+/**
+ * Edges carry NO open `properties` bag: the core `EdgeSchema` is strict and
+ * models only kind/subKind/source/target/provenance/resolution(+confidence).
+ * The graph's open JSON bag lives on nodes only, so the edge table has no
+ * `properties` column — adding edge properties later is an additive core +
+ * migration change, never a dead write-only column here (YAGNI).
+ */
 export interface EdgeTable {
   edge_key: string;
   source_id: string;
@@ -49,7 +56,6 @@ export interface EdgeTable {
   provenance_pass: string;
   provenance_rule: string;
   file_id: string | null;
-  properties: JsonColumn;
 }
 
 /** The Kysely database schema for the graph module. */

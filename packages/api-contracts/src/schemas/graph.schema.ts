@@ -33,10 +33,17 @@ const idField = z.string().min(1);
 
 // ───────────────────────── Request (query) schemas ─────────────────────────
 
-/** V1 map: `GET /v1/graph/map`. */
+/**
+ * V1 map: `GET /v1/graph/map`. The symbol level requires a `scope` (a file id),
+ * so it can never be unbounded; package/file may omit it (ADR-0020 Fork 4).
+ */
 export const MapQuerySchema = z
   .object({ level: MapLevelSchema, scope: z.string().min(1).optional(), limit: limitField })
-  .strict();
+  .strict()
+  .refine((query) => query.level !== 'symbol' || query.scope !== undefined, {
+    message: 'scope is required when level is "symbol"',
+    path: ['scope'],
+  });
 export type MapQuery = z.infer<typeof MapQuerySchema>;
 
 /** V2 node detail: `GET /v1/graph/node`. */

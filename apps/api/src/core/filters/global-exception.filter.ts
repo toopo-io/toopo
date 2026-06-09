@@ -6,6 +6,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { ErrorCode, type ErrorResponse } from '@toopo/api-contracts';
+import { InvalidCursorError } from '@toopo/db';
 import { type Locale, negotiateLocale } from '@toopo/i18n';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { Logger } from 'nestjs-pino';
@@ -78,6 +79,19 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     request: FastifyRequest,
     locale: Locale,
   ): { status: number; body: ErrorResponse } {
+    if (exception instanceof InvalidCursorError) {
+      // An untrusted, malformed pagination cursor (ADR-0020 Fork 4) is client
+      // error, not a server fault — surface it as a 400, never a 500.
+      return {
+        status: HttpStatus.BAD_REQUEST,
+        body: {
+          code: ErrorCode.VALIDATION_FAILED,
+          message: this.i18n.translate(locale, CODE_TO_KEY[ErrorCode.VALIDATION_FAILED]),
+          requestId: request.id,
+        },
+      };
+    }
+
     if (exception instanceof ZodValidationException) {
       const zodError = exception.getZodError() as z.ZodError;
       const first = zodError.issues[0];

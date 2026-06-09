@@ -7,11 +7,20 @@ import { I18nModule } from './i18n/i18n.module';
 import { LocaleInterceptor } from './i18n/locale.interceptor';
 import { AuthModule } from './modules/auth/auth.module';
 import { DatabaseModule } from './modules/database/database.module';
+import { GraphModule } from './modules/graph/graph.module';
 import { HealthModule } from './modules/health/health.module';
 import { UserModule } from './modules/user/user.module';
 
 @Module({
-  imports: [CoreModule, DatabaseModule, I18nModule, AuthModule, HealthModule, UserModule],
+  imports: [
+    CoreModule,
+    DatabaseModule,
+    I18nModule,
+    AuthModule,
+    HealthModule,
+    UserModule,
+    GraphModule,
+  ],
   providers: [
     { provide: APP_PIPE, useClass: ZodValidationPipe },
     { provide: APP_INTERCEPTOR, useClass: LocaleInterceptor },

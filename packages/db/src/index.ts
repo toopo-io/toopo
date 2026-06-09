@@ -14,6 +14,7 @@ export {
 } from './config.js';
 export { createDatabase, type ToopoDatabase } from './database.js';
 export { buildDialect, type KyselyBackendType, type ResolvedDialect } from './dialect.js';
+export { createGraphDatabase, type GraphDatabaseHandle } from './graph-database.js';
 export { MIGRATIONS_DIR } from './migrations-dir.js';
 export {
   type MigrateOptions,

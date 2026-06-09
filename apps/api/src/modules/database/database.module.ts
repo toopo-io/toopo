@@ -10,31 +10,45 @@ import {
   type AuthDatabaseHandle,
   type BetterAuthDatabase,
   createAuthDatabase,
+  createGraphDatabase,
+  type GraphDatabaseHandle,
+  type GraphRepository,
   type UserRepository,
 } from '@toopo/db';
 import { Env } from '../../env';
 
 export const USER_REPOSITORY = Symbol.for('toopo.user-repository');
+export const GRAPH_REPOSITORY = Symbol.for('toopo.graph-repository');
 
 @Injectable()
 export class DatabaseService implements OnModuleDestroy {
-  private readonly handle: AuthDatabaseHandle;
+  private readonly authHandle: AuthDatabaseHandle;
+  private readonly graphHandle: GraphDatabaseHandle;
 
   constructor() {
-    this.handle = createAuthDatabase({ databaseUrl: Env.DATABASE_URL });
+    // One logical database, two schema modules (ADR-0017 §7): the auth handle
+    // backs Better Auth, the graph handle backs the read-only Serve API. The
+    // backend is selected by the DATABASE_URL scheme inside @toopo/db.
+    this.authHandle = createAuthDatabase({ databaseUrl: Env.DATABASE_URL });
+    this.graphHandle = createGraphDatabase({ databaseUrl: Env.DATABASE_URL });
   }
 
   /** The `database` value passed straight to `betterAuth(...)`. */
   get betterAuthDatabase(): BetterAuthDatabase {
-    return this.handle.betterAuthDatabase;
+    return this.authHandle.betterAuthDatabase;
   }
 
   get userRepository(): UserRepository {
-    return this.handle.userRepository;
+    return this.authHandle.userRepository;
+  }
+
+  /** The read-only code-graph repository backing the Serve API (ADR-0020). */
+  get graphRepository(): GraphRepository {
+    return this.graphHandle.graphRepository;
   }
 
   async onModuleDestroy(): Promise<void> {
-    await this.handle.close();
+    await Promise.all([this.authHandle.close(), this.graphHandle.close()]);
   }
 }
 
@@ -47,7 +61,12 @@ export class DatabaseService implements OnModuleDestroy {
       useFactory: (database: DatabaseService): UserRepository => database.userRepository,
       inject: [DatabaseService],
     },
+    {
+      provide: GRAPH_REPOSITORY,
+      useFactory: (database: DatabaseService): GraphRepository => database.graphRepository,
+      inject: [DatabaseService],
+    },
   ],
-  exports: [DatabaseService, USER_REPOSITORY],
+  exports: [DatabaseService, USER_REPOSITORY, GRAPH_REPOSITORY],
 })
 export class DatabaseModule {}

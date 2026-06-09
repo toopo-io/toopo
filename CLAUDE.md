@@ -41,7 +41,7 @@ and ADR-0020 (Serve).
 | `apps/web`, `apps/api` | existing | UI; API (thin) |
 | `apps/worker` | existing | minimal ingest→persist CLI to populate the graph DB; precursor to the queue/webhook worker (ADR-0020) |
 | `packages/{api-contracts, env, i18n, ui}` | existing | shared plumbing |
-| `packages/db` | existing | persistence: Kysely dual-backend (SQLite self-host / Postgres cloud) + Better Auth tables + Serve read primitives (ADR-0017, ADR-0020) |
+| `packages/db` | existing | persistence: Kysely dual-backend (SQLite self-host / Postgres cloud) + Better Auth tables + project tenancy + project-scoped Serve read primitives (ADR-0017, ADR-0020, ADR-0022) |
 | `packages/core` | existing | universal graph format + types (ADR-0015) |
 | `packages/parser` | existing | tree-sitter orchestration |
 | `packages/resolver` | existing | semantic resolution |
@@ -61,6 +61,7 @@ supersede it with a new ADR. Foundational set:
 - **ADR-0016** — parsing & resolution (tree-sitter via `web-tree-sitter`; custom heuristic resolver; NOT stack-graphs, NOT LSP; file-level incremental).
 - **ADR-0017** — storage: dual-backend (SQLite self-host / Postgres cloud) via Kysely; supersedes ADR-0012.
 - **ADR-0020** — Serve pass: `packages/serve` composition + `@toopo/db` read primitives + thin `apps/api`; REST + Zod; on-read views; keyset pagination; `apps/worker` populate CLI.
+- **ADR-0022** — Project tenancy & graph access control: administrative `project` entity (distinct from the graph `repo` node); graph scoped by composite PK `(project_id, …)` + a mandatory `GraphScope`; instance-tenant OSS authorization; `/v1/projects/:projectId/graph/*` behind the session guard. Extends ADR-0017 (does not supersede).
 
 Read `docs/adr/README.md` before architectural work.
 

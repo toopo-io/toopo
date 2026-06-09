@@ -41,3 +41,4 @@ a new ADR that supersedes the old one.
 | [0019](0019-licensing.md) | Licensing — AGPL-3.0-or-later | Accepted |
 | [0020](0020-serve-pass-architecture.md) | Serve-pass architecture — read API, derived views, pagination | Accepted |
 | [0021](0021-blast-radius-per-hit-path-trust.md) | Blast-radius per-hit path trust | Accepted |
+| [0022](0022-project-tenancy-and-graph-access-control.md) | Project tenancy & graph access control | Accepted |

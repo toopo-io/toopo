@@ -39,7 +39,7 @@ language) → Serve (queryable graph + derived views). See ADR-0016.
 | --- | --- | --- |
 | `apps/web`, `apps/api` | existing | UI; API (thin) |
 | `packages/{api-contracts, env, i18n, ui}` | existing | shared plumbing |
-| `packages/db` | existing, refactor pending | persistence → Kysely dual-backend (ADR-0017) |
+| `packages/db` | existing | persistence: Kysely dual-backend (SQLite self-host / Postgres cloud) + Better Auth tables (ADR-0017) |
 | `packages/core` | planned | universal graph format + types (ADR-0015) |
 | `packages/parser` | planned | tree-sitter orchestration |
 | `packages/resolver` | planned | semantic resolution |

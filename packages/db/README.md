@@ -1,82 +1,111 @@
 # @toopo/db
 
-Drizzle ORM + Neon Postgres client and schema for Toopo.
+Kysely data-access layer over a **dual backend** — SQLite (self-host) or
+Postgres (cloud) — selected by configuration, with Better Auth on its built-in
+Kysely adapter. Implements [ADR-0017](../../docs/adr/0017-storage-strategy.md)
+(supersedes ADR-0012's Neon + Drizzle stance).
+
+## One interface, two backends
+
+The backend is inferred from the `DATABASE_URL` **scheme** — switching is a
+config change, never a code change (ADR-0017 §1):
+
+| Scheme | Backend | Driver |
+| --- | --- | --- |
+| `postgres://`, `postgresql://` | Postgres (cloud) | `pg` + Kysely `PostgresDialect` |
+| `libsql://`, `sqlite://`, `file:`, `:memory:` | SQLite (self-host) | `@libsql/kysely-libsql` — prebuilt, no native build (ADR-0017 §9) |
+
+```ts
+import { createAuthDatabase } from '@toopo/db';
+
+// SQLite self-host (one file) or Postgres cloud — same call, scheme decides.
+const { betterAuthDatabase, userRepository, close } = createAuthDatabase({
+  databaseUrl: process.env.DATABASE_URL,
+});
+```
+
+`createAuthDatabase` returns everything the app needs — the object Better Auth's
+adapter expects, the `UserRepository`, and a `close()` — so consumers never name
+Kysely or the persistence implementation (fork F4). The same connection backs
+both Better Auth and the repository.
 
 ## Layout
 
 ```
 packages/db/
 ├── src/
-│   ├── client.ts          # createDb factory (consumed by apps/api)
-│   ├── schema/
-│   │   └── index.ts       # Drizzle table definitions (generated, see below)
-│   └── index.ts           # package barrel
-├── drizzle/
-│   └── migrations/        # SQL migrations (tool-consumed, see ADR-0010)
-└── drizzle.config.ts      # Drizzle Kit config (DATABASE_URL required)
+│   ├── config.ts            # DATABASE_URL -> backend (Zod refine, not .url())
+│   ├── dialect.ts           # libSQL | Postgres dialect
+│   ├── database.ts          # createDatabase -> typed Kysely instance
+│   ├── auth-database.ts     # createAuthDatabase -> { betterAuthDatabase, userRepository, close }
+│   ├── auth-schema.ts       # schema-affecting Better Auth options (deletedAt)
+│   ├── generate-auth-sql.ts # compile auth SQL from the installed better-auth
+│   ├── migrator.ts          # Kysely Migrator over committed .sql files
+│   ├── repositories/        # UserRepository interface + Kysely impl
+│   └── schema/auth-types.ts # Kysely table types for the auth schema
+├── migrations/
+│   ├── sqlite/              # committed, dialect-specific SQL (tool-consumed, ADR-0010)
+│   └── postgres/
+└── (no ORM config — the schema is generated, see below)
 ```
 
-Per [ADR-0010](../../docs/adr/0010-asset-bundling-strategy.md):
+## Migrations: committed SQL is the source of truth
 
-- `src/**/*.ts` — code-shaped data, compiled by `tsc` into `dist/`.
-- `drizzle/migrations/**/*.sql` — tool-consumed files, **outside `src/`**,
-  loaded by `drizzle-kit` at its conventional path. Never imported.
+Auth migrations are **generated at maintainer time** and **committed**; they are
+applied **verbatim**, never re-derived at apply time (ADR-0017 §4):
 
-## Local setup
+1. **`pnpm db:generate`** compiles the Better Auth schema SQL **programmatically
+   from the installed `better-auth`** (`getMigrations(...).compileMigrations()`),
+   for both dialects, into `migrations/{sqlite,postgres}/0000_better_auth.sql`.
+   This is version-matched to the running auth library — it does **not** use the
+   standalone `@better-auth/cli`, which still lags the runtime and would
+   reintroduce the schema-drift hazard ADR-0012 wrestled with. The `deletedAt`
+   RGPD field (ADR-0013) is a Better Auth field extension (`additionalFields`);
+   its index is the hand-authored follow-up `0001_user_deleted_at_idx.sql`
+   (Better Auth emits no index for additional fields).
+2. **`pnpm db:migrate`** applies the committed `.sql` files to `DATABASE_URL`
+   via a Kysely `Migrator` — the single migration mechanism the graph schema
+   (Chunk 2) will reuse. Explicit only; never on boot (ADR-0008).
 
-1. Create a Neon project (https://console.neon.tech) and a development branch.
-2. Copy the pooled connection string into `apps/api/.env` as `DATABASE_URL`.
-3. From the repo root, run migrations:
+**Drift-check (CI):** the pipeline re-runs `db:generate` and fails on any diff
+against the committed migrations — catching an un-regenerated schema after a
+`better-auth` bump or an `authSchemaOptions` change. This closes the
+drift-detection gap ADR-0012 left explicitly open; combined with the live
+dual-backend auth-flow e2e, the conformance guarantee ADR-0012 lost is restored.
 
-```bash
-pnpm db:migrate
-```
+Generation is hermetic (SQLite in-memory; Postgres via a throwaway
+testcontainer), so it is reproducible with no external service.
 
-## Workflow
+## Boundary validation
 
-| Command                       | What it does                                            |
-| ----------------------------- | ------------------------------------------------------- |
-| `pnpm db:generate`            | Generate a new SQL migration from `src/schema/**` diff. |
-| `pnpm db:migrate`             | Apply pending migrations to `DATABASE_URL`.             |
-| `pnpm db:push`                | Push schema directly (dev only — bypasses migrations).  |
-| `pnpm db:studio`              | Open Drizzle Studio against `DATABASE_URL`.             |
+Rows read back are normalized at the storage boundary (ADR-0006, ADR-0017 §10):
+Postgres returns `Date`/`boolean`, libSQL returns ISO-string/`0|1`. The
+repository's Zod schemas coerce both to one clean domain shape and strip session
+tokens + account credentials from the RGPD export (ADR-0013).
 
-All four commands load env vars via Node 22's `--env-file=../../apps/api/.env`
-flag and then invoke `drizzle-kit`. `DATABASE_URL` is the single source of
-truth, kept alongside the API's other secrets in `apps/api/.env` (not
-duplicated in a per-package `.env`). Requires Node 22+; the relative path
-must remain valid from `packages/db/` if either side is relocated.
+## Portable-SQL discipline (carries into Chunk 2)
 
-None auto-run on app boot — migrations are always explicit (see ADR-0008 for
-the fail-fast rationale).
+When the graph schema lands, all queries must stay portable across both backends
+(ADR-0017 §6): use `->>` only (never `->`), `WITH RECURSIVE` with a
+visited-path column + depth cap for traversal (never Postgres `CYCLE`/`SEARCH`),
+no arrays, no `jsonb`-only operators, everything parameterized. The dual-backend
+test harness runs the suite against SQLite **and** Postgres so any non-portable
+construct fails fast. `kysely-codegen` from the migrated DB is the type-generation
+path when the schema grows beyond the four auth tables.
 
-## Maintaining the auth schema
+## Testing
 
-The Better Auth canonical tables (`user`, `session`, `account`, `verification`)
-in `src/schema/auth.ts` are **manually transcribed** from the official Better
-Auth Drizzle documentation, not generated by `@better-auth/cli`.
+The suite runs against both backends (ADR-0017 §6): libSQL (temp file) and a
+real Postgres via `@testcontainers/postgresql`. Postgres runs whenever Docker is
+available and is **required** in CI (`CI=true`), so a misconfigured runner fails
+loudly rather than silently skipping the Postgres leg.
 
-### Why not the CLI
+## Commands
 
-At Phase 4 implementation time, `@better-auth/cli` was pinned to `better-auth`
-versions lagging the latest stable release (CLI 1.4.21 vs library 1.6.11)
-with **exact** peer pinning (no caret). Running the CLI against our 1.6.11
-runtime would have generated a schema authored by the 1.4.x adapter — losing
-the conformance guarantee that motivated using the CLI in the first place.
-See ADR-0012 (database choice) for the full reasoning.
+| Command | What it does |
+| --- | --- |
+| `pnpm db:generate` | Regenerate the committed auth migration SQL for both dialects. |
+| `pnpm db:migrate` | Apply committed migrations to `DATABASE_URL` (backend inferred). |
 
-### Drift mitigation
-
-To prevent silent runtime failures from schema drift, three safeguards apply:
-
-1. **`better-auth` is pinned with tilde** (`~1.6.11` in `apps/api/package.json`)
-   so patch updates flow but minor updates require manual review.
-2. **`src/schema/auth.ts` has a header doc-block** citing the upstream
-   reference URL and listing custom extensions (currently `user.deletedAt`).
-3. **ADR-0012 hosts the "Updating better-auth" checklist** that must be
-   followed before any minor version bump.
-
-### When upgrading better-auth
-
-Follow the checklist in
-[ADR-0012](../../docs/adr/0012-database-choice.md#updating-better-auth-checklist).
+`db:migrate` loads env via Node's `--env-file=../../apps/api/.env`. Migrations
+never run on boot (ADR-0008).

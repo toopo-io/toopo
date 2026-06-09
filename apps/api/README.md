@@ -89,8 +89,10 @@ Phase 4.
 ## Authentication
 
 Better Auth is mounted on `/v1/auth/*` as a raw Fastify catch-all
-(see `src/main.ts`) using `drizzleAdapter` against `@toopo/db`. The
-default flow is email + password with mandatory email verification.
+(see `src/main.ts`) using its Kysely adapter over `@toopo/db`'s shared
+connection (`createAuthDatabase`, backend selected by the `DATABASE_URL`
+scheme — SQLite self-host / Postgres cloud). The default flow is email +
+password with mandatory email verification.
 Email delivery falls back to Pino logger when `RESEND_API_KEY` is
 unset (see `src/modules/auth/email/email.service.ts`) so a fresh
 clone runs end-to-end without a Resend account.
@@ -225,7 +227,7 @@ confirmation copy (`Auth.account.export.*`, `Auth.account.delete.*`).
 
 - [ADR-0011](../../docs/adr/0011-authentication-strategy.md) —
   Better Auth, sessions, Fastify mount.
-- [ADR-0012](../../docs/adr/0012-database-choice.md) — Neon + Drizzle
-  + the hand-written schema discipline.
+- [ADR-0017](../../docs/adr/0017-storage-strategy.md) — storage: Kysely
+  dual-backend (SQLite self-host / Postgres cloud); supersedes ADR-0012.
 - [ADR-0013](../../docs/adr/0013-rgpd-compliance.md) — data export,
   soft delete, cookie posture.

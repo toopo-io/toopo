@@ -55,13 +55,15 @@ toopo/
   `resolveLocaleFromPath(pathname)`. Consumed by both web (next-intl
   routing) and API (locale interceptor).
 
-- **@toopo/db** (Phase 4) — Drizzle ORM client + Better Auth canonical
-  schema, backed by `@neondatabase/serverless`. Exposes
-  `createDb({ databaseUrl })` and the named tables (`user`, `session`,
-  `account`, `verification`). Migrations live outside `src/` under
-  `drizzle/migrations/` (ADR-0010 category 2). See
+- **@toopo/db** — Kysely data-access layer over a dual backend (SQLite
+  self-host / Postgres cloud, selected by the `DATABASE_URL` scheme) with
+  Better Auth on its Kysely adapter. Exposes
+  `createAuthDatabase({ databaseUrl })` (the Better Auth config + the
+  `UserRepository` + a `close()`). Auth migrations are generated from the
+  installed `better-auth` and committed under `migrations/{sqlite,postgres}/`
+  (ADR-0010 category 2). See
   [packages/db/README.md](packages/db/README.md) and
-  [ADR-0012](docs/adr/0012-database-choice.md).
+  [ADR-0017](docs/adr/0017-storage-strategy.md).
 
 ### Internationalization
 
@@ -82,10 +84,11 @@ rationale and constraints.
 ### Authentication and database (Phase 4)
 
 `apps/api` mounts **Better Auth** at `/v1/auth/*` (raw Fastify
-catch-all, see `apps/api/src/main.ts`) backed by **Neon Postgres**
-through `@toopo/db`'s Drizzle adapter. The default flow is email +
-password with mandatory email verification; Google OAuth is enabled
-when `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are both set.
+catch-all, see `apps/api/src/main.ts`) backed by `@toopo/db`'s **Kysely
+adapter** over the configured backend (SQLite self-host / Postgres cloud).
+The default flow is email + password with mandatory email verification;
+Google OAuth is enabled when `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`
+are both set.
 
 **Flow at a glance:**
 
@@ -153,8 +156,8 @@ For deeper rationale, see:
 
 - [ADR-0011](docs/adr/0011-authentication-strategy.md) — Better Auth
   + cookies + Fastify mount.
-- [ADR-0012](docs/adr/0012-database-choice.md) — Neon + Drizzle +
-  why the schema is hand-written (CLI lag).
+- [ADR-0017](docs/adr/0017-storage-strategy.md) — storage: Kysely
+  dual-backend (SQLite self-host / Postgres cloud); supersedes ADR-0012.
 - [ADR-0013](docs/adr/0013-rgpd-compliance.md) — data export + soft
   delete + cookie posture.
 

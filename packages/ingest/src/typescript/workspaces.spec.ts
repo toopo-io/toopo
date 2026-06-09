@@ -66,4 +66,33 @@ describe('loadWorkspacePackages', () => {
     const result = await loadWorkspacePackages(root, always);
     expect(result).toEqual([]);
   });
+
+  it('reads the exports map into subpath exports (Fix C2)', async () => {
+    const root = await makeRoot();
+    await writeFile(join(root, 'pnpm-workspace.yaml'), 'packages:\n  - "libs/*"\n');
+    await mkdir(join(root, 'libs', 'ui', 'src', 'components'), { recursive: true });
+    await writeFile(
+      join(root, 'libs', 'ui', 'package.json'),
+      JSON.stringify({
+        name: '@x/ui',
+        exports: {
+          './components/button': { import: './dist/components/button.js' },
+          './globals.css': './src/styles/globals.css',
+        },
+      }),
+    );
+
+    const result = await loadWorkspacePackages(
+      root,
+      (p) => p === 'libs/ui/src/components/button.tsx',
+    );
+    expect(result).toEqual([
+      {
+        name: '@x/ui',
+        subpathExports: [
+          { subpath: 'components/button', entry: 'libs/ui/src/components/button.tsx' },
+        ],
+      },
+    ]);
+  });
 });

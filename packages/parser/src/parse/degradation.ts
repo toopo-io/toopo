@@ -18,5 +18,6 @@ export function degradedResult(input: FileNodeInput): ParseResult {
     unresolved: [],
     exports: [],
     reExports: [],
+    externalImports: [],
   };
 }

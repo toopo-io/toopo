@@ -10,6 +10,7 @@ export type {
   LanguagePlugin,
 } from './plugin/language-plugin.js';
 export type {
+  ExternalImport,
   ImportedBinding,
   LocalExport,
   ParseResult,
@@ -18,6 +19,7 @@ export type {
   UnresolvedImport,
 } from './result.js';
 export {
+  ExternalImportSchema,
   ImportedBindingSchema,
   LocalExportSchema,
   ReExportBindingSchema,

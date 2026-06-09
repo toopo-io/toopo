@@ -1,6 +1,6 @@
 import type { Descriptor, Edge, Location, Node, SymbolId, SymbolIdentity } from '@toopo/core';
 import type { Query, Node as SyntaxNode, Tree } from 'web-tree-sitter';
-import type { LocalExport, ReExport, UnresolvedImport } from '../result.js';
+import type { ExternalImport, LocalExport, ReExport, UnresolvedImport } from '../result.js';
 
 /**
  * The language-plugin contract (ADR-0016) — the extensibility keystone. The
@@ -64,6 +64,7 @@ export interface GraphFragment {
   readonly unresolved: readonly UnresolvedImport[];
   readonly exports: readonly LocalExport[];
   readonly reExports: readonly ReExport[];
+  readonly externalImports: readonly ExternalImport[];
 }
 
 /** A language implementation injected into the parser at runtime. */

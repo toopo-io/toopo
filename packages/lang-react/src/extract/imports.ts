@@ -1,5 +1,10 @@
 import { type Edge, formatSymbolId, type SymbolId } from '@toopo/core';
-import type { ExtractContext, ImportedBinding, UnresolvedImport } from '@toopo/parser';
+import type {
+  ExternalImport,
+  ExtractContext,
+  ImportedBinding,
+  UnresolvedImport,
+} from '@toopo/parser';
 import type { Node as SyntaxNode } from 'web-tree-sitter';
 import { isAlias, isRelative, packageName } from '../specifier-kind.js';
 import { parseEdge } from './edges.js';
@@ -9,6 +14,8 @@ import { moduleSpecifier } from './specifier.js';
 export interface ImportExtraction {
   readonly edges: Edge[];
   readonly unresolved: UnresolvedImport[];
+  /** Bare imports with their preserved subpath, for workspace subpath resolution. */
+  readonly externalImports: ExternalImport[];
   /** Local binding name → external symbol id, for the call pass to resolve calls. */
   readonly externalBindings: Map<string, SymbolId>;
 }
@@ -32,6 +39,7 @@ export interface ImportExtraction {
 export function extractImports(ctx: ExtractContext): ImportExtraction {
   const edges: Edge[] = [];
   const unresolved: UnresolvedImport[] = [];
+  const externalImports: ExternalImport[] = [];
   const externalBindings = new Map<string, SymbolId>();
 
   for (const capture of ctx.query(IMPORT_QUERY).captures(ctx.tree.rootNode)) {
@@ -56,7 +64,17 @@ export function extractImports(ctx: ExtractContext): ImportExtraction {
       continue;
     }
 
-    const packageCoordinate = { manager: 'npm', name: packageName(specifier) };
+    const name = packageName(specifier);
+    // Lossless parse (ADR-0016): keep the subpath the package coordinate drops,
+    // so the Resolve pass can re-resolve a workspace subpath import (Fix C2).
+    externalImports.push({
+      importerFileId: ctx.fileId,
+      packageName: name,
+      subpath: specifier === name ? '' : specifier.slice(name.length + 1),
+      imported: bindings,
+    });
+
+    const packageCoordinate = { manager: 'npm', name };
     for (const binding of bindings) {
       if (binding.kind === 'namespace') {
         continue; // deferred: no module-identity convention in v1
@@ -70,7 +88,7 @@ export function extractImports(ctx: ExtractContext): ImportExtraction {
     }
   }
 
-  return { edges, unresolved, externalBindings };
+  return { edges, unresolved, externalImports, externalBindings };
 }
 
 /** Collect every binding an import clause introduces (default, namespace, named). */

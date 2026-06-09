@@ -7,6 +7,7 @@ import {
 } from '@toopo/core';
 import type { GraphFragment } from '../plugin/language-plugin.js';
 import {
+  ExternalImportSchema,
   LocalExportSchema,
   type ParseResult,
   ReExportSchema,
@@ -54,6 +55,9 @@ export function assembleAnalyzed(input: AssembleInput): ParseResult {
   const unresolved = input.fragment.unresolved.map((entry) => UnresolvedImportSchema.parse(entry));
   const exports = input.fragment.exports.map((entry) => LocalExportSchema.parse(entry));
   const reExports = input.fragment.reExports.map((entry) => ReExportSchema.parse(entry));
+  const externalImports = input.fragment.externalImports.map((entry) =>
+    ExternalImportSchema.parse(entry),
+  );
 
-  return { document, unresolved, exports, reExports };
+  return { document, unresolved, exports, reExports, externalImports };
 }

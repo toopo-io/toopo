@@ -46,7 +46,7 @@ function extractKeys(ctx: ExtractContext): GraphFragment {
       resolution: 'deterministic',
     });
   }
-  return { nodes, edges, unresolved: [], exports: [], reExports: [] };
+  return { nodes, edges, unresolved: [], exports: [], reExports: [], externalImports: [] };
 }
 
 /**
@@ -80,5 +80,13 @@ function extractUnresolved(ctx: ExtractContext): GraphFragment {
     ],
     exports: [],
     reExports: [],
+    externalImports: [
+      {
+        importerFileId: ctx.fileId,
+        packageName: '@scope/ui',
+        subpath: 'components/x',
+        imported: [{ name: 'X', localName: 'X', kind: 'named', typeOnly: false }],
+      },
+    ],
   };
 }

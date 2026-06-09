@@ -95,15 +95,38 @@ export const ReExportSchema = z
 export type ReExport = z.infer<typeof ReExportSchema>;
 
 /**
+ * A bare (external-package) import that carries a SUBPATH (`@toopo/ui/components/x`).
+ * Parsing is lossless (ADR-0016): the subpath is first-class source information,
+ * so it is preserved here rather than discarded when the package coordinate is
+ * derived. The parser still emits the provisional external `imports` edge (keyed
+ * by package coordinate + name); this record lets the Resolve pass recover the
+ * subpath and re-resolve a WORKSPACE package's subpath import to its source
+ * symbol via that package's `exports` map (Fix C2). `subpath` is the specifier
+ * past the package name (`components/x`), empty for a bare `@toopo/ui`.
+ * Pipeline data, NOT part of the persisted graph model.
+ */
+export const ExternalImportSchema = z
+  .object({
+    importerFileId: z.string().min(1),
+    packageName: z.string().min(1),
+    subpath: z.string(),
+    imported: z.array(ImportedBindingSchema),
+  })
+  .strict();
+export type ExternalImport = z.infer<typeof ExternalImportSchema>;
+
+/**
  * The output of parsing one file (ADR-0016 file-level incremental flow): the
  * `@toopo/core` graph fragment for the file, plus the structured pipeline data
  * handed to the Resolve pass — `unresolved` imports, locally-defined `exports`,
- * and `reExports`. The pipeline data is deliberately NOT part of the persisted
- * graph model, so it requires no `@toopo/core` change.
+ * `reExports`, and the subpath-carrying `externalImports`. The pipeline data is
+ * deliberately NOT part of the persisted graph model, so it requires no
+ * `@toopo/core` change.
  */
 export interface ParseResult {
   readonly document: GraphDocument;
   readonly unresolved: readonly UnresolvedImport[];
   readonly exports: readonly LocalExport[];
   readonly reExports: readonly ReExport[];
+  readonly externalImports: readonly ExternalImport[];
 }

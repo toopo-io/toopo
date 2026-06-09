@@ -60,12 +60,24 @@ export interface AliasRule {
   readonly targets: readonly string[];
 }
 
-/** One workspace-internal package (ADR-0016 Fork 2b), with a repo-relative entry
- * file — so a bare import of its name resolves to an internal symbol, not an
- * external coordinate. Supplied by the caller; the resolver never reads disk. */
+/** One subpath the package's `exports` map publishes (ADR-0016 Fix C2): the
+ * import subpath (`components/button`, past the package name) mapped to the
+ * repo-relative SOURCE file that backs it (`packages/ui/src/components/button.tsx`).
+ * Resolved from the package's built `exports` target by the caller. */
+export interface SubpathExport {
+  readonly subpath: string;
+  readonly entry: string;
+}
+
+/** One workspace-internal package (ADR-0016 Fork 2b), so a bare import of its
+ * name (or a published subpath) resolves to an internal symbol, not an external
+ * coordinate. `entry` is the package's main source entry (the `.` export);
+ * `subpathExports` are its other published subpaths. At least one is present.
+ * Supplied by the caller; the resolver never reads disk. */
 export interface WorkspacePackage {
   readonly name: string;
-  readonly entry: string;
+  readonly entry?: string;
+  readonly subpathExports?: readonly SubpathExport[];
 }
 
 /**

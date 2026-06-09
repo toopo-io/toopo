@@ -74,9 +74,17 @@ export function resolveProject(
     diagnostics.push(...imports.diagnostics);
   }
 
-  // Supersede provisional external edges for bare workspace imports with internal
-  // ones (ADR-0016 Fork 2b) — a generic target-id rewrite over the whole graph.
-  const supersede = buildWorkspaceSupersede(parseEdges, project, plugins, moduleIndex, exportIndex);
+  // Supersede provisional external edges for workspace imports (incl. subpaths)
+  // with internal ones (ADR-0016 Fork 2b, Fix C2) — driven by the parser's
+  // subpath-preserving records, then a generic target-id rewrite over the graph.
+  const externalImports = fragments.flatMap((fragment) => fragment.externalImports);
+  const supersede = buildWorkspaceSupersede(
+    externalImports,
+    project,
+    plugins,
+    moduleIndex,
+    exportIndex,
+  );
   const edges = applyWorkspaceSupersede([...parseEdges, ...resolvedEdges], supersede);
 
   const candidate: GraphDocument = {

@@ -62,5 +62,6 @@ export function extractReact(ctx: ExtractContext, options: ExtractOptions): Grap
     unresolved: importResult.unresolved,
     exports: exportResult.exports,
     reExports: exportResult.reExports,
+    externalImports: importResult.externalImports,
   };
 }

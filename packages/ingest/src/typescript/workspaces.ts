@@ -85,6 +85,7 @@ async function readPackageInput(
     main?: unknown;
     module?: unknown;
     types?: unknown;
+    exports?: unknown;
   };
   if (typeof parsed.name !== 'string') {
     return undefined; // an unnamed package cannot be the target of a bare import
@@ -92,6 +93,7 @@ async function readPackageInput(
   const main = asString(parsed.main);
   const moduleField = asString(parsed.module);
   const types = asString(parsed.types);
+  const exports = isRecord(parsed.exports) ? parsed.exports : undefined;
   // Omit absent keys rather than assigning undefined (exactOptionalPropertyTypes).
   return {
     name: parsed.name,
@@ -99,6 +101,7 @@ async function readPackageInput(
     ...(main !== undefined && { main }),
     ...(moduleField !== undefined && { module: moduleField }),
     ...(types !== undefined && { types }),
+    ...(exports !== undefined && { exports }),
   };
 }
 

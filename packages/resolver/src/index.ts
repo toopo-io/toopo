@@ -13,6 +13,7 @@ export type {
   ResolvedEdge,
   ResolvedImport,
   ResolverPlugin,
+  SubpathExport,
   SymbolView,
   WorkspacePackage,
 } from './plugin/resolver-plugin.js';

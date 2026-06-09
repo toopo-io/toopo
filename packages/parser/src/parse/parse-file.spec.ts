@@ -79,4 +79,17 @@ describe('createParser / parseFile', () => {
     expect(unresolved[0]?.specifier).toBe('./neighbor');
     expect(unresolved[0]?.imported[0]?.localName).toBe('Thing');
   });
+
+  it('passes subpath-carrying external imports through to the result (lossless parse)', async () => {
+    const parser = createParser([createUnresolvedPlugin()]);
+    const { externalImports } = await parser.parseFile({
+      path: 'src/widget.jsonu',
+      bytes: encode('{"x": 1}'),
+    });
+
+    expect(externalImports).toHaveLength(1);
+    expect(externalImports[0]?.packageName).toBe('@scope/ui');
+    expect(externalImports[0]?.subpath).toBe('components/x');
+    expect(externalImports[0]?.imported[0]?.name).toBe('X');
+  });
 });

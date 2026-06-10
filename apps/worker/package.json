@@ -23,7 +23,8 @@
   "dependencies": {
     "@toopo/db": "workspace:*",
     "@toopo/ingest": "workspace:*",
-    "@toopo/lang-react": "workspace:*"
+    "@toopo/lang-react": "workspace:*",
+    "@toopo/queue": "workspace:*"
   },
   "devDependencies": {
     "@toopo/core": "workspace:*",

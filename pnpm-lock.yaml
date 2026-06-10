@@ -280,6 +280,9 @@ importers:
       '@toopo/lang-react':
         specifier: workspace:*
         version: link:../../packages/lang-react
+      '@toopo/queue':
+        specifier: workspace:*
+        version: link:../../packages/queue
     devDependencies:
       '@toopo/core':
         specifier: workspace:*

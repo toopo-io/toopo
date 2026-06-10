@@ -119,11 +119,11 @@ describe('absoluteRoutes', () => {
 });
 
 describe('protectedPathPrefixes', () => {
-  it('exposes the locale-stripped protected prefixes (account + projects)', () => {
-    expect(protectedPathPrefixes).toEqual(['/account', '/projects']);
+  it('exposes the locale-stripped protected prefixes (account + projects + connect)', () => {
+    expect(protectedPathPrefixes).toEqual(['/account', '/projects', '/connect']);
   });
 
   it('pins the canonical set size for future regressions', () => {
-    expect(protectedPathPrefixes.length).toBe(2);
+    expect(protectedPathPrefixes.length).toBe(3);
   });
 });

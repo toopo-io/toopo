@@ -239,11 +239,13 @@ export class KyselyGraphRepository implements GraphRepository {
   /**
    * Count the rows a filtered query matches (D9 page `total`). The caller passes
    * the query with its WHERE filters applied but NO keyset/limit, so the count
-   * covers the whole result. Driver count types vary (number/string/bigint), so
+   * covers the whole result. The generic accepts both plain and aliased-join
+   * builders (the `DB` type a join augments with its aliases), so every read uses
+   * this single counting path. Driver count types vary (number/string/bigint), so
    * the result is coerced.
    */
-  private async countAll<TB extends keyof GraphDatabase>(
-    query: SelectQueryBuilder<GraphDatabase, TB, object>,
+  private async countAll<DB, TB extends keyof DB>(
+    query: SelectQueryBuilder<DB, TB, object>,
   ): Promise<number> {
     return rowCount(await query.select((eb) => eb.fn.countAll().as('count')).executeTakeFirst());
   }
@@ -475,9 +477,7 @@ export class KyselyGraphRepository implements GraphRepository {
       .where('c.source_id', '=', id)
       .where('c.kind', '=', 'contains')
       .where('n.kind', '=', 'symbol');
-    const total = await firstPageTotal(options?.cursor, async () =>
-      rowCount(await base.select((eb) => eb.fn.countAll().as('count')).executeTakeFirst()),
-    );
+    const total = await firstPageTotal(options?.cursor, () => this.countAll(base));
     let page = base.selectAll('n');
     if (options?.cursor !== undefined) {
       page = page.where('n.id', '>', String(decodeCursorTuple(options.cursor, 1)[0]));
@@ -506,9 +506,7 @@ export class KyselyGraphRepository implements GraphRepository {
       .where('c.source_id', '=', id)
       .where('c.kind', '=', 'contains')
       .where('n.kind', '!=', 'callSite');
-    const total = await firstPageTotal(options?.cursor, async () =>
-      rowCount(await base.select((eb) => eb.fn.countAll().as('count')).executeTakeFirst()),
-    );
+    const total = await firstPageTotal(options?.cursor, () => this.countAll(base));
     let page = base.selectAll('n');
     if (options?.cursor !== undefined) {
       page = page.where('n.id', '>', String(decodeCursorTuple(options.cursor, 1)[0]));

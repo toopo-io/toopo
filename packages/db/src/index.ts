@@ -22,6 +22,7 @@ export {
   SqlFileMigrationProvider,
   splitSqlStatements,
 } from './migrator.js';
+export { createProjectDatabase, type ProjectDatabaseHandle } from './project-database.js';
 export {
   type BlastRadiusHit,
   type BlastRadiusNode,
@@ -51,6 +52,16 @@ export {
   type Page,
   type PageOptions,
 } from './repositories/graph-page.js';
+export type {
+  CreateProjectInput,
+  ProjectRepository,
+} from './repositories/project.repository.js';
+export { KyselyProjectRepository } from './repositories/project.repository.kysely.js';
+export {
+  type ProjectRecord,
+  ProjectRecordSchema,
+  rowToProject,
+} from './repositories/project-records.js';
 export type { UserRepository } from './repositories/user.repository.js';
 export { KyselyUserRepository } from './repositories/user.repository.kysely.js';
 export {
@@ -69,3 +80,4 @@ export type {
   VerificationTable,
 } from './schema/auth-types.js';
 export type { EdgeTable, GraphDatabase, NodeTable } from './schema/graph-types.js';
+export type { ProjectDatabase, ProjectTable } from './schema/project-types.js';

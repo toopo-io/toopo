@@ -74,7 +74,7 @@ for (const { backend, skip } of backends) {
       await harness?.cleanup();
     });
 
-    it('applies the auth and index migrations in order', async () => {
+    it('applies the auth, graph, and project migrations in order', async () => {
       const results = await migrateToLatest({
         db: harness.db,
         backend: harness.backend,
@@ -85,6 +85,7 @@ for (const { backend, skip } of backends) {
         '0001_user_deleted_at_idx',
         '0002_graph',
         '0003_graph_callsite_idx',
+        '0004_project',
       ]);
       expect(results.every((r) => r.status === 'Success')).toBe(true);
     });

@@ -1,0 +1,79 @@
+/**
+ * Kysely implementation of {@link ProjectRepository}. Portable across both
+ * backends (ADR-0017 §6): no dialect-specific SQL, parameterized everywhere,
+ * keyset-paged listing, and every row normalized through the Zod boundary
+ * (ADR-0006) before it leaves the repository. Timestamps are written as ISO
+ * strings, which Postgres and libSQL both accept; ids are generated with Node's
+ * built-in `crypto.randomUUID` (zero dependencies, ADR-0015's no-native-build
+ * spirit).
+ */
+import { randomUUID } from 'node:crypto';
+import type { Insertable, Kysely } from 'kysely';
+import type { ProjectDatabase, ProjectTable } from '../schema/project-types.js';
+import {
+  buildPage,
+  clampLimit,
+  decodeCursorTuple,
+  encodeCursor,
+  type Page,
+  type PageOptions,
+} from './graph-page.js';
+import type { CreateProjectInput, ProjectRepository } from './project.repository.js';
+import { type ProjectRecord, rowToProject } from './project-records.js';
+
+export class KyselyProjectRepository implements ProjectRepository {
+  constructor(private readonly db: Kysely<ProjectDatabase>) {}
+
+  async createProject(input: CreateProjectInput): Promise<ProjectRecord> {
+    const now = new Date().toISOString();
+    const row: Insertable<ProjectTable> = {
+      id: randomUUID(),
+      owner_user_id: input.ownerUserId,
+      repo_host: input.repoHost,
+      repo_owner: input.repoOwner,
+      repo_name: input.repoName,
+      installation_id: input.installationId ?? null,
+      created_at: now,
+      updated_at: now,
+    };
+    await this.db.insertInto('project').values(row).execute();
+    return rowToProject({ ...row, installation_id: row.installation_id ?? null });
+  }
+
+  async findProjectById(id: string): Promise<ProjectRecord | null> {
+    const row = await this.db
+      .selectFrom('project')
+      .selectAll()
+      .where('id', '=', id)
+      .executeTakeFirst();
+    return row === undefined ? null : rowToProject(row);
+  }
+
+  async findProjectByRepo(
+    repoHost: string,
+    repoOwner: string,
+    repoName: string,
+  ): Promise<ProjectRecord | null> {
+    const row = await this.db
+      .selectFrom('project')
+      .selectAll()
+      .where('repo_host', '=', repoHost)
+      .where('repo_owner', '=', repoOwner)
+      .where('repo_name', '=', repoName)
+      .executeTakeFirst();
+    return row === undefined ? null : rowToProject(row);
+  }
+
+  async listProjects(options?: PageOptions): Promise<Page<ProjectRecord>> {
+    const limit = clampLimit(options?.limit);
+    let query = this.db.selectFrom('project').selectAll();
+    if (options?.cursor !== undefined) {
+      query = query.where('id', '>', String(decodeCursorTuple(options.cursor, 1)[0]));
+    }
+    const rows = await query
+      .orderBy('id')
+      .limit(limit + 1)
+      .execute();
+    return buildPage(rows.map(rowToProject), limit, (project) => encodeCursor([project.id]));
+  }
+}

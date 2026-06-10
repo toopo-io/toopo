@@ -41,7 +41,13 @@ export class GithubSignatureGuard implements CanActivate {
     const event = headerValue(request.headers[GITHUB_EVENT_HEADER]);
 
     if (this.secret === undefined) {
-      this.logger.warn({ deliveryId, event }, 'github webhook rejected: secret not configured');
+      // A clear, actionable operator signal (warn level) before the 503 — a
+      // self-hoster who has not configured the GitHub App sees exactly what to
+      // fix, rather than only the shared filter's generic 5xx error log.
+      this.logger.warn(
+        { deliveryId, event },
+        'GITHUB_WEBHOOK_SECRET not configured — rejecting webhook',
+      );
       throw new ServiceUnavailableException('GitHub webhook secret is not configured');
     }
 

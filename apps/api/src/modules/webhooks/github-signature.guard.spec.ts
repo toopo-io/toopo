@@ -75,6 +75,20 @@ describe('GithubSignatureGuard', () => {
     expect(() => guard.canActivate(ctx)).toThrow(ServiceUnavailableException);
   });
 
+  it('logs a clear, actionable operator warning when the secret is unconfigured', () => {
+    const guard = makeGuard(undefined);
+    const signature = sign(BODY, SECRET);
+    const ctx = contextFor({ rawBody: BODY, signature, event: 'push', delivery: 'd-503' });
+    expect(() => guard.canActivate(ctx)).toThrow(ServiceUnavailableException);
+    expect(warn).toHaveBeenCalledTimes(1);
+    const [meta, message] = warn.mock.calls[0] as [Record<string, unknown>, string];
+    expect(message).toContain('GITHUB_WEBHOOK_SECRET not configured');
+    expect(meta).toEqual({ deliveryId: 'd-503', event: 'push' });
+    const serialized = JSON.stringify(warn.mock.calls[0]);
+    expect(serialized).not.toContain(signature);
+    expect(serialized).not.toContain(BODY.toString('utf8'));
+  });
+
   it('throws 401 when the signature header is missing', () => {
     const guard = makeGuard(SECRET);
     const ctx = contextFor({ rawBody: BODY, event: 'push' });

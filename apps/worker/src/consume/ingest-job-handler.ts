@@ -9,7 +9,8 @@
  * never creates tenancy — it persists under the job's `projectId` scope directly.
  * It composes packages only (apps stay thin); all pipeline/storage logic is theirs.
  */
-import type { GraphRepository } from '@toopo/db';
+import type { GraphRepository, ProjectRepository } from '@toopo/db';
+import type { GithubAppAuth } from '@toopo/github-app';
 import {
   buildTypescriptProjectModel,
   ingestDelta,
@@ -18,8 +19,12 @@ import {
 } from '@toopo/ingest';
 import { createReactPlugins, createReactResolver } from '@toopo/lang-react';
 import type { ClaimedJob } from '@toopo/queue';
+import type { CloneCredentials } from '../clone/git-askpass.js';
 import type { RepoCloner } from '../clone/repo-cloner.js';
 import { withSandbox } from '../clone/sandbox.js';
+
+/** Mints installation tokens — the subset of {@link GithubAppAuth} this handler uses. */
+export type InstallationTokenMinter = Pick<GithubAppAuth, 'mintInstallationToken'>;
 
 export interface IngestJobHandlerDeps {
   /** Clones the repo at the commit into the sandbox (ADR-0025 Decision 1). */
@@ -28,6 +33,32 @@ export interface IngestJobHandlerDeps {
   readonly graph: Pick<GraphRepository, 'getFileContentHashes' | 'replaceProjectGraph'>;
   /** The content-hash parse-fragment cache (ADR-0025 Decision 3). */
   readonly cache: ParseFragmentCache;
+  /** Resolves the project's installation id for a private clone (ADR-0026 §5). */
+  readonly projects?: Pick<ProjectRepository, 'findProjectById'>;
+  /** Mints the installation token; `null`/absent ⇒ public clone only (fail-closed). */
+  readonly tokenMinter?: InstallationTokenMinter | null;
+}
+
+/**
+ * Resolve clone credentials for a private repo (ADR-0026 §5): project →
+ * installation id → a freshly minted installation token. Returns `undefined` (a
+ * public clone) when the App is unconfigured, the deps are absent, or the project
+ * has no installation id — so a public repo, or a self-host with no App, clones
+ * exactly as in B4.
+ */
+async function resolveCredentials(
+  deps: IngestJobHandlerDeps,
+  projectId: string,
+): Promise<CloneCredentials | undefined> {
+  if (deps.projects === undefined || deps.tokenMinter === undefined || deps.tokenMinter === null) {
+    return undefined;
+  }
+  const project = await deps.projects.findProjectById(projectId);
+  if (project === null || project.installationId === null) {
+    return undefined;
+  }
+  const token = await deps.tokenMinter.mintInstallationToken(Number(project.installationId));
+  return { username: 'x-access-token', password: token.token };
 }
 
 export function createIngestJobHandler(
@@ -38,7 +69,13 @@ export function createIngestJobHandler(
     const scope = { projectId };
 
     await withSandbox(async (directory) => {
-      await deps.cloner.clone({ repo, commitSha, destination: directory });
+      const credentials = await resolveCredentials(deps, projectId);
+      await deps.cloner.clone({
+        repo,
+        commitSha,
+        destination: directory,
+        ...(credentials !== undefined ? { credentials } : {}),
+      });
 
       const storedHashes = await deps.graph.getFileContentHashes(scope);
       const result = await ingestDelta(directory, {

@@ -9,6 +9,7 @@
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import type { ProjectRecord, ProjectRepository } from '@toopo/db';
 import {
   createGraphDatabase,
   createParseFragmentDatabase,
@@ -19,8 +20,8 @@ import {
 } from '@toopo/db';
 import type { ClaimedJob } from '@toopo/queue';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { RepoCloner } from '../clone/repo-cloner.js';
-import { createIngestJobHandler } from './ingest-job-handler.js';
+import type { CloneRequest, RepoCloner } from '../clone/repo-cloner.js';
+import { createIngestJobHandler, type InstallationTokenMinter } from './ingest-job-handler.js';
 
 const PROJECT = 'proj-1';
 const SCOPE = { projectId: PROJECT };
@@ -106,5 +107,79 @@ describe('createIngestJobHandler', () => {
 
     const hashes = await graphHandle.graphRepository.getFileContentHashes(SCOPE);
     expect([...hashes.keys()]).toEqual(['src/a.ts']);
+  });
+
+  it('passes a minted installation token as clone credentials for a linked project (ADR-0026 §5)', async () => {
+    let received: CloneRequest | undefined;
+    const capturingCloner: RepoCloner = {
+      clone: async (request) => {
+        received = request;
+        await cloner.clone(request);
+      },
+    };
+    const projects = {
+      findProjectById: async (): Promise<ProjectRecord> => ({
+        id: PROJECT,
+        ownerUserId: 'u1',
+        repoHost: 'github.com',
+        repoOwner: 'toopo',
+        repoName: 'fixture',
+        installationId: '55',
+        archivedAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }),
+    } as unknown as Pick<ProjectRepository, 'findProjectById'>;
+    const tokenMinter: InstallationTokenMinter = {
+      mintInstallationToken: vi.fn(async () => ({ token: 'ghs_minted', expiresAt: new Date() })),
+    };
+
+    await createIngestJobHandler({
+      cloner: capturingCloner,
+      graph: graphHandle.graphRepository,
+      cache: cacheHandle.parseFragmentStore,
+      projects,
+      tokenMinter,
+    })(job(SHA));
+
+    expect(tokenMinter.mintInstallationToken).toHaveBeenCalledWith(55);
+    expect(received?.credentials).toEqual({ username: 'x-access-token', password: 'ghs_minted' });
+  });
+
+  it('clones publicly (no credentials) when the project has no installation id', async () => {
+    let received: CloneRequest | undefined;
+    const capturingCloner: RepoCloner = {
+      clone: async (request) => {
+        received = request;
+        await cloner.clone(request);
+      },
+    };
+    const projects = {
+      findProjectById: async (): Promise<ProjectRecord> => ({
+        id: PROJECT,
+        ownerUserId: 'u1',
+        repoHost: 'github.com',
+        repoOwner: 'toopo',
+        repoName: 'fixture',
+        installationId: null,
+        archivedAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }),
+    } as unknown as Pick<ProjectRepository, 'findProjectById'>;
+    const tokenMinter: InstallationTokenMinter = {
+      mintInstallationToken: vi.fn(),
+    };
+
+    await createIngestJobHandler({
+      cloner: capturingCloner,
+      graph: graphHandle.graphRepository,
+      cache: cacheHandle.parseFragmentStore,
+      projects,
+      tokenMinter,
+    })(job(SHA));
+
+    expect(tokenMinter.mintInstallationToken).not.toHaveBeenCalled();
+    expect(received?.credentials).toBeUndefined();
   });
 });

@@ -24,6 +24,8 @@
   },
   "dependencies": {
     "@toopo/db": "workspace:*",
+    "@toopo/env": "workspace:*",
+    "@toopo/github-app": "workspace:*",
     "@toopo/ingest": "workspace:*",
     "@toopo/lang-react": "workspace:*",
     "@toopo/queue": "workspace:*"

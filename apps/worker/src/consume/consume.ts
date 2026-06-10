@@ -9,18 +9,25 @@
  * `shutdown()` is graceful: stop claiming, await the in-flight job (drain), then
  * close every connection — so a clean stop never severs a running job.
  */
-import { createGraphDatabase, createParseFragmentDatabase } from '@toopo/db';
+import { createGraphDatabase, createParseFragmentDatabase, createProjectDatabase } from '@toopo/db';
+import type { GithubAppAuth } from '@toopo/github-app';
 import { createQueue } from '@toopo/queue';
 import { GitCloner } from '../clone/git-cloner.js';
 import type { RepoCloner } from '../clone/repo-cloner.js';
 import { withDrainTracking } from './drain.js';
 import { createIngestJobHandler } from './ingest-job-handler.js';
+import { resolveWorkerGithubAppAuth } from './worker-github-app.js';
 
 export interface ConsumeOptions {
   /** The target database (scheme selects the backend, ADR-0017 §1). */
   readonly databaseUrl: string;
   /** Override the cloner (tests inject a fixture/fake). Defaults to native git. */
   readonly cloner?: RepoCloner;
+  /**
+   * Override the installation-token minter (tests). Defaults to resolving the
+   * GitHub App from the environment, or `null` (public clone only) when unset.
+   */
+  readonly tokenMinter?: GithubAppAuth | null;
   /** One-line structured log sink. Defaults to stderr. */
   readonly log?: (line: string) => void;
 }
@@ -39,14 +46,24 @@ export function startConsume(options: ConsumeOptions): ConsumeHandle {
   const queueHandle = createQueue({ databaseUrl: options.databaseUrl });
   const graphHandle = createGraphDatabase({ databaseUrl: options.databaseUrl });
   const cacheHandle = createParseFragmentDatabase({ databaseUrl: options.databaseUrl });
+  const projectHandle = createProjectDatabase({ databaseUrl: options.databaseUrl });
   const cloner = options.cloner ?? new GitCloner();
+  const tokenMinter =
+    options.tokenMinter !== undefined
+      ? options.tokenMinter
+      : resolveWorkerGithubAppAuth(process.env);
 
   const baseHandler = createIngestJobHandler({
     cloner,
     graph: graphHandle.graphRepository,
     cache: cacheHandle.parseFragmentStore,
+    projects: projectHandle.projectRepository,
+    tokenMinter,
   });
   const { handler, drain } = withDrainTracking(baseHandler);
+  log(
+    `[worker] github app auth: ${tokenMinter === null ? 'disabled (public clone only)' : 'enabled'}`,
+  );
 
   const consumer = queueHandle.createConsumer({
     handler,
@@ -64,7 +81,12 @@ export function startConsume(options: ConsumeOptions): ConsumeHandle {
     async shutdown(): Promise<void> {
       subscription.stop();
       await drain();
-      await Promise.all([queueHandle.close(), graphHandle.close(), cacheHandle.close()]);
+      await Promise.all([
+        queueHandle.close(),
+        graphHandle.close(),
+        cacheHandle.close(),
+        projectHandle.close(),
+      ]);
       log('[worker] stopped');
     },
   };

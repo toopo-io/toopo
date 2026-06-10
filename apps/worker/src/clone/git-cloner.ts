@@ -14,6 +14,7 @@
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import type { RepoCoordinates } from '@toopo/queue';
+import { prepareAskpass } from './git-askpass.js';
 import type { CloneRequest, RepoCloner } from './repo-cloner.js';
 
 /** Default per-invocation wall-clock bound — a slow/hung clone is killed and the
@@ -25,8 +26,9 @@ const MAX_STDERR_BYTES = 8_192;
 
 export interface GitClonerOptions {
   /**
-   * Build the clone URL from repo coordinates. Defaults to the public HTTPS GitHub
-   * URL `https://${host}/${owner}/${name}.git` (private-repo auth is B5). Injected
+   * Build the clone URL from repo coordinates. Defaults to the HTTPS GitHub URL
+   * `https://${host}/${owner}/${name}.git` — tokenless even for a private repo,
+   * whose auth flows through `GIT_ASKPASS` (ADR-0026 §5), never the URL. Injected
    * in tests to point at a local fixture path (the `file` transport).
    */
   readonly remoteUrl?: (repo: RepoCoordinates) => string;
@@ -47,7 +49,7 @@ function defaultRemoteUrl(repo: RepoCoordinates): string {
  * and allow only the `file`/`https` transports (no `ext::`, `ssh`, etc.). Only the
  * variables `git` genuinely needs to run are forwarded.
  */
-function hardenedEnv(cwd: string): NodeJS.ProcessEnv {
+function hardenedEnv(cwd: string, extraEnv?: Readonly<Record<string, string>>): NodeJS.ProcessEnv {
   return {
     PATH: process.env['PATH'],
     // Windows: git/curl/schannel need SystemRoot to resolve and open sockets.
@@ -60,6 +62,10 @@ function hardenedEnv(cwd: string): NodeJS.ProcessEnv {
     GIT_CONFIG_GLOBAL: path.join(cwd, '.toopo-no-global-gitconfig'),
     GIT_LFS_SKIP_SMUDGE: '1',
     GIT_ALLOW_PROTOCOL: 'file:https',
+    // The GIT_ASKPASS credential channel for a private clone (ADR-0026 §5). Added
+    // last so it cannot override the hardening above; GIT_TERMINAL_PROMPT stays 0,
+    // so git uses askpass non-interactively. The token lives only here, never argv.
+    ...extraEnv,
   };
 }
 
@@ -73,13 +79,14 @@ function runGit(
   args: readonly string[],
   cwd: string,
   timeoutMs: number,
+  extraEnv?: Readonly<Record<string, string>>,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const child = spawn(gitPath, [...args], {
       cwd,
       shell: false,
       timeout: timeoutMs,
-      env: hardenedEnv(cwd),
+      env: hardenedEnv(cwd, extraEnv),
       windowsHide: true,
     });
     let stderr = '';
@@ -117,41 +124,56 @@ export class GitCloner implements RepoCloner {
   async clone(request: CloneRequest): Promise<void> {
     const url = this.remoteUrl(request.repo);
     const dir = request.destination;
-    // init → add remote → depth-1 fetch of the EXACT sha → detached checkout.
-    // Fetching the sha (not a branch) makes the clone commit-precise and immune to
-    // the branch advancing between enqueue and processing. Hooks are disabled on
-    // checkout (hooksPath → a nonexistent path) so no repo-supplied hook can run.
-    await this.git(['init', '--quiet'], dir);
-    await this.git(['remote', 'add', 'origin', url], dir);
-    await this.git(
-      [
-        '-c',
-        'protocol.version=2',
-        'fetch',
-        '--depth',
-        '1',
-        '--no-tags',
-        'origin',
-        request.commitSha,
-      ],
-      dir,
-    );
-    await this.git(
-      [
-        '-c',
-        `core.hooksPath=${path.join(dir, '.toopo-no-hooks')}`,
-        '-c',
-        'advice.detachedHead=false',
-        'checkout',
-        '--quiet',
-        '--force',
-        'FETCH_HEAD',
-      ],
-      dir,
-    );
+    // For a private repo, the installation token is fed through GIT_ASKPASS (env
+    // only) — the remote URL stays the plain `https://host/owner/repo.git`, so no
+    // token ever lands in argv, the URL, or a ref (ADR-0026 §5, fork F4).
+    const askpass = request.credentials ? await prepareAskpass(request.credentials) : null;
+    try {
+      const env = askpass?.env;
+      // init → add remote → depth-1 fetch of the EXACT sha → detached checkout.
+      // Fetching the sha (not a branch) makes the clone commit-precise and immune to
+      // the branch advancing between enqueue and processing. Hooks are disabled on
+      // checkout (hooksPath → a nonexistent path) so no repo-supplied hook can run.
+      await this.git(['init', '--quiet'], dir, env);
+      await this.git(['remote', 'add', 'origin', url], dir, env);
+      await this.git(
+        [
+          '-c',
+          'protocol.version=2',
+          'fetch',
+          '--depth',
+          '1',
+          '--no-tags',
+          'origin',
+          request.commitSha,
+        ],
+        dir,
+        env,
+      );
+      await this.git(
+        [
+          '-c',
+          `core.hooksPath=${path.join(dir, '.toopo-no-hooks')}`,
+          '-c',
+          'advice.detachedHead=false',
+          'checkout',
+          '--quiet',
+          '--force',
+          'FETCH_HEAD',
+        ],
+        dir,
+        env,
+      );
+    } finally {
+      await askpass?.cleanup();
+    }
   }
 
-  private git(args: readonly string[], cwd: string): Promise<void> {
-    return runGit(this.gitPath, args, cwd, this.timeoutMs);
+  private git(
+    args: readonly string[],
+    cwd: string,
+    extraEnv?: Readonly<Record<string, string>>,
+  ): Promise<void> {
+    return runGit(this.gitPath, args, cwd, this.timeoutMs, extraEnv);
   }
 }

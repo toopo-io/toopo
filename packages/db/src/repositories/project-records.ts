@@ -19,8 +19,10 @@ export const ProjectRecordSchema = z.object({
   repoHost: z.string(),
   repoOwner: z.string(),
   repoName: z.string(),
-  /** Optional host installation id (e.g. a GitHub App install); absent for now. */
+  /** Optional host installation id (a GitHub App install; ADR-0026 §3). */
   installationId: z.string().nullable(),
+  /** Soft-archive timestamp (ADR-0026 §7): non-null once uninstalled/removed. */
+  archivedAt: dbDate.nullable(),
   createdAt: dbDate,
   updatedAt: dbDate,
 });
@@ -33,6 +35,7 @@ type ProjectRowLike = {
   readonly repo_owner: string;
   readonly repo_name: string;
   readonly installation_id: string | null;
+  readonly archived_at: ProjectTable['archived_at'];
   readonly created_at: ProjectTable['created_at'];
   readonly updated_at: ProjectTable['updated_at'];
 };
@@ -46,6 +49,7 @@ export function rowToProject(row: ProjectRowLike): ProjectRecord {
     repoOwner: row.repo_owner,
     repoName: row.repo_name,
     installationId: row.installation_id,
+    archivedAt: row.archived_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   });

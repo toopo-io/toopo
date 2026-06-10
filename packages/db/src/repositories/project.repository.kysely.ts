@@ -33,11 +33,16 @@ export class KyselyProjectRepository implements ProjectRepository {
       repo_owner: input.repoOwner,
       repo_name: input.repoName,
       installation_id: input.installationId ?? null,
+      archived_at: null,
       created_at: now,
       updated_at: now,
     };
     await this.db.insertInto('project').values(row).execute();
-    return rowToProject({ ...row, installation_id: row.installation_id ?? null });
+    return rowToProject({
+      ...row,
+      installation_id: row.installation_id ?? null,
+      archived_at: null,
+    });
   }
 
   async findProjectById(id: string): Promise<ProjectRecord | null> {
@@ -64,9 +69,37 @@ export class KyselyProjectRepository implements ProjectRepository {
     return row === undefined ? null : rowToProject(row);
   }
 
+  async findProjectsByInstallationId(installationId: string): Promise<readonly ProjectRecord[]> {
+    const rows = await this.db
+      .selectFrom('project')
+      .selectAll()
+      .where('installation_id', '=', installationId)
+      .orderBy('id')
+      .execute();
+    return rows.map(rowToProject);
+  }
+
+  async archiveProject(id: string, archivedAt: Date): Promise<void> {
+    const now = new Date().toISOString();
+    await this.db
+      .updateTable('project')
+      .set({ archived_at: archivedAt.toISOString(), updated_at: now })
+      .where('id', '=', id)
+      .execute();
+  }
+
+  async reviveProject(id: string, installationId: string | null): Promise<void> {
+    const now = new Date().toISOString();
+    await this.db
+      .updateTable('project')
+      .set({ archived_at: null, installation_id: installationId, updated_at: now })
+      .where('id', '=', id)
+      .execute();
+  }
+
   async listProjects(options?: PageOptions): Promise<Page<ProjectRecord>> {
     const limit = clampLimit(options?.limit);
-    let query = this.db.selectFrom('project').selectAll();
+    let query = this.db.selectFrom('project').selectAll().where('archived_at', 'is', null);
     if (options?.cursor !== undefined) {
       query = query.where('id', '>', String(decodeCursorTuple(options.cursor, 1)[0]));
     }

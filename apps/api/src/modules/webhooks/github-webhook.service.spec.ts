@@ -23,6 +23,7 @@ function projectRecord(): ProjectRecord {
     repoOwner: 'acme',
     repoName: 'web',
     installationId: null,
+    archivedAt: null,
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
     updatedAt: new Date('2026-01-01T00:00:00.000Z'),
   };

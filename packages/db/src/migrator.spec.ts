@@ -99,6 +99,7 @@ for (const { backend, skip } of backends) {
         '0005_graph_project_scope',
         '0006_job',
         '0007_parse_fragment',
+        '0008_github_app_connect',
       ]);
       expect(results.every((r) => r.status === 'Success')).toBe(true);
     });

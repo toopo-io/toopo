@@ -16,6 +16,7 @@ const project: ProjectRecord = {
   repoOwner: 'acme',
   repoName: 'web',
   installationId: null,
+  archivedAt: null,
   createdAt: new Date('2026-06-10T00:00:00.000Z'),
   updatedAt: new Date('2026-06-10T00:00:00.000Z'),
 };

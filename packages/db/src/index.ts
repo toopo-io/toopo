@@ -28,6 +28,16 @@ export {
   type ParseFragmentDatabaseHandle,
 } from './parse-fragment-database.js';
 export { createProjectDatabase, type ProjectDatabaseHandle } from './project-database.js';
+export type {
+  GithubInstallationRepository,
+  UpsertInstallationInput,
+} from './repositories/github-installation.repository.js';
+export { KyselyGithubInstallationRepository } from './repositories/github-installation.repository.kysely.js';
+export {
+  type GithubInstallationRecord,
+  GithubInstallationRecordSchema,
+  rowToGithubInstallation,
+} from './repositories/github-installation-records.js';
 export {
   type BlastRadiusHit,
   type BlastRadiusNode,
@@ -108,4 +118,8 @@ export type {
 export type { EdgeTable, GraphDatabase, NodeTable } from './schema/graph-types.js';
 export type { JobDatabase, JobTable } from './schema/job-types.js';
 export type { ParseFragmentDatabase, ParseFragmentTable } from './schema/parse-fragment-types.js';
-export type { ProjectDatabase, ProjectTable } from './schema/project-types.js';
+export type {
+  GithubInstallationTable,
+  ProjectDatabase,
+  ProjectTable,
+} from './schema/project-types.js';

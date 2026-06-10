@@ -11,12 +11,16 @@
 import type { Kysely } from 'kysely';
 import type { DatabaseBackend } from './config.js';
 import { createDatabase } from './database.js';
+import type { GithubInstallationRepository } from './repositories/github-installation.repository.js';
+import { KyselyGithubInstallationRepository } from './repositories/github-installation.repository.kysely.js';
 import type { ProjectRepository } from './repositories/project.repository.js';
 import { KyselyProjectRepository } from './repositories/project.repository.kysely.js';
 import type { ProjectDatabase } from './schema/project-types.js';
 
 export interface ProjectDatabaseHandle {
   readonly projectRepository: ProjectRepository;
+  /** The GitHub-App installation link store (ADR-0026 §3), same connection. */
+  readonly githubInstallationRepository: GithubInstallationRepository;
   /** The resolved backend — for an explicit `migrateToLatest` step. */
   readonly backend: DatabaseBackend;
   /** The underlying connection — for `migrateToLatest` only, never on boot. */
@@ -29,6 +33,7 @@ export function createProjectDatabase(input: unknown): ProjectDatabaseHandle {
   const handle = createDatabase<ProjectDatabase>(input);
   return {
     projectRepository: new KyselyProjectRepository(handle.db),
+    githubInstallationRepository: new KyselyGithubInstallationRepository(handle.db),
     backend: handle.backend,
     db: handle.db,
     close: () => handle.db.destroy(),

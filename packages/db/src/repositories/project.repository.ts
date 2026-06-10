@@ -34,7 +34,11 @@ export interface ProjectRepository {
   /** The project for an id, or `null` when absent. */
   findProjectById(id: string): Promise<ProjectRecord | null>;
 
-  /** The project for a repo triple (the worker's populate target), or `null`. */
+  /**
+   * The project for a repo triple, or `null`. Returns archived projects too, so a
+   * re-connect resolves and {@link reviveProject}s the existing row rather than
+   * colliding on the unique repo index (ADR-0026 §3, §7).
+   */
   findProjectByRepo(
     repoHost: string,
     repoOwner: string,
@@ -42,10 +46,33 @@ export interface ProjectRepository {
   ): Promise<ProjectRecord | null>;
 
   /**
-   * The instance's projects, keyset-paged by id (ADR-0020 §4 — always bounded).
-   * The OSS authorization line (ADR-0022 §2) is instance-tenant, so this lists
-   * every project on the instance; per-user/org filtering is a future hosted
-   * concern, applied above this layer.
+   * Every project linked to a GitHub-App installation (ADR-0026 §7). The bridge
+   * from an anonymous `installation.deleted` webhook to the rows to archive; the
+   * set is bounded by what the installation grants.
+   */
+  findProjectsByInstallationId(installationId: string): Promise<readonly ProjectRecord[]>;
+
+  /**
+   * Soft-archive a project (ADR-0026 §7): set `archived_at` so the picker hides it
+   * while the graph is preserved. Idempotent — archiving an archived project is a
+   * no-op overwrite of the timestamp.
+   */
+  archiveProject(id: string, archivedAt: Date): Promise<void>;
+
+  /**
+   * Re-activate a project on re-connect (ADR-0026 §7): clear `archived_at` and
+   * refresh the installation id (a re-install may carry a new one). The inverse of
+   * {@link archiveProject}, used when {@link findProjectByRepo} resolves an
+   * existing (possibly archived) row instead of creating a duplicate.
+   */
+  reviveProject(id: string, installationId: string | null): Promise<void>;
+
+  /**
+   * The instance's ACTIVE projects, keyset-paged by id (ADR-0020 §4 — always
+   * bounded). Archived projects (ADR-0026 §7) are excluded. The OSS authorization
+   * line (ADR-0022 §2) is instance-tenant, so this lists every active project on
+   * the instance; per-user/org filtering is a future hosted concern, above this
+   * layer.
    */
   listProjects(options?: PageOptions): Promise<Page<ProjectRecord>>;
 }

@@ -20,6 +20,7 @@ export const e2eProject: ProjectRecord = {
   repoOwner: 'acme',
   repoName: 'web',
   installationId: null,
+  archivedAt: null,
   createdAt: new Date(),
   updatedAt: new Date(),
 };

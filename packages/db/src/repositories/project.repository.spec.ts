@@ -56,6 +56,7 @@ for (const { backend, skip } of backends) {
       expect(web.repoOwner).toBe('acme');
       expect(web.repoName).toBe('web');
       expect(web.installationId).toBeNull();
+      expect(web.archivedAt).toBeNull();
       expect(web.createdAt).toBeInstanceOf(Date);
       expect(web.updatedAt).toBeInstanceOf(Date);
     });
@@ -104,6 +105,51 @@ for (const { backend, skip } of backends) {
           repoName: 'web',
         }),
       ).rejects.toThrow();
+    });
+
+    it('finds every project linked to an installation id', async () => {
+      const linked = await repository.findProjectsByInstallationId('42');
+      expect(linked.map((p) => p.id)).toEqual([api.id]);
+      expect(await repository.findProjectsByInstallationId('nope')).toEqual([]);
+    });
+
+    it('soft-archives a project: it drops out of the listing but stays resolvable', async () => {
+      const target = await repository.createProject({
+        ownerUserId: 'user-1',
+        repoHost: 'github',
+        repoOwner: 'acme',
+        repoName: 'archived-repo',
+        installationId: '42',
+      });
+
+      await repository.archiveProject(target.id, new Date('2026-06-10T00:00:00Z'));
+
+      const listed = await repository.listProjects();
+      expect(listed.items.map((p) => p.id)).not.toContain(target.id);
+
+      const resolved = await repository.findProjectByRepo('github', 'acme', 'archived-repo');
+      expect(resolved?.id).toBe(target.id);
+      expect(resolved?.archivedAt).toBeInstanceOf(Date);
+    });
+
+    it('revives an archived project, clearing the archive and refreshing the installation', async () => {
+      const target = await repository.createProject({
+        ownerUserId: 'user-1',
+        repoHost: 'github',
+        repoOwner: 'acme',
+        repoName: 'revived-repo',
+        installationId: '42',
+      });
+      await repository.archiveProject(target.id, new Date('2026-06-10T00:00:00Z'));
+
+      await repository.reviveProject(target.id, '99');
+
+      const revived = await repository.findProjectById(target.id);
+      expect(revived?.archivedAt).toBeNull();
+      expect(revived?.installationId).toBe('99');
+
+      const listed = await repository.listProjects();
+      expect(listed.items.map((p) => p.id)).toContain(target.id);
     });
   });
 }

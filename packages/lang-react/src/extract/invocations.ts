@@ -51,7 +51,10 @@ export function extractInvocations(
   const symbolByName = new Map<string, ExtractedSymbol>();
   for (const symbol of symbols) {
     symbolIdByNodeId.set(symbol.node.id, symbol.id);
-    symbolByName.set(symbol.name, symbol);
+    // A member encloses call-sites but is not addressable by a bare callee.
+    if (symbol.memberOf === undefined) {
+      symbolByName.set(symbol.name, symbol);
+    }
   }
 
   // The `.ts` grammar has no JSX node types, so render collection is skipped

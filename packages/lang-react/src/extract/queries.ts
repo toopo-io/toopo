@@ -18,10 +18,13 @@
  *   - `interface_declaration` — `ts:interface`;
  *   - `type_alias_declaration` — `ts:type`.
  *
- * Nested declarations and class/interface MEMBERS are deliberately deferred. The
- * `declaration:` field excludes anonymous `export default (…) =>` / `export
- * default function() {}` (no name → no stable identity), which degrade to "no
- * symbol" rather than a fabricated one.
+ * This query captures the top-level CONTAINERS; class/interface members
+ * (methods, accessors, fields, properties) are then walked out of each captured
+ * class/interface body by `extractMembers` — they need no top-level query, only
+ * their already-located container. Nested (in-body) declarations remain deferred
+ * to the local-scope pass. The `declaration:` field excludes anonymous `export
+ * default (…) =>` / `export default function() {}` (no name → no stable
+ * identity), which degrade to "no symbol" rather than a fabricated one.
  */
 export const SYMBOL_QUERY = `
   (program (function_declaration) @symbol)

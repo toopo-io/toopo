@@ -2,9 +2,11 @@ import type { Descriptor, Edge, Node, SymbolId } from '@toopo/core';
 import type { ExtractContext } from '@toopo/parser';
 import type { Node as SyntaxNode } from 'web-tree-sitter';
 import type { SymbolSubKind } from '../subkinds.js';
+import { SUBKIND } from '../subkinds.js';
 import { classifyDeclaration } from './declarations.js';
 import { parseEdge } from './edges.js';
 import type { Heritage } from './heritage.js';
+import { extractMembers } from './members.js';
 import { type DeclaredChild, extractParameters } from './params.js';
 import { SYMBOL_QUERY } from './queries.js';
 
@@ -19,6 +21,13 @@ export interface ExtractedSymbol {
   readonly declared: DeclaredChild[];
   /** Class supertype names (extends/implements), for the heritage-edge pass. */
   readonly heritage: Heritage;
+  /**
+   * Set on a class/interface MEMBER (its owning container's id). A member can
+   * enclose call-sites but is never addressable by a bare in-file callee — so
+   * the invocation pass attributes calls to it yet excludes it from name-based
+   * target resolution (a method `render` must never satisfy a bare `render()`).
+   */
+  readonly memberOf?: SymbolId;
 }
 
 export interface SymbolExtraction {
@@ -63,7 +72,7 @@ export function extractSymbols(ctx: ExtractContext, jsx: boolean): SymbolExtract
     const declared = extractParameters(
       ctx,
       declaration.params,
-      descriptor,
+      [descriptor],
       id,
       declaration.isComponent,
     );
@@ -78,6 +87,13 @@ export function extractSymbols(ctx: ExtractContext, jsx: boolean): SymbolExtract
       declared: declared.children,
       heritage: declaration.heritage,
     });
+
+    if (declaration.subKind === SUBKIND.class || declaration.subKind === SUBKIND.interface) {
+      const members = extractMembers(ctx, definition, descriptor, id);
+      nodes.push(...members.nodes);
+      edges.push(...members.edges);
+      symbols.push(...members.symbols);
+    }
   }
 
   return { nodes, edges, symbols };

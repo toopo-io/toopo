@@ -26,28 +26,33 @@ export interface ParameterExtraction {
 }
 
 interface DeclaredField {
+  /** The public name a caller addresses (the destructured key, never the local alias). */
   readonly name: string;
   readonly node: SyntaxNode;
-  /** A destructured object field (a candidate prop) vs a plain named parameter. */
+  /** A destructured field (object/array pattern member) vs a plain named parameter. */
   readonly destructured: boolean;
 }
 
 /**
  * Extract a symbol's declared interface as child `symbol` nodes (ADR-0015 §6),
- * each linked by a `contains` edge from the parent. A destructured object-
- * pattern field on a COMPONENT is a `react:prop`; every other declared input is
- * a `ts:parameter`. Ids are minted under the parent via `ctx.childId`, so they
- * round-trip through the core codec.
+ * each linked by a `contains` edge from the parent. A destructured field on a
+ * COMPONENT is a `react:prop`; every other declared input is a `ts:parameter`.
+ * Ids are minted under the parent's descriptor CHAIN via `ctx.childId`, so a
+ * method's params nest correctly beneath their class (e.g. `Widget#render().(x)`)
+ * and round-trip through the core codec.
  *
- * v1 covers named identifier parameters and shorthand object-pattern fields
- * (`{ label }`) — the dominant React shape. Renamed/defaulted props
- * (`{ a: b }`, `{ a = 1 }`), rest, and array patterns are deferred; missing a
- * declared prop is recoverable, fabricating one is not.
+ * Coverage: named identifier params; object-pattern fields — shorthand
+ * (`{ label }`), renamed (`{ a: b }` → public name `a`), defaulted (`{ a = 1 }`),
+ * and rest (`{ ...others }`); array-pattern element identifiers (`[a, b]`); and
+ * top-level rest params (`...rest`). The public destructured KEY is captured, not
+ * the local alias — that is the name a caller binds to (trust principle). Names
+ * that have no stable public identity (a computed key, a deeply nested element)
+ * are skipped rather than fabricated.
  */
 export function extractParameters(
   ctx: ExtractContext,
   params: SyntaxNode | null,
-  parentDescriptor: Descriptor,
+  parentDescriptors: readonly Descriptor[],
   parentSymbolId: SymbolId,
   isComponent: boolean,
 ): ParameterExtraction {
@@ -60,6 +65,9 @@ export function extractParameters(
 
   let slot = 0;
   for (const param of params.namedChildren) {
+    if (param === null) {
+      continue;
+    }
     if (param.type !== 'required_parameter' && param.type !== 'optional_parameter') {
       continue;
     }
@@ -70,7 +78,7 @@ export function extractParameters(
     for (const field of declaredFields(pattern)) {
       const isProp = field.destructured && isComponent;
       const subKind = isProp ? SUBKIND.prop : SUBKIND.parameter;
-      const id = ctx.childId([parentDescriptor, { name: field.name, suffix: 'parameter' }]);
+      const id = ctx.childId([...parentDescriptors, { name: field.name, suffix: 'parameter' }]);
       nodes.push({
         kind: 'symbol',
         id,
@@ -95,14 +103,47 @@ export function extractParameters(
   return { nodes, edges, children };
 }
 
+/** The declared bindings a parameter pattern introduces, by public name. */
 function declaredFields(pattern: SyntaxNode): DeclaredField[] {
-  if (pattern.type === 'identifier') {
-    return [{ name: pattern.text, node: pattern, destructured: false }];
+  switch (pattern.type) {
+    case 'identifier':
+      return [{ name: pattern.text, node: pattern, destructured: false }];
+    case 'rest_pattern': {
+      const inner = pattern.namedChildren.find((child) => child?.type === 'identifier') ?? null;
+      return inner === null ? [] : [{ name: inner.text, node: inner, destructured: false }];
+    }
+    case 'object_pattern':
+      return pattern.namedChildren.flatMap(objectPatternField);
+    case 'array_pattern':
+      return pattern.namedChildren
+        .filter((child): child is SyntaxNode => child?.type === 'identifier')
+        .map((child) => ({ name: child.text, node: child, destructured: true }));
+    default:
+      return [];
   }
-  if (pattern.type === 'object_pattern') {
-    return pattern.namedChildren
-      .filter((child) => child.type === 'shorthand_property_identifier_pattern')
-      .map((child) => ({ name: child.text, node: child, destructured: true }));
+}
+
+/** One field of an object destructuring pattern, addressed by its public key. */
+function objectPatternField(child: SyntaxNode | null): DeclaredField[] {
+  if (child === null) {
+    return [];
   }
-  return [];
+  switch (child.type) {
+    case 'shorthand_property_identifier_pattern':
+      return [{ name: child.text, node: child, destructured: true }];
+    case 'pair_pattern': {
+      const key = child.childForFieldName('key');
+      return key === null ? [] : [{ name: key.text, node: key, destructured: true }];
+    }
+    case 'object_assignment_pattern': {
+      const left = child.childForFieldName('left');
+      return left === null ? [] : [{ name: left.text, node: left, destructured: true }];
+    }
+    case 'rest_pattern': {
+      const inner = child.namedChildren.find((node) => node?.type === 'identifier') ?? null;
+      return inner === null ? [] : [{ name: inner.text, node: inner, destructured: true }];
+    }
+    default:
+      return [];
+  }
 }

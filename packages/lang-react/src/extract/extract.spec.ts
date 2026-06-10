@@ -108,12 +108,16 @@ describe('extractReact — Phase C structural graph', () => {
           name: 'a',
           subKind: 'ts:parameter',
         },
-        // rest and array patterns declare no named child (deferred), only the function symbol
+        // a top-level rest param is captured by its binding name (C6)
         { id: id(path, term('withRest')), name: 'withRest', subKind: 'ts:function' },
+        { id: id(path, term('withRest'), param('args')), name: 'args', subKind: 'ts:parameter' },
+        // an array-pattern element binding is captured (C6)
         { id: id(path, term('withArray')), name: 'withArray', subKind: 'ts:function' },
-        // spread props: the shorthand `title` is a declared prop; `...rest` is deferred
+        { id: id(path, term('withArray'), param('first')), name: 'first', subKind: 'ts:parameter' },
+        // spread props: the shorthand `title` and the rest collector `...rest` are both props
         { id: id(path, term('Card')), name: 'Card', subKind: 'react:component' },
         { id: id(path, term('Card'), param('title')), name: 'title', subKind: 'react:prop' },
+        { id: id(path, term('Card'), param('rest')), name: 'rest', subKind: 'react:prop' },
       ]),
     );
   });

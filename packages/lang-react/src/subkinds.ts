@@ -16,6 +16,16 @@ export const SUBKIND = {
   type: 'ts:type',
   interface: 'ts:interface',
   class: 'ts:class',
+  /** A class or interface method (incl. constructor and abstract method signatures). */
+  method: 'ts:method',
+  /** A `get` accessor — name-distinct from its paired setter via the id disambiguator. */
+  getter: 'ts:getter',
+  /** A `set` accessor — name-distinct from its paired getter via the id disambiguator. */
+  setter: 'ts:setter',
+  /** A class field / property declaration. */
+  field: 'ts:field',
+  /** An interface property signature. */
+  property: 'ts:property',
 } as const;
 
 export type SymbolSubKind = (typeof SUBKIND)[keyof typeof SUBKIND];

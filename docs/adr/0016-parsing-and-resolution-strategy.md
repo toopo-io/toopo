@@ -193,6 +193,38 @@ on a value namespace import (`import * as NS; NS.foo`) now resolves to the
 module's exported `foo` through the export chain, so that usage is a real edge
 rather than a silent drop.
 
+### Known boundary — unresolved call-site usages are NOT yet in the tail
+
+The persisted tail currently records only unresolved **imports/exports** (the four
+diagnostic codes). It does NOT yet record unresolved **call-site member usages**:
+
+- a member-root call on a value import (`Form.Item`, `widget.draw()`) binds the
+  ROOT and leaves the member unresolved — so a captured member symbol (e.g.
+  `Widget#draw`, captured since A1) used only this way gets no incoming usage edge;
+- a namespace member that resolves no export (`NS.Missing`), or a deeper member
+  path, yields no edge and no diagnostic;
+- a call whose root is a local/param (not an import) is left unbound entirely.
+
+A symbol used SOLELY via such a path can therefore have zero incoming dependency
+edges while genuinely being used — exactly the false "unused" C11 exists to
+prevent. This is deliberately deferred, not overlooked: channelling these honestly
+is **larger than an additive change** and must be co-designed with the "unused"
+view, because (a) it requires extending the `bindCallSite` plugin contract — the
+extensibility keystone — to report partial/failed bindings (the member-root case
+emits an edge to the root, so "no edge" cannot detect it); (b) the signal is
+**coarser** than an export gap (it names a member, not a resolvable
+`(targetFileId, name)`), so its persisted shape and the view's consumption differ;
+and (c) a half-measure recording only the "no edge at all" subset would MISS the
+dominant member-root-partial case and give false confidence — and per the
+Perfection Charter a partial honesty signal is worse than a documented boundary.
+
+**Hard prerequisite for Phase D.** The deterministic "unused" (and "cycle") view
+MUST NOT ship until call-site resolution gaps are accounted for. Until they are
+persisted, the view MUST be conservative: a symbol is "unused" with CERTAINTY only
+when the project has **zero** unresolved call-site usages that could reach it;
+otherwise it is a *candidate* (possibly-used), never asserted unused. This keeps
+the honesty guarantee airtight — a resolution gap is never read as genuine absence.
+
 ## Related ADRs
 
 - ADR-0015 (universal code-graph model — node/edge taxonomy, stable

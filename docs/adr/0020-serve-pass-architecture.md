@@ -113,6 +113,11 @@ project-scoping discipline as the rest of the catalog; persisted (transactionall
 with the graph) rather than computed on read, because it records a fact the read
 cannot reconstruct (which usages failed to bind).
 
+The tail covers import/export gaps only; **unresolved call-site member usages are
+a documented boundary and a hard prerequisite for the "unused"/"cycle" views** —
+see ADR-0016 (C11 amendment, "Known boundary"). Those views must treat such gaps
+conservatively (candidate, not certain) until they are persisted.
+
 ## Related ADRs
 
 - ADR-0015 (model — derived views, trust, containment), ADR-0016 (Serve named as

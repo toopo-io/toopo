@@ -163,6 +163,28 @@ export interface ResolvedImport {
   readonly certainty: Certainty;
 }
 
+/**
+ * The file's namespace imports (`import * as NS from './mod'`), resolvable to the
+ * member they name (ADR-0016 Fork 4). A member access `NS.foo` on a namespace
+ * import IS the module's exported `foo` by language semantics, so the engine
+ * resolves it through the same export chain a named import uses — `NS.foo` binds
+ * exactly as `import { foo }` would, at the same certainty. The PLUGIN owns the
+ * callee syntax (how `NS.foo` splits into root + member); the ENGINE owns the
+ * export-chain mechanics behind {@link resolveMember}. Only INTERNAL namespace
+ * modules resolve; an external coordinate stays unmodelled (deferred), and an
+ * unresolvable member yields `null` — no edge, never a guess (the trust principle).
+ */
+export interface NamespaceImports {
+  /** How many namespace imports the file has — zero lets the engine skip call-site work. */
+  readonly size: number;
+  /**
+   * Resolve `memberName` accessed on the namespace bound to `localName`, or `null`
+   * when `localName` is not a (resolvable, internal) namespace import or the member
+   * names no resolvable export.
+   */
+  resolveMember(localName: string, memberName: string): ResolvedImport | null;
+}
+
 /** A deferred call-site the engine asks a plugin to bind across files. `subKind`
  * is the call-site's own parse-time refinement (the plugin interprets it — e.g.
  * `react:element` marks a render); `payload` is its actual args/props. */
@@ -206,7 +228,8 @@ export interface ResolvedEdge {
 /**
  * A language's resolution implementation, injected into the resolver at runtime.
  * `bindCallSite` is where ALL call-site binding semantics live — how a callee
- * maps to an imported name (exact identifier vs `member-root` like `Form.Item`),
+ * maps to an imported name (exact identifier; `member-root` like `Form.Item`; or
+ * a namespace member like `NS.foo`, resolved through {@link NamespaceImports}),
  * whether a render or a call edge is emitted, and how a payload binds to the
  * receiver's declared interface — because every one of those carries language-
  * specific subKinds the agnostic engine must not know. It returns descriptors;
@@ -224,6 +247,7 @@ export interface ResolverPlugin {
   bindCallSite(
     callSite: CallSiteBinding,
     resolvedImports: ReadonlyMap<string, ResolvedImport>,
+    namespaceImports: NamespaceImports,
     symbols: SymbolView,
   ): readonly ResolvedEdge[];
 }

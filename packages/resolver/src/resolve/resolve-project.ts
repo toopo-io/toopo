@@ -70,7 +70,9 @@ export function resolveProject(
     }
     const imports = bindFileImports(fragment, file, plugin, moduleIndex, exportIndex, project);
     resolvedEdges.push(...imports.edges);
-    resolvedEdges.push(...bindFileCallSites(file, plugin, imports.resolvedImports, symbolGraph));
+    resolvedEdges.push(
+      ...bindFileCallSites(file, plugin, imports.resolvedImports, imports.namespaces, symbolGraph),
+    );
     diagnostics.push(...imports.diagnostics);
   }
 

@@ -83,10 +83,12 @@ describe('ResolverPlugin contract', () => {
       ['Button', { symbolId: 'B.', certainty: { resolution: 'deterministic' as const } }],
     ]);
     const noChildren = { declaredChildren: () => [] };
+    const noNamespaces = { size: 0, resolveMember: () => null };
 
     const renderEdges = fakePlugin.bindCallSite(
       { callSiteId: 'cs.', callee: 'Button', subKind: 'x:element', payload: [] },
       resolvedImports,
+      noNamespaces,
       noChildren,
     );
     expect(renderEdges).toEqual([
@@ -105,6 +107,7 @@ describe('ResolverPlugin contract', () => {
       fakePlugin.bindCallSite(
         { callSiteId: 'cs.', callee: 'Unknown', subKind: undefined, payload: [] },
         resolvedImports,
+        noNamespaces,
         noChildren,
       ),
     ).toEqual([]);

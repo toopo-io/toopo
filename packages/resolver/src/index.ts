@@ -9,6 +9,7 @@ export type {
   ModuleIndex,
   ModuleRequest,
   ModuleResolution,
+  NamespaceImports,
   ProjectModel,
   ResolvedEdge,
   ResolvedImport,

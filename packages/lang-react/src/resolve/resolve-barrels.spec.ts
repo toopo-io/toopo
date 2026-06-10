@@ -15,6 +15,7 @@ const FILES: readonly { path: string; fixture: string }[] = [
   { path: 'src/all/index.tsx', fixture: 'all/index.tsx' },
   { path: 'src/all/Widget.tsx', fixture: 'all/Widget.tsx' },
   { path: 'src/MemberConsumer.tsx', fixture: 'MemberConsumer.tsx' },
+  { path: 'src/NamespaceConsumer.tsx', fixture: 'NamespaceConsumer.tsx' },
   { path: 'src/Form.tsx', fixture: 'Form.tsx' },
   { path: 'src/MultiConsumer.tsx', fixture: 'MultiConsumer.tsx' },
   { path: 'src/multi/index.tsx', fixture: 'multi/index.tsx' },
@@ -146,6 +147,30 @@ describe('createReactResolver — Slice 3 barrels, stars, and member roots', () 
     });
     // No prop binding for a member-root (props belong to the unresolved member).
     expect(edges.some((edge) => edge.sourceId === site && edge.kind === 'references')).toBe(false);
+  });
+
+  it('resolves a namespace-member render (Forms.Form) to the EXACT export, deterministically (C10)', async () => {
+    const { edges } = await resolveFixtures();
+    const formId = id('src/Form.tsx', term('Form'));
+    const site = callSite('src/NamespaceConsumer.tsx', 'NamespaceConsumer', 'Forms.Form');
+
+    // `import * as Forms` then `<Forms.Form />` — the member IS the module export
+    // `Form`, so it resolves exactly (not member-root), at full certainty.
+    expect(edges).toContainEqual({
+      kind: 'calls',
+      sourceId: site,
+      targetId: formId,
+      rule: 'react/renders-namespace-member',
+      subKind: 'react:renders',
+      resolution: 'deterministic',
+      confidence: undefined,
+    });
+  });
+
+  it('leaves a namespace member that names no export unbound — no edge, no guess (C10)', async () => {
+    const { edges } = await resolveFixtures();
+    const missingSite = callSite('src/NamespaceConsumer.tsx', 'NamespaceConsumer', 'Forms.Missing');
+    expect(edges.some((edge) => edge.sourceId === missingSite)).toBe(false);
   });
 
   it('resolves a name through MULTIPLE export * to its unique provider, deterministically', async () => {

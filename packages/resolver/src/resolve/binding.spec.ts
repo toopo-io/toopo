@@ -207,7 +207,7 @@ function fakePlugin(): ResolverPlugin {
       request.exportedName === 'Widget'
         ? { status: 'symbol', symbolId: WIDGET, certainty: { resolution: 'deterministic' } }
         : { status: 'unresolved', reason: `no export ${request.exportedName}` },
-    bindCallSite: (callSite, resolvedImports, symbols) => {
+    bindCallSite: (callSite, resolvedImports, _namespaceImports, symbols) => {
       const resolved = resolvedImports.get(callSite.callee);
       if (resolved === undefined) {
         return [];

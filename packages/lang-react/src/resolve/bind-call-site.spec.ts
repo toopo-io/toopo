@@ -1,5 +1,10 @@
 import type { CallSitePayloadArgument } from '@toopo/core';
-import type { CallSiteBinding, ResolvedImport, SymbolView } from '@toopo/resolver';
+import type {
+  CallSiteBinding,
+  NamespaceImports,
+  ResolvedImport,
+  SymbolView,
+} from '@toopo/resolver';
 import { describe, expect, it } from 'vitest';
 import { bindCallSite } from './bind-call-site';
 
@@ -11,6 +16,16 @@ const resolvedImports = new Map<string, ResolvedImport>([
 const labelProp = { id: 'B.(label)', name: 'label', subKind: 'react:prop' };
 const symbols: SymbolView = {
   declaredChildren: (symbolId) => (symbolId === 'B.' ? [labelProp] : []),
+};
+
+/** No namespace imports — the default for the exact/value-root call-site cases. */
+const noNamespaces: NamespaceImports = { size: 0, resolveMember: () => null };
+
+/** A file with `import * as NS from './ui'`, where `NS.Button` is the export `Button`. */
+const namespaces: NamespaceImports = {
+  size: 1,
+  resolveMember: (localName, member) =>
+    localName === 'NS' && member === 'Button' ? { symbolId: 'B.', certainty: DETERMINISTIC } : null,
 };
 
 function named(name: string, value: string): CallSitePayloadArgument {
@@ -32,6 +47,7 @@ describe('bindCallSite (React)', () => {
     const edges = bindCallSite(
       site({ payload: [named('label', '"x"')] }),
       resolvedImports,
+      noNamespaces,
       symbols,
     );
     expect(edges).toEqual([
@@ -55,7 +71,12 @@ describe('bindCallSite (React)', () => {
   });
 
   it('emits a plain call edge (no render subKind) for a non-render callee', () => {
-    const edges = bindCallSite(site({ subKind: undefined, payload: [] }), resolvedImports, symbols);
+    const edges = bindCallSite(
+      site({ subKind: undefined, payload: [] }),
+      resolvedImports,
+      noNamespaces,
+      symbols,
+    );
     expect(edges).toEqual([
       {
         kind: 'calls',
@@ -81,7 +102,12 @@ describe('bindCallSite (React)', () => {
       value: '1',
       resolution: 'deterministic',
     };
-    const edges = bindCallSite(site({ payload: [spread, positional] }), resolvedImports, symbols);
+    const edges = bindCallSite(
+      site({ payload: [spread, positional] }),
+      resolvedImports,
+      noNamespaces,
+      symbols,
+    );
     expect(edges).toEqual([
       {
         kind: 'calls',
@@ -98,6 +124,7 @@ describe('bindCallSite (React)', () => {
     const edges = bindCallSite(
       site({ payload: [named('unknown', '"x"')] }),
       resolvedImports,
+      noNamespaces,
       symbols,
     );
     expect(edges).toEqual([
@@ -120,6 +147,7 @@ describe('bindCallSite (React)', () => {
       bindCallSite(
         site({ callee: 'Form.Item', payload: [named('label', '"x"')] }),
         withForm,
+        noNamespaces,
         symbols,
       ),
     ).toEqual([
@@ -139,7 +167,12 @@ describe('bindCallSite (React)', () => {
       ['obj', { symbolId: 'O.', certainty: DETERMINISTIC }],
     ]);
     expect(
-      bindCallSite(site({ callee: 'obj.method', subKind: undefined }), withObj, symbols),
+      bindCallSite(
+        site({ callee: 'obj.method', subKind: undefined }),
+        withObj,
+        noNamespaces,
+        symbols,
+      ),
     ).toEqual([
       {
         kind: 'calls',
@@ -153,7 +186,64 @@ describe('bindCallSite (React)', () => {
   });
 
   it('yields no edge for an empty callee or an unresolved import', () => {
-    expect(bindCallSite(site({ callee: '' }), resolvedImports, symbols)).toEqual([]);
-    expect(bindCallSite(site({ callee: 'Unknown' }), resolvedImports, symbols)).toEqual([]);
+    expect(bindCallSite(site({ callee: '' }), resolvedImports, noNamespaces, symbols)).toEqual([]);
+    expect(
+      bindCallSite(site({ callee: 'Unknown' }), resolvedImports, noNamespaces, symbols),
+    ).toEqual([]);
+  });
+
+  it('resolves a namespace-member render (NS.Button) to the EXACT export, with its prop (C10)', () => {
+    // `import * as NS` then `<NS.Button label="x" />` — the member IS the module
+    // export `Button`, so it resolves exactly (not member-root) at full certainty.
+    expect(
+      bindCallSite(
+        site({ callee: 'NS.Button', payload: [named('label', '"x"')] }),
+        new Map(),
+        namespaces,
+        symbols,
+      ),
+    ).toEqual([
+      {
+        kind: 'calls',
+        sourceId: 'cs.',
+        targetId: 'B.',
+        rule: 'react/renders-namespace-member',
+        subKind: 'react:renders',
+        certainty: DETERMINISTIC,
+      },
+      {
+        kind: 'references',
+        sourceId: 'cs.',
+        targetId: 'B.(label)',
+        rule: 'react/binds-prop',
+        subKind: 'react:propBinding',
+        certainty: DETERMINISTIC,
+      },
+    ]);
+  });
+
+  it('resolves a namespace-member call (non-render) with the call rule', () => {
+    expect(
+      bindCallSite(
+        site({ callee: 'NS.Button', subKind: undefined }),
+        new Map(),
+        namespaces,
+        symbols,
+      ),
+    ).toEqual([
+      {
+        kind: 'calls',
+        sourceId: 'cs.',
+        targetId: 'B.',
+        rule: 'react/calls-namespace-member',
+        certainty: DETERMINISTIC,
+      },
+    ]);
+  });
+
+  it('yields no edge when a namespace member names no resolvable export (no guess)', () => {
+    expect(bindCallSite(site({ callee: 'NS.Missing' }), new Map(), namespaces, symbols)).toEqual(
+      [],
+    );
   });
 });

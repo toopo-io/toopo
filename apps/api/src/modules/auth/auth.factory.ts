@@ -1,4 +1,4 @@
-import { authSchemaOptions } from '@toopo/db';
+import { authSchemaOptions, buildOrganizationPlugin } from '@toopo/db';
 import { negotiateLocale } from '@toopo/i18n';
 import { betterAuth } from 'better-auth';
 import type { Logger } from 'nestjs-pino';
@@ -39,6 +39,11 @@ export function createAuth(logger: Logger, email: AuthEmailService, database: Au
     baseURL: Env.BETTER_AUTH_URL,
     basePath: '/v1/auth',
     trustedOrigins: [Env.CORS_ORIGIN],
+    // Workspace tenancy (ADR-0028). The same plugin builder feeds the migration
+    // generator, so the running schema and the committed migration agree
+    // (ADR-0017 §3). Behavioral options (invitation email) arrive in Phase 4;
+    // the default-workspace-on-signup hook is Phase 1b.
+    plugins: [buildOrganizationPlugin()],
     ...(googleSocial !== undefined ? { socialProviders: googleSocial } : {}),
     emailAndPassword: {
       enabled: true,

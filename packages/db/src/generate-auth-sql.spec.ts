@@ -17,4 +17,19 @@ describe('compileAuthMigrationSql', () => {
     expect(sql).toContain('"deletedAt"');
     expect(sql.endsWith('\n')).toBe(true);
   });
+
+  it('compiles the organization (Workspace) tenancy tables from the plugin (sqlite)', async () => {
+    const sql = await compileAuthMigrationSql({
+      dialect: new LibsqlDialect({ url: ':memory:' }),
+      type: 'sqlite',
+    });
+
+    // ADR-0028: the organization plugin is the single schema source for the
+    // Workspace tenancy substrate, shared with the runtime factory.
+    expect(sql).toContain('create table "organization"');
+    expect(sql).toContain('create table "member"');
+    expect(sql).toContain('create table "invitation"');
+    // The plugin augments the session with the active workspace pointer.
+    expect(sql).toContain('"activeOrganizationId"');
+  });
 });

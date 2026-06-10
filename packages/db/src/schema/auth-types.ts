@@ -37,6 +37,12 @@ export interface SessionTable {
   ipAddress: string | null;
   userAgent: string | null;
   userId: string;
+  /**
+   * The session's active workspace (ADR-0028), added by the organization
+   * plugin. Null until an active organization is set. Toopo sets it from the
+   * user's personal workspace on session creation.
+   */
+  activeOrganizationId: string | null;
 }
 
 export interface AccountTable {
@@ -64,10 +70,51 @@ export interface VerificationTable {
   updatedAt: DbTimestamp;
 }
 
+/**
+ * Workspace tenancy tables, owned by the Better Auth organization plugin
+ * (ADR-0028). The plugin owns all WRITES (creation, membership, invitations)
+ * through its server API; Toopo only ever READS these — chiefly the `member`
+ * table for graph-route authorization (Phase 3). Column names track Better
+ * Auth's schema verbatim; the product term "Workspace" is applied only at the
+ * domain/UI boundary. FKs are emitted within the auth module, consistent with
+ * the existing `session`/`account` → `user` references (ADR-0017 §7 forbids
+ * only CROSS-module FKs, e.g. project → user/organization).
+ */
+export interface OrganizationTable {
+  id: string;
+  name: string;
+  slug: string;
+  logo: string | null;
+  metadata: string | null;
+  createdAt: DbTimestamp;
+}
+
+export interface MemberTable {
+  id: string;
+  organizationId: string;
+  userId: string;
+  role: string;
+  createdAt: DbTimestamp;
+}
+
+export interface InvitationTable {
+  id: string;
+  organizationId: string;
+  email: string;
+  role: string | null;
+  status: string;
+  expiresAt: DbTimestamp;
+  inviterId: string;
+  createdAt: DbTimestamp;
+}
+
 /** The Kysely database schema for the auth module. */
 export interface AuthDatabase {
   user: UserTable;
   session: SessionTable;
   account: AccountTable;
   verification: VerificationTable;
+  organization: OrganizationTable;
+  member: MemberTable;
+  invitation: InvitationTable;
 }

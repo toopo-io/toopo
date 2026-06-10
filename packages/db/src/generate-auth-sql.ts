@@ -13,7 +13,7 @@
  */
 import { getMigrations } from 'better-auth/db/migration';
 import type { Dialect } from 'kysely';
-import { authSchemaOptions } from './auth-schema.js';
+import { authSchemaOptions, buildOrganizationPlugin } from './auth-schema.js';
 import type { KyselyBackendType } from './dialect.js';
 
 export interface CompileAuthMigrationParams {
@@ -25,8 +25,11 @@ export interface CompileAuthMigrationParams {
 export async function compileAuthMigrationSql(params: CompileAuthMigrationParams): Promise<string> {
   const { compileMigrations } = await getMigrations({
     database: { dialect: params.dialect, type: params.type },
-    // Mirrors the runtime factory's schema-affecting config exactly.
+    // Mirrors the runtime factory's schema-affecting config exactly. The
+    // organization plugin is built with no behavioral options here so the
+    // emitted DDL matches the runtime instance byte-for-byte (ADR-0017 §3).
     emailAndPassword: { enabled: true },
+    plugins: [buildOrganizationPlugin()],
     ...authSchemaOptions,
   });
   const sql = (await compileMigrations()).trim();

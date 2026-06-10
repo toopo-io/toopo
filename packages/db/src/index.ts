@@ -3,7 +3,12 @@ export {
   type BetterAuthDatabase,
   createAuthDatabase,
 } from './auth-database.js';
-export { authAdditionalUserFields, authSchemaOptions } from './auth-schema.js';
+export {
+  authAdditionalUserFields,
+  authSchemaOptions,
+  buildOrganizationPlugin,
+  type OrganizationBehavior,
+} from './auth-schema.js';
 export {
   type DatabaseBackend,
   type DatabaseConfig,
@@ -112,6 +117,9 @@ export {
 export type {
   AccountTable,
   AuthDatabase,
+  InvitationTable,
+  MemberTable,
+  OrganizationTable,
   SessionTable,
   UserTable,
   VerificationTable,

@@ -7,7 +7,12 @@
  *
  * The database must already be migrated (`db:migrate`, ADR-0008 — never on boot).
  */
-import { createGraphDatabase, type PersistGraphResult } from '@toopo/db';
+import {
+  createGraphDatabase,
+  createProjectDatabase,
+  type PersistGraphResult,
+  type ProjectRepository,
+} from '@toopo/db';
 import {
   buildTypescriptProjectModel,
   ingestProject,
@@ -22,9 +27,21 @@ export interface IngestAndPersistOptions {
   readonly databaseUrl: string;
   /** Honor `.gitignore` during discovery. Defaults to true. */
   readonly gitignore?: boolean;
+  /** The connected repo the graph is persisted under (ADR-0022 §3). */
+  readonly repo: {
+    readonly host: string;
+    readonly owner: string;
+    readonly name: string;
+  };
+  /** The user the project is attributed to on first connect (ADR-0022 §1, §2). */
+  readonly ownerUserId: string;
 }
 
 export interface IngestAndPersistResult {
+  /** The project the graph was persisted under (resolved or created). */
+  readonly projectId: string;
+  /** Whether the project was created on this run (vs an existing one re-ingested). */
+  readonly projectCreated: boolean;
   /** Distinct nodes/edges written (idempotent upsert, ADR-0015 §11). */
   readonly persisted: PersistGraphResult;
   /** Files the pipeline discovered and processed. */
@@ -33,7 +50,34 @@ export interface IngestAndPersistResult {
   readonly diagnostics: number;
 }
 
-/** Ingest `rootDir` with the TS/React plugins and persist the graph to `databaseUrl`. */
+/**
+ * Resolve the project for the repo triple, creating it on first connect
+ * (idempotent on the per-instance repo unique index, ADR-0022 F-E). Returns the
+ * project id and whether it was freshly created.
+ */
+async function resolveProject(
+  projects: ProjectRepository,
+  options: IngestAndPersistOptions,
+): Promise<{ readonly projectId: string; readonly created: boolean }> {
+  const { host, owner, name } = options.repo;
+  const existing = await projects.findProjectByRepo(host, owner, name);
+  if (existing !== null) {
+    return { projectId: existing.id, created: false };
+  }
+  const created = await projects.createProject({
+    ownerUserId: options.ownerUserId,
+    repoHost: host,
+    repoOwner: owner,
+    repoName: name,
+  });
+  return { projectId: created.id, created: true };
+}
+
+/**
+ * Ingest `rootDir` with the TS/React plugins and persist the graph under the
+ * repo's project (resolve-or-create), scoped by `projectId` (ADR-0022 §3). The
+ * database must already be migrated (`db:migrate`, ADR-0008 — never on boot).
+ */
 export async function ingestAndPersist(
   options: IngestAndPersistOptions,
 ): Promise<IngestAndPersistResult> {
@@ -45,15 +89,22 @@ export async function ingestAndPersist(
     gitignore: options.gitignore ?? true,
   });
 
-  const handle = createGraphDatabase({ databaseUrl: options.databaseUrl });
+  const projectHandle = createProjectDatabase({ databaseUrl: options.databaseUrl });
+  const graphHandle = createGraphDatabase({ databaseUrl: options.databaseUrl });
   try {
-    const persisted = await handle.graphRepository.persistGraph(ingestion.document);
+    const { projectId, created } = await resolveProject(projectHandle.projectRepository, options);
+    const persisted = await graphHandle.graphRepository.persistGraph(
+      { projectId },
+      ingestion.document,
+    );
     return {
+      projectId,
+      projectCreated: created,
       persisted,
       files: ingestion.files.length,
       diagnostics: ingestion.diagnostics.length,
     };
   } finally {
-    await handle.close();
+    await Promise.all([projectHandle.close(), graphHandle.close()]);
   }
 }

@@ -16,6 +16,17 @@ import { ingestAndPersist } from './ingest-and-persist.js';
 
 const fixtureDir = fileURLToPath(new URL('../test/fixtures/sample', import.meta.url));
 
+/** Build worker options for a given repo triple (ADR-0022 §3). */
+function opts(databaseUrl: string, repoName: string) {
+  return {
+    rootDir: fixtureDir,
+    databaseUrl,
+    gitignore: false,
+    repo: { host: 'github', owner: 'toopo', name: repoName },
+    ownerUserId: 'system',
+  };
+}
+
 describe('ingestAndPersist', () => {
   let dir: string;
   let databaseUrl: string;
@@ -38,32 +49,52 @@ describe('ingestAndPersist', () => {
     }
   });
 
-  it('ingests the fixture project and persists a queryable graph', async () => {
-    const result = await ingestAndPersist({ rootDir: fixtureDir, databaseUrl, gitignore: false });
+  it('ingests the fixture and persists a graph queryable under its project', async () => {
+    const result = await ingestAndPersist(opts(databaseUrl, 'sample'));
 
     expect(result.files).toBeGreaterThan(0);
     expect(result.persisted.nodes).toBeGreaterThan(0);
+    expect(result.projectId.length).toBeGreaterThan(0);
 
     const verify = createGraphDatabase({ databaseUrl });
     try {
-      const found = await verify.graphRepository.search({ query: 'greet' });
+      // The graph is only visible under the project it was persisted to.
+      const found = await verify.graphRepository.search(
+        { projectId: result.projectId },
+        {
+          query: 'greet',
+        },
+      );
       expect(found.items.some((node) => node.kind === 'symbol' && node.name === 'greet')).toBe(
         true,
       );
+      // A different project sees nothing (composite-key isolation, ADR-0022 §3).
+      const other = await verify.graphRepository.search(
+        { projectId: 'other-project' },
+        {
+          query: 'greet',
+        },
+      );
+      expect(other.items).toEqual([]);
     } finally {
       await verify.close();
     }
   }, 60_000);
 
-  it('is idempotent — re-running persists the same counts', async () => {
-    const first = await ingestAndPersist({ rootDir: fixtureDir, databaseUrl, gitignore: false });
-    const second = await ingestAndPersist({ rootDir: fixtureDir, databaseUrl, gitignore: false });
+  it('resolves-or-creates the project: first run creates, a re-run reuses it', async () => {
+    const first = await ingestAndPersist(opts(databaseUrl, 'idem'));
+    const second = await ingestAndPersist(opts(databaseUrl, 'idem'));
+    expect(first.projectCreated).toBe(true);
+    expect(second.projectCreated).toBe(false);
+    expect(second.projectId).toBe(first.projectId);
+    // Idempotent persist into the same project (ADR-0015 §11).
     expect(second.persisted).toEqual(first.persisted);
   }, 60_000);
 
-  it('runCli reports the persisted counts', async () => {
-    const { text } = await runCli({ rootDir: fixtureDir, databaseUrl, gitignore: false });
+  it('runCli reports the project and persisted counts', async () => {
+    const { text } = await runCli(opts(databaseUrl, 'sample'));
     expect(text).toContain('persisted:');
+    expect(text).toContain('project:');
     expect(text).toContain(fixtureDir);
   }, 60_000);
 });

@@ -12,9 +12,11 @@ export interface CliRunResult {
 
 export async function runCli(options: WorkerCliOptions): Promise<CliRunResult> {
   const result = await ingestAndPersist(options);
+  const projectLine = `  project:              ${result.projectId} (${result.projectCreated ? 'created' : 'existing'})`;
   const text = [
     `Ingested ${options.rootDir}`,
     `  files processed:      ${result.files}`,
+    projectLine,
     `  persisted:            ${result.persisted.nodes} nodes, ${result.persisted.edges} edges`,
     `  resolver diagnostics: ${result.diagnostics}`,
   ].join('\n');

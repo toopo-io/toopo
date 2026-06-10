@@ -19,7 +19,14 @@ import {
   type SymbolId,
   type UnresolvedReference,
 } from '@toopo/core';
-import { type Insertable, type Kysely, type RawBuilder, type SqlBool, sql } from 'kysely';
+import {
+  type Insertable,
+  type Kysely,
+  type RawBuilder,
+  type SelectQueryBuilder,
+  type SqlBool,
+  sql,
+} from 'kysely';
 import type {
   EdgeTable,
   GraphDatabase,
@@ -53,6 +60,7 @@ import {
   clampLimit,
   decodeCursorTuple,
   encodeCursor,
+  firstPageTotal,
   type Page,
   type PageOptions,
 } from './graph-page.js';
@@ -215,6 +223,11 @@ async function writeUnresolvedReferenceRows(
   }
 }
 
+/** Coerce a `count(*)` row to a number (driver count types vary: number/string/bigint). */
+function rowCount(row: { count?: number | string | bigint } | undefined): number {
+  return Number(row?.count ?? 0);
+}
+
 /** The edge column anchored to the queried node: source for forward, target for reverse. */
 function anchorColumn(direction: NeighborDirection): 'source_id' | 'target_id' {
   return direction === 'out' ? 'source_id' : 'target_id';
@@ -222,6 +235,18 @@ function anchorColumn(direction: NeighborDirection): 'source_id' | 'target_id' {
 
 export class KyselyGraphRepository implements GraphRepository {
   constructor(private readonly db: Kysely<GraphDatabase>) {}
+
+  /**
+   * Count the rows a filtered query matches (D9 page `total`). The caller passes
+   * the query with its WHERE filters applied but NO keyset/limit, so the count
+   * covers the whole result. Driver count types vary (number/string/bigint), so
+   * the result is coerced.
+   */
+  private async countAll<TB extends keyof GraphDatabase>(
+    query: SelectQueryBuilder<GraphDatabase, TB, object>,
+  ): Promise<number> {
+    return rowCount(await query.select((eb) => eb.fn.countAll().as('count')).executeTakeFirst());
+  }
 
   async persistGraph(
     scope: GraphScope,
@@ -385,47 +410,53 @@ export class KyselyGraphRepository implements GraphRepository {
     options?: NeighborPageOptions,
   ): Promise<Page<Neighbor>> {
     const limit = clampLimit(options?.limit);
-    let query = this.db
+    let base = this.db
       .selectFrom('edge')
-      .selectAll()
       .where('project_id', '=', scope.projectId)
       .where(anchorColumn(direction), '=', id);
     if (options?.kind !== undefined) {
-      query = query.where('kind', '=', options.kind);
+      base = base.where('kind', '=', options.kind);
     }
+    const total = await firstPageTotal(options?.cursor, () => this.countAll(base));
+    let page = base.selectAll();
     if (options?.cursor !== undefined) {
-      query = query.where('edge_key', '>', String(decodeCursorTuple(options.cursor, 1)[0]));
+      page = page.where('edge_key', '>', String(decodeCursorTuple(options.cursor, 1)[0]));
     }
-    const edgeRows = await query
+    const edgeRows = await page
       .orderBy('edge_key')
       .limit(limit + 1)
       .execute();
     const neighbors = await this.hydrateNeighbors(scope, edgeRows.map(rowToEdge), direction);
-    return buildPage(neighbors, limit, (neighbor) =>
-      encodeCursor([edgeIdentityKey(neighbor.edge)]),
+    return buildPage(
+      neighbors,
+      limit,
+      (neighbor) => encodeCursor([edgeIdentityKey(neighbor.edge)]),
+      total,
     );
   }
 
   async search(scope: GraphScope, options?: SearchOptions): Promise<Page<Node>> {
     const limit = clampLimit(options?.limit);
-    let query = this.db.selectFrom('node').selectAll().where('project_id', '=', scope.projectId);
+    let base = this.db.selectFrom('node').where('project_id', '=', scope.projectId);
     if (options?.kind !== undefined) {
-      query = query.where('kind', '=', options.kind);
+      base = base.where('kind', '=', options.kind);
     }
     if (options?.subKind !== undefined) {
-      query = query.where('sub_kind', '=', options.subKind);
+      base = base.where('sub_kind', '=', options.subKind);
     }
     if (options?.query !== undefined && options.query.length > 0) {
-      query = query.where(nameOrPathMatches(options.query));
+      base = base.where(nameOrPathMatches(options.query));
     }
+    const total = await firstPageTotal(options?.cursor, () => this.countAll(base));
+    let page = base.selectAll();
     if (options?.cursor !== undefined) {
-      query = query.where('id', '>', String(decodeCursorTuple(options.cursor, 1)[0]));
+      page = page.where('id', '>', String(decodeCursorTuple(options.cursor, 1)[0]));
     }
-    const rows = await query
+    const rows = await page
       .orderBy('id')
       .limit(limit + 1)
       .execute();
-    return buildPage(rows.map(rowToNode), limit, (node) => encodeCursor([node.id]));
+    return buildPage(rows.map(rowToNode), limit, (node) => encodeCursor([node.id]), total);
   }
 
   async declaredInterface(
@@ -436,41 +467,45 @@ export class KyselyGraphRepository implements GraphRepository {
     const limit = clampLimit(options?.limit);
     // Both sides are scoped: the contains edge AND the contained node, so a
     // colliding id in another project can never join in (ADR-0022 §3).
-    let query = this.db
+    const base = this.db
       .selectFrom('edge as c')
       .innerJoin('node as n', 'n.id', 'c.target_id')
       .where('c.project_id', '=', scope.projectId)
       .where('n.project_id', '=', scope.projectId)
       .where('c.source_id', '=', id)
       .where('c.kind', '=', 'contains')
-      .where('n.kind', '=', 'symbol')
-      .selectAll('n');
+      .where('n.kind', '=', 'symbol');
+    const total = await firstPageTotal(options?.cursor, async () =>
+      rowCount(await base.select((eb) => eb.fn.countAll().as('count')).executeTakeFirst()),
+    );
+    let page = base.selectAll('n');
     if (options?.cursor !== undefined) {
-      query = query.where('n.id', '>', String(decodeCursorTuple(options.cursor, 1)[0]));
+      page = page.where('n.id', '>', String(decodeCursorTuple(options.cursor, 1)[0]));
     }
-    const rows = await query
+    const rows = await page
       .orderBy('n.id')
       .limit(limit + 1)
       .execute();
-    return buildPage(rows.map(rowToNode), limit, (node) => encodeCursor([node.id]));
+    return buildPage(rows.map(rowToNode), limit, (node) => encodeCursor([node.id]), total);
   }
 
   async callSitesOf(scope: GraphScope, id: SymbolId, options?: PageOptions): Promise<Page<Node>> {
     const limit = clampLimit(options?.limit);
-    let query = this.db
+    const base = this.db
       .selectFrom('node')
-      .selectAll()
       .where('project_id', '=', scope.projectId)
       .where('enclosing_symbol_id', '=', id)
       .where('kind', '=', 'callSite');
+    const total = await firstPageTotal(options?.cursor, () => this.countAll(base));
+    let page = base.selectAll();
     if (options?.cursor !== undefined) {
-      query = query.where('id', '>', String(decodeCursorTuple(options.cursor, 1)[0]));
+      page = page.where('id', '>', String(decodeCursorTuple(options.cursor, 1)[0]));
     }
-    const rows = await query
+    const rows = await page
       .orderBy('id')
       .limit(limit + 1)
       .execute();
-    return buildPage(rows.map(rowToNode), limit, (node) => encodeCursor([node.id]));
+    return buildPage(rows.map(rowToNode), limit, (node) => encodeCursor([node.id]), total);
   }
 
   async unresolvedReferences(
@@ -478,22 +513,24 @@ export class KyselyGraphRepository implements GraphRepository {
     options?: UnresolvedReferenceOptions,
   ): Promise<Page<UnresolvedReference>> {
     const limit = clampLimit(options?.limit);
-    let query = this.db
-      .selectFrom('unresolved_reference')
-      .selectAll()
-      .where('project_id', '=', scope.projectId);
+    let base = this.db.selectFrom('unresolved_reference').where('project_id', '=', scope.projectId);
     if (options?.targetFileId !== undefined) {
-      query = query.where('target_file_id', '=', options.targetFileId);
+      base = base.where('target_file_id', '=', options.targetFileId);
     }
+    const total = await firstPageTotal(options?.cursor, () => this.countAll(base));
+    let page = base.selectAll();
     if (options?.cursor !== undefined) {
-      query = query.where('ref_key', '>', String(decodeCursorTuple(options.cursor, 1)[0]));
+      page = page.where('ref_key', '>', String(decodeCursorTuple(options.cursor, 1)[0]));
     }
-    const rows = await query
+    const rows = await page
       .orderBy('ref_key')
       .limit(limit + 1)
       .execute();
-    return buildPage(rows.map(rowToUnresolvedReference), limit, (reference) =>
-      encodeCursor([unresolvedReferenceKey(reference)]),
+    return buildPage(
+      rows.map(rowToUnresolvedReference),
+      limit,
+      (reference) => encodeCursor([unresolvedReferenceKey(reference)]),
+      total,
     );
   }
 

@@ -250,6 +250,34 @@ for (const { backend, skip } of backends) {
       });
     });
 
+    describe('page total (D9)', () => {
+      it('counts the whole result on the first page and omits it on later pages', async () => {
+        // sA contains two props (cs1 is a call-site, excluded) — total is 2 even
+        // though the first page holds only one.
+        const first = await repository.declaredInterface(SCOPE, 'sA', { limit: 1 });
+        expect(first.total).toBe(2);
+        expect(first.items).toHaveLength(1);
+        expect(first.nextCursor).not.toBeNull();
+
+        const second = await repository.declaredInterface(SCOPE, 'sA', {
+          limit: 1,
+          cursor: first.nextCursor ?? undefined,
+        });
+        // The count is computed once, on the first page only — a keyset walk never
+        // needs it again, so later pages omit it.
+        expect(second.total).toBeUndefined();
+      });
+
+      it('reflects the active filters in the count (search by kind, call-sites)', async () => {
+        const packages = await repository.search(SCOPE, { kind: 'package' });
+        expect(packages.total).toBe(2);
+        const callSites = await repository.callSitesOf(SCOPE, 'sA');
+        expect(callSites.total).toBe(1);
+        const none = await repository.callSitesOf(SCOPE, 'sB');
+        expect(none.total).toBe(0);
+      });
+    });
+
     describe('blastRadiusPage', () => {
       it('hydrates dependents and is not truncated under the default depth', async () => {
         const page = await repository.blastRadiusPage(SCOPE, 'sB');

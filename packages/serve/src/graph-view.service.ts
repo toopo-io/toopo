@@ -28,9 +28,14 @@ import type {
 import type { Node } from '@toopo/core';
 import type { GraphRepository, GraphScope, Neighbor, Page } from '@toopo/db';
 
+/** Carry the optional page `total` into the contract envelope only when present (D9). */
+function withTotal(total: number | undefined): { total?: number } {
+  return total === undefined ? {} : { total };
+}
+
 /** Copy a repository page into the (mutable-array) contract envelope. */
 function toNodePage(page: Page<Node>): NodePage {
-  return { items: [...page.items], nextCursor: page.nextCursor };
+  return { items: [...page.items], nextCursor: page.nextCursor, ...withTotal(page.total) };
 }
 
 function toNeighborPage(page: Page<Neighbor>): NeighborPage {
@@ -39,7 +44,7 @@ function toNeighborPage(page: Page<Neighbor>): NeighborPage {
     edge: neighbor.edge,
     node: neighbor.node,
   }));
-  return { items, nextCursor: page.nextCursor };
+  return { items, nextCursor: page.nextCursor, ...withTotal(page.total) };
 }
 
 export class GraphViewService {

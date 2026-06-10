@@ -22,6 +22,14 @@ export interface Page<T> {
   readonly items: readonly T[];
   /** Opaque cursor for the next page, or `null` when this is the last page. */
   readonly nextCursor: string | null;
+  /**
+   * Total count of items matching the query across all pages (ADR-0020 Fork 4,
+   * D9). Computed once on the FIRST page (no cursor) so a single round-trip sizes
+   * the whole result, and omitted on later pages (the count cannot drift mid-walk
+   * and a repeat count would be wasted work). Keyset paging never needs it to
+   * function — it is a UI affordance ("N results"), so it stays optional.
+   */
+  readonly total?: number;
 }
 
 /**
@@ -94,17 +102,32 @@ export function decodeCursorTuple(cursor: string, arity: number): CursorPart[] {
 /**
  * Assemble a {@link Page} from over-fetched rows. Pass `limit + 1` rows: if the
  * extra row is present there is a next page, and `toCursor` of the last KEPT row
- * becomes `nextCursor`; otherwise this is the final page.
+ * becomes `nextCursor`; otherwise this is the final page. `total`, when provided
+ * (first page only, D9), is carried through unchanged.
  */
 export function buildPage<T>(
   rows: readonly T[],
   limit: number,
   toCursor: (row: T) => string,
+  total?: number,
 ): Page<T> {
+  const withTotal = total === undefined ? {} : { total };
   if (rows.length <= limit) {
-    return { items: rows, nextCursor: null };
+    return { items: rows, nextCursor: null, ...withTotal };
   }
   const items = rows.slice(0, limit);
   const last = items[items.length - 1] as T;
-  return { items, nextCursor: toCursor(last) };
+  return { items, nextCursor: toCursor(last), ...withTotal };
+}
+
+/**
+ * Resolve the page `total` (D9): the count is computed ONLY on the first page (no
+ * cursor), where one extra round-trip sizes the whole result; later pages omit it
+ * (it cannot change mid-walk under a keyset, and a repeat count is wasted work).
+ */
+export async function firstPageTotal(
+  cursor: string | undefined,
+  count: () => Promise<number>,
+): Promise<number | undefined> {
+  return cursor === undefined ? count() : undefined;
 }

@@ -239,4 +239,23 @@ describe('GraphViewService pass-through', () => {
     expect(declaredInterface).toHaveBeenCalledWith(SCOPE, 'sA', { limit: 5, cursor: 'c' });
     expect(callSitesOf).toHaveBeenCalledWith(SCOPE, 'sA', { limit: undefined, cursor: undefined });
   });
+
+  it('carries the page total through to the envelope, and omits it when absent (D9)', async () => {
+    const withTotal = new GraphViewService(
+      fakeRepository({
+        search: () => Promise.resolve({ items: [nodeA], nextCursor: 'c', total: 42 }),
+      }),
+    );
+    expect(await withTotal.search(SCOPE, {})).toEqual({
+      items: [nodeA],
+      nextCursor: 'c',
+      total: 42,
+    });
+
+    const without = new GraphViewService(
+      fakeRepository({ search: () => Promise.resolve({ items: [nodeA], nextCursor: null }) }),
+    );
+    const page = await without.search(SCOPE, {});
+    expect('total' in page).toBe(false);
+  });
 });

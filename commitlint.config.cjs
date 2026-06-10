@@ -52,6 +52,7 @@ module.exports = {
         'ingest',
         'serve',
         'queue',
+        'github-app',
         'worker',
         'env',
         'i18n',

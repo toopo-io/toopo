@@ -23,6 +23,10 @@ export async function requestJson<TSchema extends z.ZodTypeAny>(
     headers['Content-Type'] = 'application/json';
   }
   const response = await fetch(`${Env.NEXT_PUBLIC_API_URL}${path}`, {
+    // The Serve API is gated (ADR-0022 §5), so the session cookie must ride along.
+    // `credentials: include` covers browser calls; a server component forwards the
+    // cookie explicitly via `init.headers` (no cookie jar exists server-side).
+    credentials: 'include',
     ...init,
     headers: { ...headers, ...init?.headers },
   });

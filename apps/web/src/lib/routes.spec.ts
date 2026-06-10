@@ -51,8 +51,9 @@ describe('routes (relative)', () => {
       expect(routes.forgotPassword('en')).toBe('/en/forgot-password');
       expect(routes.resetPassword('zz')).toBe('/zz/reset-password');
       expect(routes.verifyEmail('en')).toBe('/en/verify-email');
-      expect(routes.graph('en')).toBe('/en/graph');
-      expect(routes.graph('zz')).toBe('/zz/graph');
+      expect(routes.projects('en')).toBe('/en/projects');
+      expect(routes.projectGraph('en', 'p1')).toBe('/en/projects/p1/graph');
+      expect(routes.projectGraph('zz', 'a/b')).toBe('/zz/projects/a%2Fb/graph');
     });
   });
 
@@ -118,11 +119,11 @@ describe('absoluteRoutes', () => {
 });
 
 describe('protectedPathPrefixes', () => {
-  it('exposes /account as the locale-stripped protected prefix', () => {
-    expect(protectedPathPrefixes).toEqual(['/account']);
+  it('exposes the locale-stripped protected prefixes (account + projects)', () => {
+    expect(protectedPathPrefixes).toEqual(['/account', '/projects']);
   });
 
   it('pins the canonical set size for future regressions', () => {
-    expect(protectedPathPrefixes.length).toBe(1);
+    expect(protectedPathPrefixes.length).toBe(2);
   });
 });

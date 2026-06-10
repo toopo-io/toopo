@@ -15,17 +15,24 @@ import type {
   NodeDetail,
   NodePage,
 } from '@toopo/api-contracts';
+import { useProjectId } from '../projects/project-context';
 import { graphApi } from './api';
 
 /** Minimum query length before a search request is issued. */
 export const SEARCH_MIN_LENGTH = 2;
 
+// Query keys are namespaced by projectId first (ADR-0022 §3), so cache entries
+// never bleed across projects even for identical view params or node ids.
 export const graphQueryKeys = {
   all: ['graph'] as const,
-  map: (locale: string, query: MapQuery) => ['graph', 'map', locale, query] as const,
-  node: (locale: string, id: string) => ['graph', 'node', locale, id] as const,
-  search: (locale: string, query: string) => ['graph', 'search', locale, query] as const,
-  blastRadius: (locale: string, id: string) => ['graph', 'blastRadius', locale, id] as const,
+  map: (projectId: string, locale: string, query: MapQuery) =>
+    ['graph', projectId, 'map', locale, query] as const,
+  node: (projectId: string, locale: string, id: string) =>
+    ['graph', projectId, 'node', locale, id] as const,
+  search: (projectId: string, locale: string, query: string) =>
+    ['graph', projectId, 'search', locale, query] as const,
+  blastRadius: (projectId: string, locale: string, id: string) =>
+    ['graph', projectId, 'blastRadius', locale, id] as const,
 };
 
 export function useGraphMap(
@@ -33,26 +40,29 @@ export function useGraphMap(
   locale: string,
   initialData?: MapView,
 ): UseQueryResult<MapView> {
+  const projectId = useProjectId();
   return useQuery({
-    queryKey: graphQueryKeys.map(locale, query),
-    queryFn: () => graphApi.map(query, locale),
+    queryKey: graphQueryKeys.map(projectId, locale, query),
+    queryFn: () => graphApi.map(projectId, query, locale),
     ...(initialData !== undefined ? { initialData } : {}),
   });
 }
 
 export function useGraphNode(id: string | undefined, locale: string): UseQueryResult<NodeDetail> {
+  const projectId = useProjectId();
   return useQuery({
-    queryKey: graphQueryKeys.node(locale, id ?? ''),
-    queryFn: () => graphApi.node({ id: id ?? '' }, locale),
+    queryKey: graphQueryKeys.node(projectId, locale, id ?? ''),
+    queryFn: () => graphApi.node(projectId, { id: id ?? '' }, locale),
     enabled: id !== undefined,
   });
 }
 
 export function useGraphSearch(query: string, locale: string): UseQueryResult<NodePage> {
+  const projectId = useProjectId();
   const trimmed = query.trim();
   return useQuery({
-    queryKey: graphQueryKeys.search(locale, trimmed),
-    queryFn: () => graphApi.search({ query: trimmed }, locale),
+    queryKey: graphQueryKeys.search(projectId, locale, trimmed),
+    queryFn: () => graphApi.search(projectId, { query: trimmed }, locale),
     enabled: trimmed.length >= SEARCH_MIN_LENGTH,
   });
 }
@@ -62,9 +72,10 @@ export function useGraphBlastRadius(
   locale: string,
   enabled: boolean,
 ): UseQueryResult<BlastRadiusPage> {
+  const projectId = useProjectId();
   return useQuery({
-    queryKey: graphQueryKeys.blastRadius(locale, id ?? ''),
-    queryFn: () => graphApi.blastRadius({ id: id ?? '' }, locale),
+    queryKey: graphQueryKeys.blastRadius(projectId, locale, id ?? ''),
+    queryFn: () => graphApi.blastRadius(projectId, { id: id ?? '' }, locale),
     enabled: enabled && id !== undefined,
   });
 }

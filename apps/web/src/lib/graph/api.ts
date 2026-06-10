@@ -30,51 +30,67 @@ import { requestJson } from '../http';
 import { buildQueryString } from './query';
 
 export const graphApi = {
-  map: (query: MapQuery, locale?: string): Promise<MapView> =>
+  // `init` lets a server component forward the session cookie for the SSR map
+  // probe (ADR-0022 §5); browser callers omit it and rely on credentials:include.
+  map: (
+    projectId: string,
+    query: MapQuery,
+    locale?: string,
+    init?: RequestInit,
+  ): Promise<MapView> =>
     requestJson(
-      `${graphApiPath(GRAPH_SEGMENTS.MAP)}${buildQueryString({ ...query })}`,
+      `${graphApiPath(projectId, GRAPH_SEGMENTS.MAP)}${buildQueryString({ ...query })}`,
       MapViewSchema,
       locale,
+      init,
     ),
 
-  node: (query: NodeQuery, locale?: string): Promise<NodeDetail> =>
+  node: (projectId: string, query: NodeQuery, locale?: string): Promise<NodeDetail> =>
     requestJson(
-      `${graphApiPath(GRAPH_SEGMENTS.NODE)}${buildQueryString({ ...query })}`,
+      `${graphApiPath(projectId, GRAPH_SEGMENTS.NODE)}${buildQueryString({ ...query })}`,
       NodeDetailSchema,
       locale,
     ),
 
-  neighbors: (query: NeighborsQuery, locale?: string): Promise<NeighborPage> =>
+  neighbors: (projectId: string, query: NeighborsQuery, locale?: string): Promise<NeighborPage> =>
     requestJson(
-      `${graphApiPath(GRAPH_SEGMENTS.NEIGHBORS)}${buildQueryString({ ...query })}`,
+      `${graphApiPath(projectId, GRAPH_SEGMENTS.NEIGHBORS)}${buildQueryString({ ...query })}`,
       NeighborPageSchema,
       locale,
     ),
 
-  blastRadius: (query: BlastRadiusQuery, locale?: string): Promise<BlastRadiusPage> =>
+  blastRadius: (
+    projectId: string,
+    query: BlastRadiusQuery,
+    locale?: string,
+  ): Promise<BlastRadiusPage> =>
     requestJson(
-      `${graphApiPath(GRAPH_SEGMENTS.BLAST_RADIUS)}${buildQueryString({ ...query })}`,
+      `${graphApiPath(projectId, GRAPH_SEGMENTS.BLAST_RADIUS)}${buildQueryString({ ...query })}`,
       BlastRadiusPageSchema,
       locale,
     ),
 
-  declaredInterface: (query: NodeRelationsQuery, locale?: string): Promise<NodePage> =>
+  declaredInterface: (
+    projectId: string,
+    query: NodeRelationsQuery,
+    locale?: string,
+  ): Promise<NodePage> =>
     requestJson(
-      `${graphApiPath(GRAPH_SEGMENTS.DECLARED_INTERFACE)}${buildQueryString({ ...query })}`,
+      `${graphApiPath(projectId, GRAPH_SEGMENTS.DECLARED_INTERFACE)}${buildQueryString({ ...query })}`,
       NodePageSchema,
       locale,
     ),
 
-  callSites: (query: NodeRelationsQuery, locale?: string): Promise<NodePage> =>
+  callSites: (projectId: string, query: NodeRelationsQuery, locale?: string): Promise<NodePage> =>
     requestJson(
-      `${graphApiPath(GRAPH_SEGMENTS.CALL_SITES)}${buildQueryString({ ...query })}`,
+      `${graphApiPath(projectId, GRAPH_SEGMENTS.CALL_SITES)}${buildQueryString({ ...query })}`,
       NodePageSchema,
       locale,
     ),
 
-  search: (query: SearchQuery, locale?: string): Promise<NodePage> =>
+  search: (projectId: string, query: SearchQuery, locale?: string): Promise<NodePage> =>
     requestJson(
-      `${graphApiPath(GRAPH_SEGMENTS.SEARCH)}${buildQueryString({ ...query })}`,
+      `${graphApiPath(projectId, GRAPH_SEGMENTS.SEARCH)}${buildQueryString({ ...query })}`,
       NodePageSchema,
       locale,
     ),

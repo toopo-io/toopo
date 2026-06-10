@@ -29,6 +29,7 @@ import {
 } from '../../../lib/graph/map-adapter';
 import { drillTarget, searchJumpState } from '../../../lib/graph/navigation';
 import { useGraphBlastRadius, useGraphMap } from '../../../lib/graph/use-graph-queries';
+import { ProjectIdProvider } from '../../../lib/projects/project-context';
 import './graph.css';
 import { useGraphViewState } from '../../../lib/graph/use-graph-view-state';
 import { Breadcrumb } from './breadcrumb';
@@ -44,12 +45,34 @@ const NODE_TYPES: NodeTypes = { mapContainer: MapContainerNode };
 const EDGE_TYPES: EdgeTypes = { trustEdge: TrustEdge };
 
 interface GraphExplorerProps {
+  /** The selected project the graph is scoped to (ADR-0022 §5). */
+  readonly projectId: string;
   /** The coarsest containment level that actually has nodes (ADR-0015 §2). */
   readonly initialLevel: MapLevel;
   readonly initialMap: MapView | null;
 }
 
-export function GraphExplorer({ initialLevel, initialMap }: GraphExplorerProps): JSX.Element {
+/**
+ * Provides the project scope above the explorer so every graph query hook reads
+ * it from context (the hooks run in {@link GraphExplorerInner}'s body, which must
+ * sit under the provider).
+ */
+export function GraphExplorer({
+  projectId,
+  initialLevel,
+  initialMap,
+}: GraphExplorerProps): JSX.Element {
+  return (
+    <ProjectIdProvider projectId={projectId}>
+      <GraphExplorerInner initialLevel={initialLevel} initialMap={initialMap} />
+    </ProjectIdProvider>
+  );
+}
+
+function GraphExplorerInner({
+  initialLevel,
+  initialMap,
+}: Omit<GraphExplorerProps, 'projectId'>): JSX.Element {
   const locale = useLocale();
   const t = useTranslations('Graph');
   const { state, setState } = useGraphViewState();

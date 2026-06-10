@@ -10,6 +10,7 @@ vi.mock('../../../lib/graph/api', () => ({
   graphApi: { node: (...args: unknown[]) => node(...args) },
 }));
 
+import { ProjectIdProvider } from '../../../lib/projects/project-context';
 import { NodeDetailPanel } from './node-detail-panel';
 
 const DETAIL: NodeDetail = {
@@ -72,15 +73,17 @@ function renderPanel(extra?: Partial<Parameters<typeof NodeDetailPanel>[0]>): vo
   render(
     <NextIntlClientProvider locale="en" messages={messages}>
       <QueryClientProvider client={client}>
-        <NodeDetailPanel
-          nodeId="pkg/Button.tsx#Button"
-          locale="en"
-          onClose={() => undefined}
-          blastActive={false}
-          onToggleBlast={() => undefined}
-          blastLoading={false}
-          {...extra}
-        />
+        <ProjectIdProvider projectId="p-test">
+          <NodeDetailPanel
+            nodeId="pkg/Button.tsx#Button"
+            locale="en"
+            onClose={() => undefined}
+            blastActive={false}
+            onToggleBlast={() => undefined}
+            blastLoading={false}
+            {...extra}
+          />
+        </ProjectIdProvider>
       </QueryClientProvider>
     </NextIntlClientProvider>,
   );

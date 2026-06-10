@@ -8,6 +8,7 @@ describe('ROUTE_SEGMENTS', () => {
         'ACCOUNT',
         'FORGOT_PASSWORD',
         'GRAPH',
+        'PROJECTS',
         'RESET_PASSWORD',
         'SIGNIN',
         'SIGNUP',
@@ -35,7 +36,8 @@ describe('ROUTE_SEGMENTS', () => {
     expect(ROUTE_SEGMENTS.FORGOT_PASSWORD).toBe('forgot-password');
   });
 
-  it('pins the visual-cartography explorer segment', () => {
+  it('pins the visual-cartography explorer and project segments', () => {
     expect(ROUTE_SEGMENTS.GRAPH).toBe('graph');
+    expect(ROUTE_SEGMENTS.PROJECTS).toBe('projects');
   });
 });

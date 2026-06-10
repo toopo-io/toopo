@@ -32,10 +32,10 @@ afterEach(() => {
 describe('graphApi', () => {
   it('builds the map URL against the configured base and parses the response', async () => {
     fetchMock.mockResolvedValue(ok(MAP));
-    const result = await graphApi.map({ level: 'package' }, 'en');
+    const result = await graphApi.map('p1', { level: 'package' }, 'en');
     expect(result).toEqual(MAP);
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe('http://api.test/v1/graph/map?level=package');
+    expect(url).toBe('http://api.test/v1/projects/p1/graph/map?level=package');
     expect((init.headers as Record<string, string>)['Accept-Language']).toBe('en');
   });
 
@@ -49,20 +49,20 @@ describe('graphApi', () => {
         callSites: { items: [], nextCursor: null },
       }),
     );
-    await graphApi.node({ id: 'a/b#' });
+    await graphApi.node('p1', { id: 'a/b#' });
     const [url] = fetchMock.mock.calls[0] as [string];
-    expect(url).toBe('http://api.test/v1/graph/node?id=a%2Fb%23');
+    expect(url).toBe('http://api.test/v1/projects/p1/graph/node?id=a%2Fb%23');
   });
 
   it('throws the decoded error-envelope message on a non-ok response', async () => {
     fetchMock.mockResolvedValue(fail(404, { code: 'NOT_FOUND', message: 'Node not found' }));
-    await expect(graphApi.node({ id: 'ghost' })).rejects.toThrow('Node not found');
+    await expect(graphApi.node('p1', { id: 'ghost' })).rejects.toThrow('Node not found');
   });
 
   it('rejects a response that violates the contract schema (untrusted data)', async () => {
     fetchMock.mockResolvedValue(
       ok({ level: 'package', nodes: 'not-an-array', edges: [], truncated: false }),
     );
-    await expect(graphApi.map({ level: 'package' })).rejects.toBeInstanceOf(Error);
+    await expect(graphApi.map('p1', { level: 'package' })).rejects.toBeInstanceOf(Error);
   });
 });

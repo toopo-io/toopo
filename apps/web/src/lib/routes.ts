@@ -42,8 +42,12 @@ export const routes = {
 
   resetPassword: (locale: string): string => `/${locale}/${ROUTE_SEGMENTS.RESET_PASSWORD}`,
 
-  /** The visual-cartography explorer (ADR-0020 read API). Public in v1. */
-  graph: (locale: string): string => `/${locale}/${ROUTE_SEGMENTS.GRAPH}`,
+  /** The project picker — the instance's connected repos (ADR-0022 §5). */
+  projects: (locale: string): string => `/${locale}/${ROUTE_SEGMENTS.PROJECTS}`,
+
+  /** The cartography explorer for a selected project (ADR-0020 read API, ADR-0022). */
+  projectGraph: (locale: string, projectId: string): string =>
+    `/${locale}/${ROUTE_SEGMENTS.PROJECTS}/${encodeURIComponent(projectId)}/${ROUTE_SEGMENTS.GRAPH}`,
 } as const;
 
 /**
@@ -76,4 +80,9 @@ export const absoluteRoutes = {
  * authenticated session. Listed without the locale segment because
  * `proxy.ts` strips it before dispatching.
  */
-export const protectedPathPrefixes: readonly string[] = [`/${ROUTE_SEGMENTS.ACCOUNT}`];
+export const protectedPathPrefixes: readonly string[] = [
+  `/${ROUTE_SEGMENTS.ACCOUNT}`,
+  // The whole project surface — the picker and every `/projects/:id/graph` — is
+  // gated: the graph holds the user's private code (ADR-0022 §5, Fork 5).
+  `/${ROUTE_SEGMENTS.PROJECTS}`,
+];

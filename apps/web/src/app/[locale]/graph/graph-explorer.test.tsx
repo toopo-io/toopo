@@ -52,7 +52,7 @@ function renderExplorer(initialMap: MapView | null): void {
   const ui: ReactElement = (
     <NextIntlClientProvider locale="en" messages={messages}>
       <QueryClientProvider client={client}>
-        <GraphExplorer initialLevel="package" initialMap={initialMap} />
+        <GraphExplorer projectId="p-test" initialLevel="package" initialMap={initialMap} />
       </QueryClientProvider>
     </NextIntlClientProvider>
   );

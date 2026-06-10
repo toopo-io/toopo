@@ -15,6 +15,9 @@ export const ROUTE_SEGMENTS = {
   VERIFY_EMAIL: 'verify-email',
   FORGOT_PASSWORD: 'forgot-password',
   RESET_PASSWORD: 'reset-password',
+  // The project picker — the instance's connected repos (ADR-0022 §5). The graph
+  // explorer lives under a selected project: `/projects/:projectId/graph`.
+  PROJECTS: 'projects',
   // The visual-cartography explorer (ADR-0020 read API; web-only — the backend
   // emails no link to it, but the page URL stays single-sourced like the rest).
   GRAPH: 'graph',

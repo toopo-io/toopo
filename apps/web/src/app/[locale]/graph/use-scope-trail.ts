@@ -14,6 +14,7 @@ import type { MapLevel } from '@toopo/api-contracts';
 import { graphApi } from '../../../lib/graph/api';
 import { buildScopeTrail, type Crumb } from '../../../lib/graph/navigation';
 import { nodeLabel } from '../../../lib/graph/node-label';
+import { useProjectId } from '../../../lib/projects/project-context';
 
 interface ResolvedAncestry {
   readonly scopeLabel: string;
@@ -26,15 +27,16 @@ export function useScopeTrail(
   locale: string,
   rootLabel: string,
 ): Crumb[] {
+  const projectId = useProjectId();
   const needsResolve = level === 'symbol' && scope !== undefined;
   const { data } = useQuery<ResolvedAncestry>({
-    queryKey: ['graph', 'scopeTrail', locale, scope],
+    queryKey: ['graph', projectId, 'scopeTrail', locale, scope],
     enabled: needsResolve,
     queryFn: async () => {
       const fileId = scope ?? '';
       const [detail, parents] = await Promise.all([
-        graphApi.node({ id: fileId }, locale),
-        graphApi.neighbors({ id: fileId, direction: 'in', kind: 'contains' }, locale),
+        graphApi.node(projectId, { id: fileId }, locale),
+        graphApi.neighbors(projectId, { id: fileId, direction: 'in', kind: 'contains' }, locale),
       ]);
       const pkg = parents.items[0]?.node ?? null;
       return {

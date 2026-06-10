@@ -11,6 +11,7 @@ vi.mock('../../../lib/graph/api', () => ({
   graphApi: { search: (...args: unknown[]) => search(...args) },
 }));
 
+import { ProjectIdProvider } from '../../../lib/projects/project-context';
 import { SearchBox } from './search-box';
 
 const PAGE: NodePage = {
@@ -23,7 +24,9 @@ function renderBox(onJump: (node: Node) => void): void {
   render(
     <NextIntlClientProvider locale="en" messages={messages}>
       <QueryClientProvider client={client}>
-        <SearchBox locale="en" onJump={onJump} />
+        <ProjectIdProvider projectId="p-test">
+          <SearchBox locale="en" onJump={onJump} />
+        </ProjectIdProvider>
       </QueryClientProvider>
     </NextIntlClientProvider>,
   );

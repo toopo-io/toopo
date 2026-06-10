@@ -18,28 +18,27 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import type { FastifyRequest } from 'fastify';
-import { PinoLogger } from 'nestjs-pino';
+import { Logger } from 'nestjs-pino';
+import {
+  GITHUB_DELIVERY_HEADER,
+  GITHUB_EVENT_HEADER,
+  GITHUB_SIGNATURE_HEADER,
+  headerValue,
+} from './github-headers';
 import { verifyGithubSignature } from './github-signature';
 import { GITHUB_WEBHOOK_SECRET } from './github-webhook.tokens';
-
-/** A single-valued header, or `undefined` for an absent or multi-valued one. */
-function headerValue(value: string | string[] | undefined): string | undefined {
-  return typeof value === 'string' ? value : undefined;
-}
 
 @Injectable()
 export class GithubSignatureGuard implements CanActivate {
   constructor(
     @Inject(GITHUB_WEBHOOK_SECRET) private readonly secret: string | undefined,
-    private readonly logger: PinoLogger,
-  ) {
-    this.logger.setContext(GithubSignatureGuard.name);
-  }
+    private readonly logger: Logger,
+  ) {}
 
   canActivate(context: ExecutionContext): boolean {
     const request = context.switchToHttp().getRequest<RawBodyRequest<FastifyRequest>>();
-    const deliveryId = headerValue(request.headers['x-github-delivery']);
-    const event = headerValue(request.headers['x-github-event']);
+    const deliveryId = headerValue(request.headers[GITHUB_DELIVERY_HEADER]);
+    const event = headerValue(request.headers[GITHUB_EVENT_HEADER]);
 
     if (this.secret === undefined) {
       this.logger.warn({ deliveryId, event }, 'github webhook rejected: secret not configured');
@@ -47,7 +46,7 @@ export class GithubSignatureGuard implements CanActivate {
     }
 
     const { rawBody } = request;
-    const signature = headerValue(request.headers['x-hub-signature-256']);
+    const signature = headerValue(request.headers[GITHUB_SIGNATURE_HEADER]);
     if (rawBody === undefined || signature === undefined) {
       this.logger.warn({ deliveryId, event }, 'github webhook rejected: missing body or signature');
       throw new UnauthorizedException('Missing webhook signature');

@@ -7,7 +7,7 @@
  */
 import type { EnqueueOutcome, ProjectRecord, ProjectRepository } from '@toopo/db';
 import type { JobReference, Queue } from '@toopo/queue';
-import type { PinoLogger } from 'nestjs-pino';
+import type { Logger } from 'nestjs-pino';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ZodError } from 'zod';
 import { GithubWebhookService } from './github-webhook.service';
@@ -52,7 +52,7 @@ beforeEach(() => {
   findProjectByRepo = vi.fn(async (): Promise<ProjectRecord | null> => projectRecord());
   queue = { enqueue } as unknown as Queue;
   projects = { findProjectByRepo } as unknown as ProjectRepository;
-  const logger = { setContext: vi.fn(), info: vi.fn(), warn: vi.fn() } as unknown as PinoLogger;
+  const logger = { log: vi.fn(), warn: vi.fn() } as unknown as Logger;
   service = new GithubWebhookService(queue, projects, logger);
 });
 

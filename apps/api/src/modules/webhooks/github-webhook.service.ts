@@ -11,7 +11,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { ProjectRepository } from '@toopo/db';
 import type { JobReference, Queue } from '@toopo/queue';
-import { PinoLogger } from 'nestjs-pino';
+import { Logger } from 'nestjs-pino';
 import { PROJECT_REPOSITORY } from '../database/database.module';
 import { QUEUE } from '../queue/queue.module';
 import { type GithubPushEvent, GithubPushEventSchema } from './github-push-event.schema';
@@ -33,10 +33,8 @@ export class GithubWebhookService {
   constructor(
     @Inject(QUEUE) private readonly queue: Queue,
     @Inject(PROJECT_REPOSITORY) private readonly projects: ProjectRepository,
-    private readonly logger: PinoLogger,
-  ) {
-    this.logger.setContext(GithubWebhookService.name);
-  }
+    private readonly logger: Logger,
+  ) {}
 
   /**
    * Handle one verified delivery. Non-push events are acknowledged untouched;
@@ -69,7 +67,7 @@ export class GithubWebhookService {
     const name = payload.repository.name;
     const project = await this.projects.findProjectByRepo(GITHUB_WEBHOOK_HOST, owner, name);
     if (project === null) {
-      this.logger.info(
+      this.logger.log(
         { deliveryId, host: GITHUB_WEBHOOK_HOST, owner, name },
         'github webhook ignored: repository is not connected to a project',
       );

@@ -12,6 +12,7 @@ import { HealthModule } from './modules/health/health.module';
 import { ProjectModule } from './modules/project/project.module';
 import { QueueModule } from './modules/queue/queue.module';
 import { UserModule } from './modules/user/user.module';
+import { WebhooksModule } from './modules/webhooks/webhooks.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { UserModule } from './modules/user/user.module';
     UserModule,
     ProjectModule,
     GraphModule,
+    WebhooksModule,
   ],
   providers: [
     { provide: APP_PIPE, useClass: ZodValidationPipe },

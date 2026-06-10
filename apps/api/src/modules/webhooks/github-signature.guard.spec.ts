@@ -15,7 +15,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import type { FastifyRequest } from 'fastify';
-import type { PinoLogger } from 'nestjs-pino';
+import type { Logger } from 'nestjs-pino';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { GithubSignatureGuard } from './github-signature.guard';
 
@@ -44,7 +44,7 @@ function contextFor(init: FakeRequestInit): ExecutionContext {
   } as unknown as ExecutionContext;
 }
 
-let logger: PinoLogger;
+let logger: Logger;
 let warn: ReturnType<typeof vi.fn>;
 
 function makeGuard(secret: string | undefined): GithubSignatureGuard {
@@ -53,7 +53,7 @@ function makeGuard(secret: string | undefined): GithubSignatureGuard {
 
 beforeEach(() => {
   warn = vi.fn();
-  logger = { setContext: vi.fn(), warn } as unknown as PinoLogger;
+  logger = { warn } as unknown as Logger;
 });
 
 describe('GithubSignatureGuard', () => {

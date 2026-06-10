@@ -168,6 +168,31 @@ partially broken repo always produces a graph for the parts that parse.
   `.wasm` from pinned sources — reproducible provenance and build-free
   installation.
 
+## Amendment — 2026-06-10 (C11): the unresolved tail is persisted
+
+This ADR originally framed the Resolve pass's diagnostics — the honest
+unresolved/ambiguous tail — as pipeline-only, "deliberately NOT part of the
+persisted graph model". That is **amended additively** (supersedes nothing): the
+tail is now **persisted** as a first-class, project-scoped sibling of the graph.
+The core gains an `UnresolvedReference` (the failure code, the importer file, the
+specifier, and — for an `*-export` gap, where the module resolved but the export
+did not — the resolved target file and the unbound name). The worker persists it
+in the SAME transaction as the graph (ADR-0025 full-replace), via
+`GraphRepository.unresolvedReferences` (ADR-0020 amendment).
+
+It is **not** a graph node or edge: fabricating an edge for an unbindable usage
+would assert a dependency we cannot prove (the trust principle). Its purpose is
+honesty — `unresolvedReferences(scope, { targetFileId })` answers "does this file
+have an unresolved inbound usage?", so the forthcoming deterministic
+"unused"/"cycle" views never mistake a resolution gap for genuine absence (the
+cardinal false positive). Determinism holds: the tail is totally ordered and
+stored-once by identity.
+
+A companion tightening (C10) closes a related gap on the read side: a member call
+on a value namespace import (`import * as NS; NS.foo`) now resolves to the
+module's exported `foo` through the export chain, so that usage is a real edge
+rather than a silent drop.
+
 ## Related ADRs
 
 - ADR-0015 (universal code-graph model — node/edge taxonomy, stable
@@ -176,3 +201,4 @@ partially broken repo always produces a graph for the parts that parse.
   engine are such packages)
 - ADR-0012 (database — storage of the produced graph; storage-agnostic
   here, to be superseded by the storage-interface ADR)
+- ADR-0020 (Serve — the `unresolvedReferences` read primitive over the persisted tail)

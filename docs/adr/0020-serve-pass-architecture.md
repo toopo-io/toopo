@@ -77,9 +77,22 @@ structure, not the model (ADR-0015) or storage (ADR-0017), which it obeys.
 - **Materialized/stored views** — precluded by ADR-0015 §3 unless superseded.
 - **Offset pagination** — rejected (drifts and scans on large graphs).
 
+## Amendment — 2026-06-10 (C11): unresolved-reference read primitive
+
+The catalog (§5) gains `GraphRepository.unresolvedReferences(scope, options?)` —
+the keyset-paginated, project-scoped read over the **persisted** unresolved tail
+of the Resolve pass (ADR-0016 amendment), with an optional `targetFileId` filter.
+It is a sibling of the graph, not a node/edge view: an unbindable usage is
+surfaced as an explicit unresolved reference, never a fabricated edge, so the
+forthcoming deterministic "unused"/"cycle" views (§5) stay honest — they consult
+this primitive before asserting absence. Same envelope, keyset pagination, and
+project-scoping discipline as the rest of the catalog; persisted (transactionally,
+with the graph) rather than computed on read, because it records a fact the read
+cannot reconstruct (which usages failed to bind).
+
 ## Related ADRs
 
 - ADR-0015 (model — derived views, trust, containment), ADR-0016 (Serve named as
-  the third pass), ADR-0017 (storage — portable SQL, capped/paginated traversal),
-  ADR-0006 (Zod single source of truth), ADR-0014 (route URLs centralized),
-  ADR-0008 (explicit migrations, never on boot).
+  the third pass; the persisted unresolved tail), ADR-0017 (storage — portable
+  SQL, capped/paginated traversal), ADR-0006 (Zod single source of truth),
+  ADR-0014 (route URLs centralized), ADR-0008 (explicit migrations, never on boot).

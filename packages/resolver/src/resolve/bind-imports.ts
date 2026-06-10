@@ -270,12 +270,15 @@ function bindNamedImport(
     return true;
   }
 
+  // The module resolved but this export did not — attribute the gap to the target
+  // file and the unbound name, so a later "unused" view stays honest (C11).
   sink.diagnostics.push(
     diagnostic(
       chain.status === 'ambiguous' ? 'ambiguous-export' : 'unresolved-export',
       file.id,
       unresolved.specifier,
       chainReason(chain, binding.name),
+      { targetFileId, name: binding.name },
     ),
   );
   return false;

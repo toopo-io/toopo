@@ -322,9 +322,13 @@ describe('resolveProject — Slice 2 cross-file binding', () => {
         message: expect.any(String),
       },
       {
+        // The module resolved but the export did not — attributed to the target
+        // file and unbound name so a later "unused" view stays honest (C11).
         code: 'unresolved-export',
         importerFileId: fileSymbolId(A),
         specifier: './B',
+        targetFileId: fileSymbolId(B),
+        name: 'Ghost',
         message: expect.any(String),
       },
       {

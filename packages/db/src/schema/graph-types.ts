@@ -62,8 +62,30 @@ export interface EdgeTable {
   file_id: string | null;
 }
 
+/**
+ * The persisted honest tail of the Resolve pass (ADR-0016 amendment, C11): an
+ * import/usage that could not be bound to a precise symbol. NOT a graph edge — a
+ * fabricated edge would assert an unproven dependency — but a project-scoped
+ * sibling, so a later "unused"/"cycle" view never reads a resolution gap as
+ * genuine absence. `target_file_id`/`name` are present only for an `*-export`
+ * gap (the module resolved, the export did not); null for a `*-module` gap.
+ */
+export interface UnresolvedReferenceTable {
+  /** Tenancy scope (ADR-0022 §3): part of the composite primary key with `ref_key`. */
+  project_id: string;
+  /** Deterministic encoding of the reference identity (stored-once, ADR-0015 §11). */
+  ref_key: string;
+  importer_file_id: string;
+  code: string;
+  specifier: string;
+  target_file_id: string | null;
+  name: string | null;
+  message: string;
+}
+
 /** The Kysely database schema for the graph module. */
 export interface GraphDatabase {
   node: NodeTable;
   edge: EdgeTable;
+  unresolved_reference: UnresolvedReferenceTable;
 }

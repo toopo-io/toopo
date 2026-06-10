@@ -57,6 +57,7 @@ export {
   type NeighborPageOptions,
   type PersistGraphResult,
   type SearchOptions,
+  type UnresolvedReferenceOptions,
 } from './repositories/graph.repository.js';
 export { KyselyGraphRepository } from './repositories/graph.repository.kysely.js';
 export {
@@ -115,7 +116,12 @@ export type {
   UserTable,
   VerificationTable,
 } from './schema/auth-types.js';
-export type { EdgeTable, GraphDatabase, NodeTable } from './schema/graph-types.js';
+export type {
+  EdgeTable,
+  GraphDatabase,
+  NodeTable,
+  UnresolvedReferenceTable,
+} from './schema/graph-types.js';
 export type { JobDatabase, JobTable } from './schema/job-types.js';
 export type { ParseFragmentDatabase, ParseFragmentTable } from './schema/parse-fragment-types.js';
 export type {

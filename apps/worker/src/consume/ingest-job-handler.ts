@@ -89,7 +89,9 @@ export function createIngestJobHandler(
 
       // 'unchanged' ⇒ the commit is already reflected (redelivery / retry): no write.
       if (result.status === 'ingested') {
-        await deps.graph.replaceProjectGraph(scope, result.document);
+        // Persist the unresolved tail with the graph in one transaction (C11), so a
+        // later "unused"/"cycle" view never reads a resolution gap as absence.
+        await deps.graph.replaceProjectGraph(scope, result.document, result.diagnostics);
       }
     });
   };

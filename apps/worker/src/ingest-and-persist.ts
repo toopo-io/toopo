@@ -96,6 +96,7 @@ export async function ingestAndPersist(
     const persisted = await graphHandle.graphRepository.persistGraph(
       { projectId },
       ingestion.document,
+      ingestion.diagnostics,
     );
     return {
       projectId,

@@ -1,33 +1,41 @@
-import type { SymbolId } from '@toopo/core';
+import type { SymbolId, UnresolvedReference, UnresolvedReferenceCode } from '@toopo/core';
 
 /**
  * The honest unresolved/ambiguous tail of the Resolve pass (ADR-0016 trust
- * principle). A diagnostic is pipeline data — like the parser's `unresolved` —
- * and is deliberately NOT part of the persisted graph model: it records WHY a
- * dependency could not be bound to a precise symbol, so the gap is explicit
- * rather than silently dropped.
+ * principle). A diagnostic records WHY a dependency could not be bound to a
+ * precise symbol, so the gap is explicit rather than silently dropped. It is the
+ * core {@link UnresolvedReference} — pipeline data that is now ALSO persisted
+ * (ADR-0016 amendment, C11), so a later "unused"/"cycle" view never mistakes a
+ * resolution gap for genuine absence. Re-exported under the resolve-pass term.
  */
-export type DiagnosticCode =
-  | 'unresolved-module'
-  | 'ambiguous-module'
-  | 'unresolved-export'
-  | 'ambiguous-export';
+export type Diagnostic = UnresolvedReference;
+export type DiagnosticCode = UnresolvedReferenceCode;
 
-export interface Diagnostic {
-  readonly code: DiagnosticCode;
-  readonly importerFileId: SymbolId;
-  readonly specifier: string;
-  readonly message: string;
+/** The structured target of an `*-export` diagnostic: the resolved module and the
+ * export name that did not bind, so the gap is attributable to a known file. */
+interface DiagnosticTarget {
+  readonly targetFileId?: SymbolId;
+  readonly name?: string;
 }
 
-/** Build a diagnostic (factory keeps the field order and shape consistent). */
+/** Build a diagnostic (factory keeps the field order and shape consistent). An
+ * `*-export` code carries its resolved {@link DiagnosticTarget}; a `*-module` code
+ * has none (the target is outside the graph). */
 export function diagnostic(
   code: DiagnosticCode,
   importerFileId: SymbolId,
   specifier: string,
   message: string,
+  target: DiagnosticTarget = {},
 ): Diagnostic {
-  return { code, importerFileId, specifier, message };
+  return {
+    code,
+    importerFileId,
+    specifier,
+    message,
+    ...(target.targetFileId === undefined ? {} : { targetFileId: target.targetFileId }),
+    ...(target.name === undefined ? {} : { name: target.name }),
+  };
 }
 
 /** A total, stable order over diagnostics so the tail is deterministic (ADR-0016). */
@@ -37,6 +45,8 @@ export function sortDiagnostics(diagnostics: readonly Diagnostic[]): Diagnostic[
       [a.importerFileId, b.importerFileId],
       [a.code, b.code],
       [a.specifier, b.specifier],
+      [a.targetFileId ?? '', b.targetFileId ?? ''],
+      [a.name ?? '', b.name ?? ''],
       [a.message, b.message],
     ];
     for (const [left, right] of fields) {

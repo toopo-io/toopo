@@ -1,3 +1,4 @@
+export * from './analysis/unresolved-reference.js';
 export * from './constants.js';
 export * from './edges/edge.js';
 export * from './graph/document.js';

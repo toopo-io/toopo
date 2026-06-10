@@ -7,7 +7,15 @@
  * neighbors, search, declared-interface, call-sites, bounded blast-radius, and
  * the on-read aggregate map view.
  */
-import type { Edge, EdgeKind, GraphDocument, Node, RESOLUTIONS, SymbolId } from '@toopo/core';
+import type {
+  Edge,
+  EdgeKind,
+  GraphDocument,
+  Node,
+  RESOLUTIONS,
+  SymbolId,
+  UnresolvedReference,
+} from '@toopo/core';
 import type { Page, PageOptions } from './graph-page.js';
 import type { GraphScope } from './graph-scope.js';
 
@@ -85,6 +93,16 @@ export interface BlastRadiusHit {
 export interface NeighborPageOptions extends PageOptions {
   /** Restrict to one edge kind; omitted returns every kind. */
   readonly kind?: EdgeKind | undefined;
+}
+
+/** Inputs for {@link GraphRepository.unresolvedReferences}: scoped, bounded lookup. */
+export interface UnresolvedReferenceOptions extends PageOptions {
+  /**
+   * Restrict to references whose resolved target is this file (an `*-export` gap,
+   * indexed). The "unused" honesty query: "does this file have an unresolved
+   * inbound usage?" — omit to page the project's whole unresolved tail.
+   */
+  readonly targetFileId?: SymbolId | undefined;
 }
 
 /** Inputs for {@link GraphRepository.search}: scoped, bounded node lookup. */
@@ -166,8 +184,16 @@ export interface GraphRepository {
    * into the same project is a no-op on row count. The document is a fragment
    * (whole-repo or one changed file), merged into the project's current graph —
    * never a destructive replace (per-file replacement is deferred, Decision 4).
+   *
+   * `unresolvedReferences` is the Resolve pass's honest tail (ADR-0016 amendment,
+   * C11), upserted alongside the graph in the same transaction so the persisted
+   * gap never lags the graph. Omitted is treated as none.
    */
-  persistGraph(scope: GraphScope, document: GraphDocument): Promise<PersistGraphResult>;
+  persistGraph(
+    scope: GraphScope,
+    document: GraphDocument,
+    unresolvedReferences?: readonly UnresolvedReference[],
+  ): Promise<PersistGraphResult>;
 
   /**
    * Replace the project's ENTIRE graph with `document`, atomically (ADR-0025
@@ -182,8 +208,17 @@ export interface GraphRepository {
    * incremental, because full resolve can re-bind an edge sourced in an unchanged
    * file (ADR-0025 Decision 4). Re-running with the same document is a no-op on
    * row count.
+   *
+   * `unresolvedReferences` is the Resolve pass's honest tail (ADR-0016 amendment,
+   * C11): the project's whole unresolved set is replaced in the SAME transaction
+   * as the graph, so a reader never sees a fresh graph against a stale tail.
+   * Omitted clears the project's unresolved references.
    */
-  replaceProjectGraph(scope: GraphScope, document: GraphDocument): Promise<PersistGraphResult>;
+  replaceProjectGraph(
+    scope: GraphScope,
+    document: GraphDocument,
+    unresolvedReferences?: readonly UnresolvedReference[],
+  ): Promise<PersistGraphResult>;
 
   /**
    * The stored content hash of every file node in the project, keyed by its
@@ -255,6 +290,18 @@ export interface GraphRepository {
    * looked up by `enclosing_symbol_id` (indexed, ADR-0020 A1), keyset-paged by id.
    */
   callSitesOf(scope: GraphScope, id: SymbolId, options?: PageOptions): Promise<Page<Node>>;
+
+  /**
+   * The project's persisted unresolved references (ADR-0016 amendment, C11): the
+   * honest tail of resolution, keyset-paged by identity. With `targetFileId` it
+   * answers "does this file have an unresolved inbound usage?" — the query a later
+   * "unused" view must consult so a resolution gap is never read as genuine
+   * absence. These are NOT graph edges (no unproven dependency is fabricated).
+   */
+  unresolvedReferences(
+    scope: GraphScope,
+    options?: UnresolvedReferenceOptions,
+  ): Promise<Page<UnresolvedReference>>;
 
   /**
    * Keyset-paginated, node-hydrated {@link blastRadius} with an honest

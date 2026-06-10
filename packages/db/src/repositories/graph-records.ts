@@ -18,14 +18,18 @@ import {
   JsonObjectSchema,
   type Node,
   NodeSchema,
+  type UnresolvedReference,
+  UnresolvedReferenceSchema,
 } from '@toopo/core';
 import type { Insertable, Selectable } from 'kysely';
-import type { EdgeTable, NodeTable } from '../schema/graph-types.js';
+import type { EdgeTable, NodeTable, UnresolvedReferenceTable } from '../schema/graph-types.js';
 
 type NodeRow = Selectable<NodeTable>;
 type EdgeRow = Selectable<EdgeTable>;
 type NodeInsert = Insertable<NodeTable>;
 type EdgeInsert = Insertable<EdgeTable>;
+type UnresolvedReferenceRow = Selectable<UnresolvedReferenceTable>;
+type UnresolvedReferenceInsert = Insertable<UnresolvedReferenceTable>;
 
 /** Normalize a JSON column readback: parse libSQL's string, pass Postgres's object. */
 function readJson(value: unknown): unknown {
@@ -183,4 +187,53 @@ export function edgeToInsert(edge: Edge, fileId: string | null, projectId: strin
     provenance_rule: edge.provenance.rule,
     file_id: fileId,
   };
+}
+
+/**
+ * The stored-once identity key of an unresolved reference (ADR-0015 §11): the
+ * importer, the failure code, the specifier, and the unbound name. Deterministic
+ * and collision-free (a JSON tuple), so re-persisting the same analysis upserts in
+ * place. `targetFileId` is derived from the specifier, so it is not part of identity.
+ */
+export function unresolvedReferenceKey(reference: UnresolvedReference): string {
+  return JSON.stringify([
+    reference.importerFileId,
+    reference.code,
+    reference.specifier,
+    reference.name ?? null,
+  ]);
+}
+
+/** Map a validated core unresolved reference to its insert row, scoped to a project. */
+export function unresolvedReferenceToInsert(
+  reference: UnresolvedReference,
+  projectId: string,
+): UnresolvedReferenceInsert {
+  return {
+    project_id: projectId,
+    ref_key: unresolvedReferenceKey(reference),
+    importer_file_id: reference.importerFileId,
+    code: reference.code,
+    specifier: reference.specifier,
+    target_file_id: reference.targetFileId ?? null,
+    name: reference.name ?? null,
+    message: reference.message,
+  };
+}
+
+/** Map a row to a validated core unresolved reference, or throw at the boundary. */
+export function rowToUnresolvedReference(row: UnresolvedReferenceRow): UnresolvedReference {
+  const candidate: Record<string, unknown> = {
+    code: row.code,
+    importerFileId: row.importer_file_id,
+    specifier: row.specifier,
+    message: row.message,
+  };
+  if (row.target_file_id !== null) {
+    candidate['targetFileId'] = row.target_file_id;
+  }
+  if (row.name !== null) {
+    candidate['name'] = row.name;
+  }
+  return UnresolvedReferenceSchema.parse(candidate);
 }

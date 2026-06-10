@@ -5,7 +5,7 @@
  * signal, contract-shape adaptation, faithful option pass-through, and that the
  * project scope (ADR-0022) is threaded to every repository read.
  */
-import type { Edge, GraphDocument, Node, SymbolId } from '@toopo/core';
+import type { Edge, GraphDocument, Node, SymbolId, UnresolvedReference } from '@toopo/core';
 import type {
   BlastRadiusOptions,
   BlastRadiusPage,
@@ -22,6 +22,7 @@ import type {
   PageOptions,
   PersistGraphResult,
   SearchOptions,
+  UnresolvedReferenceOptions,
 } from '@toopo/db';
 import { describe, expect, it, vi } from 'vitest';
 import { GraphViewService } from './graph-view.service.js';
@@ -98,6 +99,9 @@ function fakeRepository(overrides: Partial<GraphRepository>): GraphRepository {
     },
     mapView(_scope: GraphScope, _options: MapViewOptions): Promise<MapView> {
       return Promise.resolve({ level: 'package', nodes: [], edges: [], truncated: false });
+    },
+    unresolvedReferences(_scope: GraphScope, _options?: UnresolvedReferenceOptions) {
+      return Promise.resolve<Page<UnresolvedReference>>({ items: [], nextCursor: null });
     },
   };
   return { ...base, ...overrides };

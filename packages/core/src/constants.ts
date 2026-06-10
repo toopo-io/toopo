@@ -41,6 +41,20 @@ export const ANALYSIS_STATUSES = [
 /** Which deterministic pass (or the AI overlay) produced an edge (ADR-0015 §8, ADR-0016). */
 export const PROVENANCE_PASSES = ['parse', 'resolve', 'ai'] as const;
 
+/**
+ * Why a deferred import/usage could NOT be bound to a precise symbol (ADR-0016
+ * Resolve pass). The persisted honest tail of resolution (ADR-0016 amendment): a
+ * `*-module` code means the specifier matched no/ambiguous file; a `*-export`
+ * code means the module resolved but the named export did not. Persisted so a
+ * later "unused"/"cycle" view never mistakes a resolution gap for genuine absence.
+ */
+export const UNRESOLVED_REFERENCE_CODES = [
+  'unresolved-module',
+  'ambiguous-module',
+  'unresolved-export',
+  'ambiguous-export',
+] as const;
+
 /** How a value reaches a call-site argument slot (ADR-0015 §7). */
 export const PASS_KINDS = ['positional', 'named', 'spread'] as const;
 

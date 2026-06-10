@@ -17,9 +17,15 @@ import {
   GraphDocumentSchema,
   type Node,
   type SymbolId,
+  type UnresolvedReference,
 } from '@toopo/core';
 import { type Insertable, type Kysely, type RawBuilder, type SqlBool, sql } from 'kysely';
-import type { EdgeTable, GraphDatabase, NodeTable } from '../schema/graph-types.js';
+import type {
+  EdgeTable,
+  GraphDatabase,
+  NodeTable,
+  UnresolvedReferenceTable,
+} from '../schema/graph-types.js';
 import { selectChildCounts, selectContainerRows, selectProjectedEdges } from './aggregate-sql.js';
 import { BLAST_PATH_SEPARATOR, blastRadiusCte } from './blast-radius-sql.js';
 import { buildFileIndex } from './file-association.js';
@@ -40,6 +46,7 @@ import {
   type PathResolution,
   type PersistGraphResult,
   type SearchOptions,
+  type UnresolvedReferenceOptions,
 } from './graph.repository.js';
 import {
   buildPage,
@@ -49,7 +56,15 @@ import {
   type Page,
   type PageOptions,
 } from './graph-page.js';
-import { edgeToInsert, nodeToInsert, rowToEdge, rowToNode } from './graph-records.js';
+import {
+  edgeToInsert,
+  nodeToInsert,
+  rowToEdge,
+  rowToNode,
+  rowToUnresolvedReference,
+  unresolvedReferenceKey,
+  unresolvedReferenceToInsert,
+} from './graph-records.js';
 import type { GraphScope } from './graph-scope.js';
 import { escapeLikeOperand, LIKE_ESCAPE } from './sql-like.js';
 
@@ -160,6 +175,46 @@ async function writeDocumentRows(
   }
 }
 
+/** Project the resolve pass's honest tail to deduped, project-scoped insert rows
+ *  (stored-once by ref_key, ADR-0015 §11). */
+function buildUnresolvedReferenceRows(
+  scope: GraphScope,
+  references: readonly UnresolvedReference[],
+): Insertable<UnresolvedReferenceTable>[] {
+  return dedupe(
+    references.map((reference) => unresolvedReferenceToInsert(reference, scope.projectId)),
+    (row) => row.ref_key,
+  );
+}
+
+/**
+ * Upsert the unresolved-reference rows in chunked batches within the given
+ * transaction (ADR-0016 amendment, C11). Idempotent: re-writing the same rows
+ * updates them in place. After a full project delete the `onConflict` clause is
+ * never reached — it inserts cleanly, so replaceProjectGraph reuses it verbatim.
+ */
+async function writeUnresolvedReferenceRows(
+  trx: Kysely<GraphDatabase>,
+  rows: readonly Insertable<UnresolvedReferenceTable>[],
+): Promise<void> {
+  for (const batch of chunk(rows, UPSERT_CHUNK)) {
+    await trx
+      .insertInto('unresolved_reference')
+      .values(batch)
+      .onConflict((oc) =>
+        oc.columns(['project_id', 'ref_key']).doUpdateSet((eb) => ({
+          importer_file_id: eb.ref('excluded.importer_file_id'),
+          code: eb.ref('excluded.code'),
+          specifier: eb.ref('excluded.specifier'),
+          target_file_id: eb.ref('excluded.target_file_id'),
+          name: eb.ref('excluded.name'),
+          message: eb.ref('excluded.message'),
+        })),
+      )
+      .execute();
+  }
+}
+
 /** The edge column anchored to the queried node: source for forward, target for reverse. */
 function anchorColumn(direction: NeighborDirection): 'source_id' | 'target_id' {
   return direction === 'out' ? 'source_id' : 'target_id';
@@ -168,25 +223,40 @@ function anchorColumn(direction: NeighborDirection): 'source_id' | 'target_id' {
 export class KyselyGraphRepository implements GraphRepository {
   constructor(private readonly db: Kysely<GraphDatabase>) {}
 
-  async persistGraph(scope: GraphScope, document: GraphDocument): Promise<PersistGraphResult> {
+  async persistGraph(
+    scope: GraphScope,
+    document: GraphDocument,
+    unresolvedReferences: readonly UnresolvedReference[] = [],
+  ): Promise<PersistGraphResult> {
     const { nodeRows, edgeRows } = buildDocumentRows(scope, document);
-    await this.db.transaction().execute((trx) => writeDocumentRows(trx, nodeRows, edgeRows));
+    const refRows = buildUnresolvedReferenceRows(scope, unresolvedReferences);
+    await this.db.transaction().execute(async (trx) => {
+      await writeDocumentRows(trx, nodeRows, edgeRows);
+      await writeUnresolvedReferenceRows(trx, refRows);
+    });
     return { nodes: nodeRows.length, edges: edgeRows.length };
   }
 
   async replaceProjectGraph(
     scope: GraphScope,
     document: GraphDocument,
+    unresolvedReferences: readonly UnresolvedReference[] = [],
   ): Promise<PersistGraphResult> {
     const { nodeRows, edgeRows } = buildDocumentRows(scope, document);
+    const refRows = buildUnresolvedReferenceRows(scope, unresolvedReferences);
     await this.db.transaction().execute(async (trx) => {
-      // Delete the whole project subgraph, then write the fresh document. Edges
-      // first (they reference nodes logically, though no FK enforces it). After
-      // the delete the project's rows are gone, so the upsert in writeDocumentRows
-      // can never conflict — it behaves as a plain insert, with zero duplication.
+      // Delete the whole project subgraph and its unresolved tail, then write the
+      // fresh ones. Edges first (they reference nodes logically, though no FK
+      // enforces it). After the delete the project's rows are gone, so the upserts
+      // can never conflict — they behave as plain inserts, with zero duplication.
       await trx.deleteFrom('edge').where('project_id', '=', scope.projectId).execute();
       await trx.deleteFrom('node').where('project_id', '=', scope.projectId).execute();
+      await trx
+        .deleteFrom('unresolved_reference')
+        .where('project_id', '=', scope.projectId)
+        .execute();
       await writeDocumentRows(trx, nodeRows, edgeRows);
+      await writeUnresolvedReferenceRows(trx, refRows);
     });
     return { nodes: nodeRows.length, edges: edgeRows.length };
   }
@@ -401,6 +471,30 @@ export class KyselyGraphRepository implements GraphRepository {
       .limit(limit + 1)
       .execute();
     return buildPage(rows.map(rowToNode), limit, (node) => encodeCursor([node.id]));
+  }
+
+  async unresolvedReferences(
+    scope: GraphScope,
+    options?: UnresolvedReferenceOptions,
+  ): Promise<Page<UnresolvedReference>> {
+    const limit = clampLimit(options?.limit);
+    let query = this.db
+      .selectFrom('unresolved_reference')
+      .selectAll()
+      .where('project_id', '=', scope.projectId);
+    if (options?.targetFileId !== undefined) {
+      query = query.where('target_file_id', '=', options.targetFileId);
+    }
+    if (options?.cursor !== undefined) {
+      query = query.where('ref_key', '>', String(decodeCursorTuple(options.cursor, 1)[0]));
+    }
+    const rows = await query
+      .orderBy('ref_key')
+      .limit(limit + 1)
+      .execute();
+    return buildPage(rows.map(rowToUnresolvedReference), limit, (reference) =>
+      encodeCursor([unresolvedReferenceKey(reference)]),
+    );
   }
 
   async blastRadiusPage(

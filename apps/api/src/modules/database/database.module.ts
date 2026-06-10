@@ -12,6 +12,7 @@ import {
   createAuthDatabase,
   createGraphDatabase,
   createProjectDatabase,
+  type GithubInstallationRepository,
   type GraphDatabaseHandle,
   type GraphRepository,
   type ProjectDatabaseHandle,
@@ -23,12 +24,15 @@ import { Env } from '../../env';
 export const USER_REPOSITORY = Symbol.for('toopo.user-repository');
 export const GRAPH_REPOSITORY = Symbol.for('toopo.graph-repository');
 export const PROJECT_REPOSITORY = Symbol.for('toopo.project-repository');
+export const GITHUB_INSTALLATION_REPOSITORY = Symbol.for('toopo.github-installation-repository');
 
 @Injectable()
 export class DatabaseService implements OnModuleDestroy {
   private readonly authHandle: AuthDatabaseHandle;
   private readonly graphHandle: GraphDatabaseHandle;
   private readonly projectHandle: ProjectDatabaseHandle;
+  // The project and installation repositories share one connection (one schema
+  // module, ADR-0026 §3), exposed through the same handle.
 
   constructor() {
     // One logical database, three schema modules (ADR-0017 §7, ADR-0022): the
@@ -59,6 +63,11 @@ export class DatabaseService implements OnModuleDestroy {
     return this.projectHandle.projectRepository;
   }
 
+  /** The GitHub-App installation link store backing the connect flow (ADR-0026 §3). */
+  get githubInstallationRepository(): GithubInstallationRepository {
+    return this.projectHandle.githubInstallationRepository;
+  }
+
   async onModuleDestroy(): Promise<void> {
     await Promise.all([
       this.authHandle.close(),
@@ -87,7 +96,19 @@ export class DatabaseService implements OnModuleDestroy {
       useFactory: (database: DatabaseService): ProjectRepository => database.projectRepository,
       inject: [DatabaseService],
     },
+    {
+      provide: GITHUB_INSTALLATION_REPOSITORY,
+      useFactory: (database: DatabaseService): GithubInstallationRepository =>
+        database.githubInstallationRepository,
+      inject: [DatabaseService],
+    },
   ],
-  exports: [DatabaseService, USER_REPOSITORY, GRAPH_REPOSITORY, PROJECT_REPOSITORY],
+  exports: [
+    DatabaseService,
+    USER_REPOSITORY,
+    GRAPH_REPOSITORY,
+    PROJECT_REPOSITORY,
+    GITHUB_INSTALLATION_REPOSITORY,
+  ],
 })
 export class DatabaseModule {}

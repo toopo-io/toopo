@@ -7,6 +7,7 @@ import { I18nModule } from './i18n/i18n.module';
 import { LocaleInterceptor } from './i18n/locale.interceptor';
 import { AuthModule } from './modules/auth/auth.module';
 import { DatabaseModule } from './modules/database/database.module';
+import { GithubModule } from './modules/github/github.module';
 import { GraphModule } from './modules/graph/graph.module';
 import { HealthModule } from './modules/health/health.module';
 import { ProjectModule } from './modules/project/project.module';
@@ -25,6 +26,7 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
     UserModule,
     ProjectModule,
     GraphModule,
+    GithubModule,
     WebhooksModule,
   ],
   providers: [

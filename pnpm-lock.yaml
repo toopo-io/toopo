@@ -65,6 +65,9 @@ importers:
       '@toopo/env':
         specifier: workspace:*
         version: link:../../packages/env
+      '@toopo/github-app':
+        specifier: workspace:*
+        version: link:../../packages/github-app
       '@toopo/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n

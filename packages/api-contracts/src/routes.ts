@@ -21,6 +21,9 @@ export const ROUTE_SEGMENTS = {
   // The visual-cartography explorer (ADR-0020 read API; web-only — the backend
   // emails no link to it, but the page URL stays single-sourced like the rest).
   GRAPH: 'graph',
+  // The GitHub-App post-install return page (ADR-0026 §5): GitHub's "Setup URL"
+  // lands here, and the page completes the install against the API.
+  CONNECT: 'connect',
 } as const;
 
 export type RouteSegment = (typeof ROUTE_SEGMENTS)[keyof typeof ROUTE_SEGMENTS];

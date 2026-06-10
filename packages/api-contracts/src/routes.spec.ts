@@ -6,6 +6,7 @@ describe('ROUTE_SEGMENTS', () => {
     expect(Object.keys(ROUTE_SEGMENTS).sort()).toEqual(
       [
         'ACCOUNT',
+        'CONNECT',
         'FORGOT_PASSWORD',
         'GRAPH',
         'PROJECTS',
@@ -15,6 +16,10 @@ describe('ROUTE_SEGMENTS', () => {
         'VERIFY_EMAIL',
       ].sort(),
     );
+  });
+
+  it('pins the GitHub-App connect return segment', () => {
+    expect(ROUTE_SEGMENTS.CONNECT).toBe('connect');
   });
 
   it('maps every key to a kebab-case URL segment without leading slash', () => {

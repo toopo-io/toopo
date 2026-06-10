@@ -18,8 +18,8 @@ import {
   type Node,
   type SymbolId,
 } from '@toopo/core';
-import { type Kysely, type RawBuilder, type SqlBool, sql } from 'kysely';
-import type { GraphDatabase } from '../schema/graph-types.js';
+import { type Insertable, type Kysely, type RawBuilder, type SqlBool, sql } from 'kysely';
+import type { EdgeTable, GraphDatabase, NodeTable } from '../schema/graph-types.js';
 import { selectChildCounts, selectContainerRows, selectProjectedEdges } from './aggregate-sql.js';
 import { BLAST_PATH_SEPARATOR, blastRadiusCte } from './blast-radius-sql.js';
 import { buildFileIndex } from './file-association.js';
@@ -75,6 +75,91 @@ function dedupe<T>(rows: readonly T[], key: (row: T) => string): T[] {
   return [...map.values()];
 }
 
+interface DocumentRows {
+  readonly nodeRows: readonly Insertable<NodeTable>[];
+  readonly edgeRows: readonly Insertable<EdgeTable>[];
+}
+
+/**
+ * Validate a document at the boundary (ADR-0006) and project it to deduped,
+ * project-scoped insert rows with their incremental `file_id` derived from the
+ * containment hierarchy. Shared by {@link KyselyGraphRepository.persistGraph} (an
+ * additive upsert) and {@link KyselyGraphRepository.replaceProjectGraph} (a full
+ * replace) — the row shape is identical; only the write strategy differs.
+ */
+function buildDocumentRows(scope: GraphScope, document: GraphDocument): DocumentRows {
+  const parsed = GraphDocumentSchema.parse(document);
+  const index = buildFileIndex(parsed);
+  const nodeRows = dedupe(
+    parsed.nodes.map((node) => nodeToInsert(node, index.forNode(node.id), scope.projectId)),
+    (row) => row.id,
+  );
+  const edgeRows = dedupe(
+    parsed.edges.map((edge) => edgeToInsert(edge, index.forEdge(edge), scope.projectId)),
+    (row) => row.edge_key,
+  );
+  return { nodeRows, edgeRows };
+}
+
+/**
+ * Upsert the node and edge rows in chunked batches within the given transaction
+ * (ADR-0015 §11 stored-once). Idempotent: re-writing the same rows updates them
+ * in place, leaving the row count unchanged. After a full project delete the
+ * `onConflict` clause is simply never reached — the same body inserts cleanly,
+ * which is why replaceProjectGraph reuses it verbatim (zero duplication).
+ */
+async function writeDocumentRows(
+  trx: Kysely<GraphDatabase>,
+  nodeRows: readonly Insertable<NodeTable>[],
+  edgeRows: readonly Insertable<EdgeTable>[],
+): Promise<void> {
+  for (const batch of chunk(nodeRows, UPSERT_CHUNK)) {
+    await trx
+      .insertInto('node')
+      .values(batch)
+      .onConflict((oc) =>
+        oc.columns(['project_id', 'id']).doUpdateSet((eb) => ({
+          kind: eb.ref('excluded.kind'),
+          sub_kind: eb.ref('excluded.sub_kind'),
+          name: eb.ref('excluded.name'),
+          path: eb.ref('excluded.path'),
+          content_hash: eb.ref('excluded.content_hash'),
+          version: eb.ref('excluded.version'),
+          enclosing_symbol_id: eb.ref('excluded.enclosing_symbol_id'),
+          callee: eb.ref('excluded.callee'),
+          ordinal: eb.ref('excluded.ordinal'),
+          analysis_status: eb.ref('excluded.analysis_status'),
+          analysis_reason: eb.ref('excluded.analysis_reason'),
+          file_id: eb.ref('excluded.file_id'),
+          location: eb.ref('excluded.location'),
+          payload: eb.ref('excluded.payload'),
+          properties: eb.ref('excluded.properties'),
+        })),
+      )
+      .execute();
+  }
+
+  for (const batch of chunk(edgeRows, UPSERT_CHUNK)) {
+    await trx
+      .insertInto('edge')
+      .values(batch)
+      .onConflict((oc) =>
+        oc.columns(['project_id', 'edge_key']).doUpdateSet((eb) => ({
+          source_id: eb.ref('excluded.source_id'),
+          target_id: eb.ref('excluded.target_id'),
+          kind: eb.ref('excluded.kind'),
+          sub_kind: eb.ref('excluded.sub_kind'),
+          resolution: eb.ref('excluded.resolution'),
+          confidence: eb.ref('excluded.confidence'),
+          provenance_pass: eb.ref('excluded.provenance_pass'),
+          provenance_rule: eb.ref('excluded.provenance_rule'),
+          file_id: eb.ref('excluded.file_id'),
+        })),
+      )
+      .execute();
+  }
+}
+
 /** The edge column anchored to the queried node: source for forward, target for reverse. */
 function anchorColumn(direction: NeighborDirection): 'source_id' | 'target_id' {
   return direction === 'out' ? 'source_id' : 'target_id';
@@ -84,67 +169,44 @@ export class KyselyGraphRepository implements GraphRepository {
   constructor(private readonly db: Kysely<GraphDatabase>) {}
 
   async persistGraph(scope: GraphScope, document: GraphDocument): Promise<PersistGraphResult> {
-    const parsed = GraphDocumentSchema.parse(document);
-    const index = buildFileIndex(parsed);
-
-    const nodeRows = dedupe(
-      parsed.nodes.map((node) => nodeToInsert(node, index.forNode(node.id), scope.projectId)),
-      (row) => row.id,
-    );
-    const edgeRows = dedupe(
-      parsed.edges.map((edge) => edgeToInsert(edge, index.forEdge(edge), scope.projectId)),
-      (row) => row.edge_key,
-    );
-
-    await this.db.transaction().execute(async (trx) => {
-      for (const batch of chunk(nodeRows, UPSERT_CHUNK)) {
-        await trx
-          .insertInto('node')
-          .values(batch)
-          .onConflict((oc) =>
-            oc.columns(['project_id', 'id']).doUpdateSet((eb) => ({
-              kind: eb.ref('excluded.kind'),
-              sub_kind: eb.ref('excluded.sub_kind'),
-              name: eb.ref('excluded.name'),
-              path: eb.ref('excluded.path'),
-              content_hash: eb.ref('excluded.content_hash'),
-              version: eb.ref('excluded.version'),
-              enclosing_symbol_id: eb.ref('excluded.enclosing_symbol_id'),
-              callee: eb.ref('excluded.callee'),
-              ordinal: eb.ref('excluded.ordinal'),
-              analysis_status: eb.ref('excluded.analysis_status'),
-              analysis_reason: eb.ref('excluded.analysis_reason'),
-              file_id: eb.ref('excluded.file_id'),
-              location: eb.ref('excluded.location'),
-              payload: eb.ref('excluded.payload'),
-              properties: eb.ref('excluded.properties'),
-            })),
-          )
-          .execute();
-      }
-
-      for (const batch of chunk(edgeRows, UPSERT_CHUNK)) {
-        await trx
-          .insertInto('edge')
-          .values(batch)
-          .onConflict((oc) =>
-            oc.columns(['project_id', 'edge_key']).doUpdateSet((eb) => ({
-              source_id: eb.ref('excluded.source_id'),
-              target_id: eb.ref('excluded.target_id'),
-              kind: eb.ref('excluded.kind'),
-              sub_kind: eb.ref('excluded.sub_kind'),
-              resolution: eb.ref('excluded.resolution'),
-              confidence: eb.ref('excluded.confidence'),
-              provenance_pass: eb.ref('excluded.provenance_pass'),
-              provenance_rule: eb.ref('excluded.provenance_rule'),
-              file_id: eb.ref('excluded.file_id'),
-            })),
-          )
-          .execute();
-      }
-    });
-
+    const { nodeRows, edgeRows } = buildDocumentRows(scope, document);
+    await this.db.transaction().execute((trx) => writeDocumentRows(trx, nodeRows, edgeRows));
     return { nodes: nodeRows.length, edges: edgeRows.length };
+  }
+
+  async replaceProjectGraph(
+    scope: GraphScope,
+    document: GraphDocument,
+  ): Promise<PersistGraphResult> {
+    const { nodeRows, edgeRows } = buildDocumentRows(scope, document);
+    await this.db.transaction().execute(async (trx) => {
+      // Delete the whole project subgraph, then write the fresh document. Edges
+      // first (they reference nodes logically, though no FK enforces it). After
+      // the delete the project's rows are gone, so the upsert in writeDocumentRows
+      // can never conflict — it behaves as a plain insert, with zero duplication.
+      await trx.deleteFrom('edge').where('project_id', '=', scope.projectId).execute();
+      await trx.deleteFrom('node').where('project_id', '=', scope.projectId).execute();
+      await writeDocumentRows(trx, nodeRows, edgeRows);
+    });
+    return { nodes: nodeRows.length, edges: edgeRows.length };
+  }
+
+  async getFileContentHashes(scope: GraphScope): Promise<ReadonlyMap<string, string>> {
+    const rows = await this.db
+      .selectFrom('node')
+      .select(['path', 'content_hash'])
+      .where('project_id', '=', scope.projectId)
+      .where('kind', '=', 'file')
+      .execute();
+    const hashes = new Map<string, string>();
+    for (const row of rows) {
+      // A file node always carries both (ADR-0015 §10); the null-guard is defensive
+      // and simply omits a malformed row rather than poisoning the delta.
+      if (row.path !== null && row.content_hash !== null) {
+        hashes.set(row.path, row.content_hash);
+      }
+    }
+    return hashes;
   }
 
   async getNode(scope: GraphScope, id: SymbolId): Promise<Node | null> {

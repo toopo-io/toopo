@@ -169,6 +169,31 @@ export interface GraphRepository {
    */
   persistGraph(scope: GraphScope, document: GraphDocument): Promise<PersistGraphResult>;
 
+  /**
+   * Replace the project's ENTIRE graph with `document`, atomically (ADR-0025
+   * Decision 4). In one transaction: delete every node and edge under the project,
+   * then insert the freshly resolved document. Unlike {@link persistGraph} (an
+   * additive upsert that never deletes), this reflects REMOVALS — deleted files,
+   * removed symbols, and re-bound cross-file edges — which a full re-resolve
+   * produces. The single transaction means a concurrent reader sees the old graph
+   * or the new one, never an empty window (SQLite WAL / Postgres MVCC), and a crash
+   * mid-write rolls back wholly. This is the v1 persist of the worker delta path;
+   * per-file replacement (`replaceFileSubgraph`) stays deferred until resolve is
+   * incremental, because full resolve can re-bind an edge sourced in an unchanged
+   * file (ADR-0025 Decision 4). Re-running with the same document is a no-op on
+   * row count.
+   */
+  replaceProjectGraph(scope: GraphScope, document: GraphDocument): Promise<PersistGraphResult>;
+
+  /**
+   * The stored content hash of every file node in the project, keyed by its
+   * repo-relative path (ADR-0025 Decision 2 — the content-hash delta authority).
+   * The worker compares this against the freshly cloned tree's per-file hashes to
+   * classify each file changed / new / unchanged / removed. A project with no graph
+   * yet returns an empty map, which the worker reads as a full first scan.
+   */
+  getFileContentHashes(scope: GraphScope): Promise<ReadonlyMap<string, string>>;
+
   /** The validated node for an id within the project, or `null` when absent. */
   getNode(scope: GraphScope, id: SymbolId): Promise<Node | null>;
 

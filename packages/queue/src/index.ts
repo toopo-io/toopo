@@ -1,4 +1,5 @@
 export { backoffCeilingMs, computeBackoff, type Random } from './backoff.js';
+export { InMemoryJobStore } from './in-memory-job-store.js';
 export {
   type JobReference,
   JobReferenceSchema,

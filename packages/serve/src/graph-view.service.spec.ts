@@ -2,7 +2,8 @@
  * ADR-0020 Phase B — the Serve composition. Unit-tested against a fake
  * GraphRepository (the SQL is exercised in @toopo/db's dual-backend suite), so
  * these tests pin the composition logic: node-detail assembly, the null→404
- * signal, contract-shape adaptation, and faithful option pass-through.
+ * signal, contract-shape adaptation, faithful option pass-through, and that the
+ * project scope (ADR-0022) is threaded to every repository read.
  */
 import type { Edge, GraphDocument, Node, SymbolId } from '@toopo/core';
 import type {
@@ -11,6 +12,7 @@ import type {
   BlastRadiusPageOptions,
   EdgeKind,
   GraphRepository,
+  GraphScope,
   MapView,
   MapViewOptions,
   Neighbor,
@@ -23,6 +25,8 @@ import type {
 } from '@toopo/db';
 import { describe, expect, it, vi } from 'vitest';
 import { GraphViewService } from './graph-view.service.js';
+
+const SCOPE: GraphScope = { projectId: 'p-serve' };
 
 const nodeA: Node = { kind: 'symbol', id: 'sA', name: 'Widget', properties: {} };
 const propP1: Node = {
@@ -56,34 +60,43 @@ function nodePage(items: readonly Node[], nextCursor: string | null = null): Pag
 /** A GraphRepository fake: read methods return canned data, writers are unused. */
 function fakeRepository(overrides: Partial<GraphRepository>): GraphRepository {
   const base: GraphRepository = {
-    persistGraph(_document: GraphDocument): Promise<PersistGraphResult> {
+    persistGraph(_scope: GraphScope, _document: GraphDocument): Promise<PersistGraphResult> {
       throw new Error('unused');
     },
-    getNode(_id: SymbolId): Promise<Node | null> {
+    getNode(_scope: GraphScope, _id: SymbolId): Promise<Node | null> {
       return Promise.resolve(null);
     },
-    neighbors(_id: SymbolId, _direction: NeighborDirection, _kind?: EdgeKind) {
+    neighbors(_scope: GraphScope, _id: SymbolId, _direction: NeighborDirection, _kind?: EdgeKind) {
       throw new Error('unused');
     },
-    blastRadius(_id: SymbolId, _options?: BlastRadiusOptions) {
+    blastRadius(_scope: GraphScope, _id: SymbolId, _options?: BlastRadiusOptions) {
       throw new Error('unused');
     },
-    neighborsPage(_id: SymbolId, _direction: NeighborDirection, _options?: NeighborPageOptions) {
+    neighborsPage(
+      _scope: GraphScope,
+      _id: SymbolId,
+      _direction: NeighborDirection,
+      _options?: NeighborPageOptions,
+    ) {
       return Promise.resolve<Page<Neighbor>>({ items: [], nextCursor: null });
     },
-    search(_options?: SearchOptions) {
+    search(_scope: GraphScope, _options?: SearchOptions) {
       return Promise.resolve(nodePage([]));
     },
-    declaredInterface(_id: SymbolId, _options?: PageOptions) {
+    declaredInterface(_scope: GraphScope, _id: SymbolId, _options?: PageOptions) {
       return Promise.resolve(nodePage([]));
     },
-    callSitesOf(_id: SymbolId, _options?: PageOptions) {
+    callSitesOf(_scope: GraphScope, _id: SymbolId, _options?: PageOptions) {
       return Promise.resolve(nodePage([]));
     },
-    blastRadiusPage(_id: SymbolId, _options?: BlastRadiusPageOptions): Promise<BlastRadiusPage> {
+    blastRadiusPage(
+      _scope: GraphScope,
+      _id: SymbolId,
+      _options?: BlastRadiusPageOptions,
+    ): Promise<BlastRadiusPage> {
       return Promise.resolve({ items: [], nextCursor: null, truncated: false });
     },
-    mapView(_options: MapViewOptions): Promise<MapView> {
+    mapView(_scope: GraphScope, _options: MapViewOptions): Promise<MapView> {
       return Promise.resolve({ level: 'package', nodes: [], edges: [], truncated: false });
     },
   };
@@ -93,15 +106,16 @@ function fakeRepository(overrides: Partial<GraphRepository>): GraphRepository {
 describe('GraphViewService.nodeDetail', () => {
   it('returns null when the node is absent (host maps to 404)', async () => {
     const service = new GraphViewService(fakeRepository({ getNode: () => Promise.resolve(null) }));
-    expect(await service.nodeDetail({ id: 'missing' })).toBeNull();
+    expect(await service.nodeDetail(SCOPE, { id: 'missing' })).toBeNull();
   });
 
-  it('composes node + declared interface + neighbours + call-sites', async () => {
+  it('threads the scope and composes node + interface + neighbours + call-sites', async () => {
+    const getNode = vi.fn((_scope: GraphScope, _id: SymbolId) => Promise.resolve(nodeA));
     const service = new GraphViewService(
       fakeRepository({
-        getNode: () => Promise.resolve(nodeA),
+        getNode,
         declaredInterface: () => Promise.resolve(nodePage([propP1])),
-        neighborsPage: (_id, direction) =>
+        neighborsPage: (_scope, _id, direction) =>
           Promise.resolve<Page<Neighbor>>({
             items: direction === 'in' ? [{ edge: inEdge, node: null }] : [],
             nextCursor: null,
@@ -110,8 +124,9 @@ describe('GraphViewService.nodeDetail', () => {
       }),
     );
 
-    const detail = await service.nodeDetail({ id: 'sA' });
+    const detail = await service.nodeDetail(SCOPE, { id: 'sA' });
 
+    expect(getNode).toHaveBeenCalledWith(SCOPE, 'sA');
     expect(detail?.node.id).toBe('sA');
     expect(detail?.declaredInterface.items.map((n) => n.id)).toEqual(['propP1']);
     expect(detail?.incoming.items[0]?.edge.kind).toBe('calls');
@@ -122,15 +137,20 @@ describe('GraphViewService.nodeDetail', () => {
 });
 
 describe('GraphViewService pass-through', () => {
-  it('forwards neighbours options and adapts the page shape', async () => {
-    const neighborsPage = vi.fn((_id, _direction, _options) =>
+  it('forwards the scope and neighbours options, adapting the page shape', async () => {
+    const neighborsPage = vi.fn((_scope, _id, _direction, _options) =>
       Promise.resolve<Page<Neighbor>>({ items: [{ edge: inEdge, node: nodeA }], nextCursor: 'c' }),
     );
     const service = new GraphViewService(fakeRepository({ neighborsPage }));
 
-    const page = await service.neighbors({ id: 'sA', direction: 'in', kind: 'calls', limit: 10 });
+    const page = await service.neighbors(SCOPE, {
+      id: 'sA',
+      direction: 'in',
+      kind: 'calls',
+      limit: 10,
+    });
 
-    expect(neighborsPage).toHaveBeenCalledWith('sA', 'in', {
+    expect(neighborsPage).toHaveBeenCalledWith(SCOPE, 'sA', 'in', {
       kind: 'calls',
       limit: 10,
       cursor: undefined,
@@ -153,7 +173,7 @@ describe('GraphViewService pass-through', () => {
       }),
     );
 
-    const page = await service.blastRadius({ id: 'sA', maxDepth: 1 });
+    const page = await service.blastRadius(SCOPE, { id: 'sA', maxDepth: 1 });
 
     expect(page.truncated).toBe(true);
     expect(page.items.map((h) => h.nodeId)).toEqual(['proven', 'guessed']);
@@ -161,28 +181,36 @@ describe('GraphViewService pass-through', () => {
     expect(page.items.map((h) => h.pathResolution)).toEqual(['deterministic', 'inferred']);
   });
 
-  it('maps a map view, copying its node and edge arrays', async () => {
+  it('threads the scope to a map view, copying its node and edge arrays', async () => {
     const view: MapView = {
       level: 'package',
       nodes: [{ node: nodeA, childCount: 2 }],
       edges: [{ sourceId: 'pkgA', targetId: 'pkgB', deterministic: 1, inferred: 0 }],
       truncated: true,
     };
-    const service = new GraphViewService(fakeRepository({ mapView: () => Promise.resolve(view) }));
+    const mapView = vi.fn((_scope: GraphScope, _options: MapViewOptions) => Promise.resolve(view));
+    const service = new GraphViewService(fakeRepository({ mapView }));
 
-    const result = await service.map({ level: 'package' });
+    const result = await service.map(SCOPE, { level: 'package' });
 
+    expect(mapView).toHaveBeenCalledWith(SCOPE, {
+      level: 'package',
+      scope: undefined,
+      limit: undefined,
+    });
     expect(result).toEqual(view);
     expect(result.nodes).not.toBe(view.nodes);
   });
 
-  it('forwards search filters', async () => {
-    const search = vi.fn((_options?: SearchOptions) => Promise.resolve(nodePage([nodeA])));
+  it('forwards search filters with the scope', async () => {
+    const search = vi.fn((_scope: GraphScope, _options?: SearchOptions) =>
+      Promise.resolve(nodePage([nodeA])),
+    );
     const service = new GraphViewService(fakeRepository({ search }));
 
-    const page = await service.search({ query: 'wid', kind: 'symbol' });
+    const page = await service.search(SCOPE, { query: 'wid', kind: 'symbol' });
 
-    expect(search).toHaveBeenCalledWith({
+    expect(search).toHaveBeenCalledWith(SCOPE, {
       query: 'wid',
       kind: 'symbol',
       subKind: undefined,
@@ -192,19 +220,19 @@ describe('GraphViewService pass-through', () => {
     expect(page.items.map((n) => n.id)).toEqual(['sA']);
   });
 
-  it('forwards declared-interface and call-site paging options', async () => {
-    const declaredInterface = vi.fn((_id: SymbolId, _options?: PageOptions) =>
+  it('forwards declared-interface and call-site paging options with the scope', async () => {
+    const declaredInterface = vi.fn((_scope: GraphScope, _id: SymbolId, _options?: PageOptions) =>
       Promise.resolve(nodePage([propP1])),
     );
-    const callSitesOf = vi.fn((_id: SymbolId, _options?: PageOptions) =>
+    const callSitesOf = vi.fn((_scope: GraphScope, _id: SymbolId, _options?: PageOptions) =>
       Promise.resolve(nodePage([callSite])),
     );
     const service = new GraphViewService(fakeRepository({ declaredInterface, callSitesOf }));
 
-    await service.declaredInterface({ id: 'sA', limit: 5, cursor: 'c' });
-    await service.callSites({ id: 'sA' });
+    await service.declaredInterface(SCOPE, { id: 'sA', limit: 5, cursor: 'c' });
+    await service.callSites(SCOPE, { id: 'sA' });
 
-    expect(declaredInterface).toHaveBeenCalledWith('sA', { limit: 5, cursor: 'c' });
-    expect(callSitesOf).toHaveBeenCalledWith('sA', { limit: undefined, cursor: undefined });
+    expect(declaredInterface).toHaveBeenCalledWith(SCOPE, 'sA', { limit: 5, cursor: 'c' });
+    expect(callSitesOf).toHaveBeenCalledWith(SCOPE, 'sA', { limit: undefined, cursor: undefined });
   });
 });

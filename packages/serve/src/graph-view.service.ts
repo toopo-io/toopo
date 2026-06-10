@@ -26,7 +26,7 @@ import type {
   SearchQuery,
 } from '@toopo/api-contracts';
 import type { Node } from '@toopo/core';
-import type { GraphRepository, Neighbor, Page } from '@toopo/db';
+import type { GraphRepository, GraphScope, Neighbor, Page } from '@toopo/db';
 
 /** Copy a repository page into the (mutable-array) contract envelope. */
 function toNodePage(page: Page<Node>): NodePage {
@@ -46,8 +46,8 @@ export class GraphViewService {
   constructor(private readonly repository: GraphRepository) {}
 
   /** V1 — the aggregate map at a containment level (ADR-0015 §2, §3). */
-  async map(query: MapQuery): Promise<MapView> {
-    const view = await this.repository.mapView({
+  async map(scope: GraphScope, query: MapQuery): Promise<MapView> {
+    const view = await this.repository.mapView(scope, {
       level: query.level,
       scope: query.scope,
       limit: query.limit,
@@ -63,18 +63,18 @@ export class GraphViewService {
   /**
    * V2 — composed node detail: the node plus the first page of its declared
    * interface, incoming/outgoing neighbours, and enclosed call-sites. Returns
-   * `null` when the id has no node (the host maps that to 404).
+   * `null` when the id has no node in the project (the host maps that to 404).
    */
-  async nodeDetail(query: NodeQuery): Promise<NodeDetail | null> {
-    const node = await this.repository.getNode(query.id);
+  async nodeDetail(scope: GraphScope, query: NodeQuery): Promise<NodeDetail | null> {
+    const node = await this.repository.getNode(scope, query.id);
     if (node === null) {
       return null;
     }
     const [declaredInterface, incoming, outgoing, callSites] = await Promise.all([
-      this.repository.declaredInterface(query.id),
-      this.repository.neighborsPage(query.id, 'in'),
-      this.repository.neighborsPage(query.id, 'out'),
-      this.repository.callSitesOf(query.id),
+      this.repository.declaredInterface(scope, query.id),
+      this.repository.neighborsPage(scope, query.id, 'in'),
+      this.repository.neighborsPage(scope, query.id, 'out'),
+      this.repository.callSitesOf(scope, query.id),
     ]);
     return {
       node,
@@ -86,8 +86,8 @@ export class GraphViewService {
   }
 
   /** V3 — a bounded page of a node's neighbours (callers/callees). */
-  async neighbors(query: NeighborsQuery): Promise<NeighborPage> {
-    const page = await this.repository.neighborsPage(query.id, query.direction, {
+  async neighbors(scope: GraphScope, query: NeighborsQuery): Promise<NeighborPage> {
+    const page = await this.repository.neighborsPage(scope, query.id, query.direction, {
       kind: query.kind,
       limit: query.limit,
       cursor: query.cursor,
@@ -96,8 +96,8 @@ export class GraphViewService {
   }
 
   /** V4 — bounded, node-hydrated blast radius with an honest `truncated` flag. */
-  async blastRadius(query: BlastRadiusQuery): Promise<BlastRadiusPage> {
-    const page = await this.repository.blastRadiusPage(query.id, {
+  async blastRadius(scope: GraphScope, query: BlastRadiusQuery): Promise<BlastRadiusPage> {
+    const page = await this.repository.blastRadiusPage(scope, query.id, {
       maxDepth: query.maxDepth,
       limit: query.limit,
       cursor: query.cursor,
@@ -106,8 +106,8 @@ export class GraphViewService {
   }
 
   /** Zoom-in — the declared interface of a symbol (its param/prop child symbols). */
-  async declaredInterface(query: NodeRelationsQuery): Promise<NodePage> {
-    const page = await this.repository.declaredInterface(query.id, {
+  async declaredInterface(scope: GraphScope, query: NodeRelationsQuery): Promise<NodePage> {
+    const page = await this.repository.declaredInterface(scope, query.id, {
       limit: query.limit,
       cursor: query.cursor,
     });
@@ -115,8 +115,8 @@ export class GraphViewService {
   }
 
   /** Zoom-in — the call-sites a symbol encloses (ADR-0015 §7 payloads). */
-  async callSites(query: NodeRelationsQuery): Promise<NodePage> {
-    const page = await this.repository.callSitesOf(query.id, {
+  async callSites(scope: GraphScope, query: NodeRelationsQuery): Promise<NodePage> {
+    const page = await this.repository.callSitesOf(scope, query.id, {
       limit: query.limit,
       cursor: query.cursor,
     });
@@ -124,8 +124,8 @@ export class GraphViewService {
   }
 
   /** V5 — bounded node search by name/path substring and/or kind/subKind. */
-  async search(query: SearchQuery): Promise<NodePage> {
-    const page = await this.repository.search({
+  async search(scope: GraphScope, query: SearchQuery): Promise<NodePage> {
+    const page = await this.repository.search(scope, {
       query: query.query,
       kind: query.kind,
       subKind: query.subKind,

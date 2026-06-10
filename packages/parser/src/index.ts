@@ -19,10 +19,14 @@ export type {
   UnresolvedImport,
 } from './result.js';
 export {
+  deserializeParseResult,
   ExternalImportSchema,
   ImportedBindingSchema,
   LocalExportSchema,
+  PARSE_RESULT_VERSION,
+  ParseResultSchema,
   ReExportBindingSchema,
   ReExportSchema,
+  serializeParseResult,
   UnresolvedImportSchema,
 } from './result.js';

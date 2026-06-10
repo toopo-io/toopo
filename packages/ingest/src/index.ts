@@ -1,12 +1,17 @@
 export { type DiscoverOptions, discoverFiles } from './discovery/discover.js';
 export { buildIgnoreFilter, type GitignoreSources } from './discovery/ignore-filter.js';
+export type { AssembleOptions, FileOutcome, ProjectModelBuilder } from './ingest/assemble.js';
 export {
-  type FileOutcome,
+  type DeltaIngestOptions,
+  type DeltaIngestResult,
+  ingestDelta,
+  type ParseFragmentCache,
+} from './ingest/ingest-delta.js';
+export {
   type IngestOptions,
   type IngestResult,
   type IngestTimings,
   ingestProject,
-  type ProjectModelBuilder,
 } from './ingest/ingest-project.js';
 export { type PackageDir, synthesizePackages } from './ingest/synthesize-packages.js';
 export {

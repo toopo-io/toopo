@@ -1,5 +1,5 @@
 import type { GraphDocument } from '@toopo/core';
-import { LocationSchema } from '@toopo/core';
+import { GraphDocumentSchema, LocationSchema } from '@toopo/core';
 import { z } from 'zod';
 
 /**
@@ -129,4 +129,40 @@ export interface ParseResult {
   readonly exports: readonly LocalExport[];
   readonly reExports: readonly ReExport[];
   readonly externalImports: readonly ExternalImport[];
+}
+
+/**
+ * Validation schema for a {@link ParseResult} — the boundary (ADR-0006) the
+ * content-hash parse cache (ADR-0025 Decision 3) revalidates every fragment it
+ * reads back, so a corrupt or truncated cache row can never re-enter the pipeline
+ * as a valid fragment (it is rejected and the file is re-parsed).
+ */
+export const ParseResultSchema = z
+  .object({
+    document: GraphDocumentSchema,
+    unresolved: z.array(UnresolvedImportSchema),
+    exports: z.array(LocalExportSchema),
+    reExports: z.array(ReExportSchema),
+    externalImports: z.array(ExternalImportSchema),
+  })
+  .strict();
+
+/**
+ * The parse-output format version. Bump on ANY change to the {@link ParseResult}
+ * shape or the parser's extraction, so the cache key the worker derives changes and
+ * every prior cached fragment becomes unreachable — a fresh parse, never a stale
+ * hit in an old format (ADR-0025 Decision 3). The content hash alone is over file
+ * BYTES and would not capture a parser change; this version closes that gap.
+ */
+export const PARSE_RESULT_VERSION = 1;
+
+/** Serialize a parse fragment for the cache (deterministic JSON of validated data). */
+export function serializeParseResult(result: ParseResult): string {
+  return JSON.stringify(result);
+}
+
+/** Parse + revalidate a cached fragment; throws (caught by the caller as a miss)
+ *  if the stored blob is corrupt or in a no-longer-valid shape. */
+export function deserializeParseResult(json: string): ParseResult {
+  return ParseResultSchema.parse(JSON.parse(json));
 }

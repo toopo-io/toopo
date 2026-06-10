@@ -1,6 +1,7 @@
 import { type Edge, type GraphDocument, isSymbolNode, parseSymbolId } from '@toopo/core';
 import type { Diagnostic } from '@toopo/resolver';
-import type { FileOutcome, IngestResult, IngestTimings } from '../ingest/ingest-project.js';
+import type { FileOutcome } from '../ingest/assemble.js';
+import type { IngestResult, IngestTimings } from '../ingest/ingest-project.js';
 
 /** Discovery/parse outcome counts (ADR-0015 graceful degradation made visible). */
 export interface DiscoveryMetrics {

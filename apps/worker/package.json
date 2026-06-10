@@ -6,7 +6,8 @@
   "description": "Toopo worker — minimal ingest→persist CLI to populate the graph database (ADR-0020 Fork 5)",
   "license": "AGPL-3.0-or-later",
   "bin": {
-    "toopo-worker": "./dist/cli/bin.js"
+    "toopo-worker": "./dist/cli/bin.js",
+    "toopo-worker-consume": "./dist/consume/bin.js"
   },
   "files": [
     "dist",
@@ -18,7 +19,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "ingest": "node --import tsx src/cli/bin.ts"
+    "ingest": "node --import tsx src/cli/bin.ts",
+    "consume": "node --import tsx src/consume/bin.ts"
   },
   "dependencies": {
     "@toopo/db": "workspace:*",

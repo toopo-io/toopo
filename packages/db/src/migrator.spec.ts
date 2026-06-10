@@ -97,6 +97,7 @@ for (const { backend, skip } of backends) {
         '0003_graph_callsite_idx',
         '0004_project',
         '0005_graph_project_scope',
+        '0006_job',
       ]);
       expect(results.every((r) => r.status === 'Success')).toBe(true);
     });

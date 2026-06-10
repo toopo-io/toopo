@@ -15,6 +15,7 @@ export {
 export { createDatabase, type ToopoDatabase } from './database.js';
 export { buildDialect, type KyselyBackendType, type ResolvedDialect } from './dialect.js';
 export { createGraphDatabase, type GraphDatabaseHandle } from './graph-database.js';
+export { createJobDatabase, type JobDatabaseHandle } from './job-database.js';
 export { MIGRATIONS_DIR } from './migrations-dir.js';
 export {
   type MigrateOptions,
@@ -65,6 +66,12 @@ export type {
   NewJobInput,
   QueuedJob,
 } from './repositories/job.repository.js';
+export { KyselyJobStore } from './repositories/job.repository.kysely.js';
+export {
+  JobRecordSchema,
+  type JobRowLike,
+  rowToJob,
+} from './repositories/job-records.js';
 export type {
   CreateProjectInput,
   ProjectRepository,
@@ -93,4 +100,5 @@ export type {
   VerificationTable,
 } from './schema/auth-types.js';
 export type { EdgeTable, GraphDatabase, NodeTable } from './schema/graph-types.js';
+export type { JobDatabase, JobTable } from './schema/job-types.js';
 export type { ProjectDatabase, ProjectTable } from './schema/project-types.js';

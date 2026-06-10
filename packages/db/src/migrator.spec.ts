@@ -98,6 +98,7 @@ for (const { backend, skip } of backends) {
         '0004_project',
         '0005_graph_project_scope',
         '0006_job',
+        '0007_parse_fragment',
       ]);
       expect(results.every((r) => r.status === 'Success')).toBe(true);
     });

@@ -23,6 +23,10 @@ export {
   SqlFileMigrationProvider,
   splitSqlStatements,
 } from './migrator.js';
+export {
+  createParseFragmentDatabase,
+  type ParseFragmentDatabaseHandle,
+} from './parse-fragment-database.js';
 export { createProjectDatabase, type ProjectDatabaseHandle } from './project-database.js';
 export {
   type BlastRadiusHit,
@@ -72,6 +76,8 @@ export {
   type JobRowLike,
   rowToJob,
 } from './repositories/job-records.js';
+export type { ParseFragmentStore } from './repositories/parse-fragment.repository.js';
+export { KyselyParseFragmentStore } from './repositories/parse-fragment.repository.kysely.js';
 export type {
   CreateProjectInput,
   ProjectRepository,
@@ -101,4 +107,5 @@ export type {
 } from './schema/auth-types.js';
 export type { EdgeTable, GraphDatabase, NodeTable } from './schema/graph-types.js';
 export type { JobDatabase, JobTable } from './schema/job-types.js';
+export type { ParseFragmentDatabase, ParseFragmentTable } from './schema/parse-fragment-types.js';
 export type { ProjectDatabase, ProjectTable } from './schema/project-types.js';

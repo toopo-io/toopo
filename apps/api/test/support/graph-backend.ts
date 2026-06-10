@@ -21,13 +21,20 @@ export interface SeededGraph {
   cleanup(): Promise<void>;
 }
 
-/** Create a temp SQLite graph DB, migrate it, and persist `document` into it. */
-export async function seedGraphDatabase(document: GraphDocument): Promise<SeededGraph> {
+/**
+ * Create a temp SQLite graph DB, migrate it, and persist `document` under
+ * `projectId` (ADR-0022 §3). The booted app serves this seeded, project-scoped
+ * graph.
+ */
+export async function seedGraphDatabase(
+  document: GraphDocument,
+  projectId: string,
+): Promise<SeededGraph> {
   const dir = await mkdtemp(path.join(os.tmpdir(), 'toopo-serve-e2e-'));
   const file = path.join(dir, 'graph.db').split(path.sep).join('/');
   const handle = createGraphDatabase({ databaseUrl: `file:${file}` });
   await migrateToLatest({ db: handle.db, backend: handle.backend, rootDir: MIGRATIONS_DIR });
-  await handle.graphRepository.persistGraph(document);
+  await handle.graphRepository.persistGraph({ projectId }, document);
   return {
     handle,
     async cleanup() {

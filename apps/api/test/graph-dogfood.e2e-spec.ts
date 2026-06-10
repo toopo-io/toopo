@@ -29,7 +29,10 @@ import { createReactPlugins, createReactResolver } from '@toopo/lang-react';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../src/app.module';
 import { GRAPH_REPOSITORY } from '../src/modules/database/database.module';
+import { ProjectAccessGuard } from '../src/modules/project/project-access.guard';
+import { SessionGuard } from '../src/modules/user/session.guard';
 import { type SeededGraph, seedGraphDatabase } from './support/graph-backend';
+import { allowSession, E2E_PROJECT_ID, projectInjector } from './support/serving-app';
 
 /** Ingest a real TS/React package directory into a deterministic graph document. */
 async function ingestPackage(rootDir: string): Promise<GraphDocument> {
@@ -51,11 +54,15 @@ describe('Serve dogfood: @toopo/core over live V1–V5 (e2e)', () => {
   beforeAll(async () => {
     const corePackageDir = resolve(process.cwd(), '..', '..', 'packages', 'core');
     document = await ingestPackage(corePackageDir);
-    seeded = await seedGraphDatabase(document);
+    seeded = await seedGraphDatabase(document, E2E_PROJECT_ID);
 
     const module: TestingModule = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(GRAPH_REPOSITORY)
       .useValue(seeded.handle.graphRepository)
+      .overrideGuard(SessionGuard)
+      .useValue(allowSession)
+      .overrideGuard(ProjectAccessGuard)
+      .useValue(projectInjector)
       .compile();
 
     app = module.createNestApplication<NestFastifyApplication>(new FastifyAdapter());
@@ -70,7 +77,8 @@ describe('Serve dogfood: @toopo/core over live V1–V5 (e2e)', () => {
   });
 
   const get = (path: string) => app.inject({ method: 'GET', url: path });
-  const q = (segment: GraphSegment, params: string) => `${graphApiPath(segment)}?${params}`;
+  const q = (segment: GraphSegment, params: string) =>
+    `${graphApiPath(E2E_PROJECT_ID, segment)}?${params}`;
 
   it('V5 search finds a known core symbol on the real graph', async () => {
     const response = await get(q(GRAPH_SEGMENTS.SEARCH, 'query=AnalysisSchema'));

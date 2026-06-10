@@ -1,0 +1,51 @@
+import { describe, expect, it } from 'vitest';
+import { projectApiPath, projectsApiPath } from '../project-routes.js';
+import {
+  ProjectListQuerySchema,
+  ProjectPageSchema,
+  ProjectResponseSchema,
+} from './project.schema.js';
+
+const project = {
+  id: 'p1',
+  ownerUserId: 'u1',
+  repoHost: 'github',
+  repoOwner: 'toopo',
+  repoName: 'toopo',
+  installationId: null,
+  createdAt: '2026-06-10T00:00:00.000Z',
+  updatedAt: '2026-06-10T00:00:00.000Z',
+};
+
+describe('ProjectResponseSchema', () => {
+  it('accepts a connected-repo record with a null installation id', () => {
+    expect(ProjectResponseSchema.parse(project).repoName).toBe('toopo');
+  });
+
+  it('rejects unknown keys (strict wire contract)', () => {
+    expect(ProjectResponseSchema.safeParse({ ...project, secret: 'x' }).success).toBe(false);
+  });
+});
+
+describe('ProjectPageSchema', () => {
+  it('wraps projects in the keyset envelope', () => {
+    const page = ProjectPageSchema.parse({ items: [project], nextCursor: null });
+    expect(page.items).toHaveLength(1);
+    expect(page.nextCursor).toBeNull();
+  });
+});
+
+describe('ProjectListQuerySchema', () => {
+  it('coerces a string limit and keeps an optional cursor', () => {
+    expect(ProjectListQuerySchema.parse({ limit: '10' }).limit).toBe(10);
+    expect(ProjectListQuerySchema.parse({}).cursor).toBeUndefined();
+  });
+});
+
+describe('project route paths', () => {
+  it('builds the list and single-project paths', () => {
+    expect(projectsApiPath()).toBe('/v1/projects');
+    expect(projectApiPath('p123')).toBe('/v1/projects/p123');
+    expect(projectApiPath('a/b')).toBe('/v1/projects/a%2Fb');
+  });
+});

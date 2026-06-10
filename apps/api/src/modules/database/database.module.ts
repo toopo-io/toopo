@@ -11,26 +11,33 @@ import {
   type BetterAuthDatabase,
   createAuthDatabase,
   createGraphDatabase,
+  createProjectDatabase,
   type GraphDatabaseHandle,
   type GraphRepository,
+  type ProjectDatabaseHandle,
+  type ProjectRepository,
   type UserRepository,
 } from '@toopo/db';
 import { Env } from '../../env';
 
 export const USER_REPOSITORY = Symbol.for('toopo.user-repository');
 export const GRAPH_REPOSITORY = Symbol.for('toopo.graph-repository');
+export const PROJECT_REPOSITORY = Symbol.for('toopo.project-repository');
 
 @Injectable()
 export class DatabaseService implements OnModuleDestroy {
   private readonly authHandle: AuthDatabaseHandle;
   private readonly graphHandle: GraphDatabaseHandle;
+  private readonly projectHandle: ProjectDatabaseHandle;
 
   constructor() {
-    // One logical database, two schema modules (ADR-0017 §7): the auth handle
-    // backs Better Auth, the graph handle backs the read-only Serve API. The
-    // backend is selected by the DATABASE_URL scheme inside @toopo/db.
+    // One logical database, three schema modules (ADR-0017 §7, ADR-0022): the
+    // auth handle backs Better Auth, the graph handle the read-only Serve API,
+    // the project handle the tenancy entity. The backend is selected by the
+    // DATABASE_URL scheme inside @toopo/db.
     this.authHandle = createAuthDatabase({ databaseUrl: Env.DATABASE_URL });
     this.graphHandle = createGraphDatabase({ databaseUrl: Env.DATABASE_URL });
+    this.projectHandle = createProjectDatabase({ databaseUrl: Env.DATABASE_URL });
   }
 
   /** The `database` value passed straight to `betterAuth(...)`. */
@@ -47,8 +54,17 @@ export class DatabaseService implements OnModuleDestroy {
     return this.graphHandle.graphRepository;
   }
 
+  /** The project (tenancy) repository backing project listing + access control (ADR-0022). */
+  get projectRepository(): ProjectRepository {
+    return this.projectHandle.projectRepository;
+  }
+
   async onModuleDestroy(): Promise<void> {
-    await Promise.all([this.authHandle.close(), this.graphHandle.close()]);
+    await Promise.all([
+      this.authHandle.close(),
+      this.graphHandle.close(),
+      this.projectHandle.close(),
+    ]);
   }
 }
 
@@ -66,7 +82,12 @@ export class DatabaseService implements OnModuleDestroy {
       useFactory: (database: DatabaseService): GraphRepository => database.graphRepository,
       inject: [DatabaseService],
     },
+    {
+      provide: PROJECT_REPOSITORY,
+      useFactory: (database: DatabaseService): ProjectRepository => database.projectRepository,
+      inject: [DatabaseService],
+    },
   ],
-  exports: [DatabaseService, USER_REPOSITORY, GRAPH_REPOSITORY],
+  exports: [DatabaseService, USER_REPOSITORY, GRAPH_REPOSITORY, PROJECT_REPOSITORY],
 })
 export class DatabaseModule {}

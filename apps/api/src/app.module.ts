@@ -9,6 +9,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { DatabaseModule } from './modules/database/database.module';
 import { GraphModule } from './modules/graph/graph.module';
 import { HealthModule } from './modules/health/health.module';
+import { ProjectModule } from './modules/project/project.module';
 import { UserModule } from './modules/user/user.module';
 
 @Module({
@@ -19,6 +20,7 @@ import { UserModule } from './modules/user/user.module';
     AuthModule,
     HealthModule,
     UserModule,
+    ProjectModule,
     GraphModule,
   ],
   providers: [

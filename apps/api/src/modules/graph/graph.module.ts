@@ -7,9 +7,14 @@ import { Module } from '@nestjs/common';
 import { type GraphRepository } from '@toopo/db';
 import { GraphViewService } from '@toopo/serve';
 import { GRAPH_REPOSITORY } from '../database/database.module';
+import { ProjectModule } from '../project/project.module';
+import { UserModule } from '../user/user.module';
 import { GraphController } from './graph.controller';
 
 @Module({
+  // UserModule provides the SessionGuard, ProjectModule the ProjectAccessGuard —
+  // the two guards that gate every graph route (ADR-0022 §5).
+  imports: [UserModule, ProjectModule],
   controllers: [GraphController],
   providers: [
     {

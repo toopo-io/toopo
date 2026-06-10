@@ -159,18 +159,53 @@ export class GraphViewService {
     if (callSite === null || callSite.kind !== 'callSite') {
       return null;
     }
-    const references = await this.repository.neighbors(scope, query.id, 'out', 'references');
-    const byParamName = new Map<string, { node: Node; edge: Edge }>();
-    for (const { edge, node } of references) {
-      if (node !== null && node.kind === 'symbol') {
-        byParamName.set(node.name, { node, edge });
-      }
-    }
+    const byParamName = await this.bindingEdgesByParamName(
+      scope,
+      query.id,
+      callSite.payload.length,
+    );
     const bindings: CallBinding[] = callSite.payload.map((argument) => {
       const match = argument.name === undefined ? undefined : byParamName.get(argument.name);
       return { argument, parameter: match?.node ?? null, edge: match?.edge ?? null };
     });
     return { callSite, bindings };
+  }
+
+  /**
+   * The call-site's binding `references` edges, keyed by the receiving symbol's
+   * name. BOUNDED: a call-site has at most one binding per argument (each binds a
+   * param/prop by name), so at most `argumentCount` edges exist — we fetch exactly
+   * that many. This is a tight ceiling that can NEVER truncate a real binding
+   * (which would falsely render a bound argument as unbound — the false negative
+   * the endpoint forbids), unlike an unbounded fetch (a memory/DoS risk) or a
+   * default page cap. The drain only iterates if a (pathological) call exceeds the
+   * per-page clamp; it is bounded by `argumentCount` and never over-fetches.
+   */
+  private async bindingEdgesByParamName(
+    scope: GraphScope,
+    callSiteId: NodeQuery['id'],
+    argumentCount: number,
+  ): Promise<Map<string, { node: Node; edge: Edge }>> {
+    const byParamName = new Map<string, { node: Node; edge: Edge }>();
+    let cursor: string | undefined;
+    for (let seen = 0; seen < argumentCount; ) {
+      const page = await this.repository.neighborsPage(scope, callSiteId, 'out', {
+        kind: 'references',
+        limit: argumentCount,
+        cursor,
+      });
+      for (const { edge, node } of page.items) {
+        if (node !== null && node.kind === 'symbol') {
+          byParamName.set(node.name, { node, edge });
+        }
+      }
+      seen += page.items.length;
+      if (page.nextCursor === null || page.items.length === 0) {
+        break;
+      }
+      cursor = page.nextCursor;
+    }
+    return byParamName;
   }
 
   /** V5 — bounded node search by name/path substring and/or kind/subKind. */

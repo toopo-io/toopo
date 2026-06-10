@@ -294,8 +294,11 @@ describe('GraphViewService pass-through', () => {
     const service = new GraphViewService(
       fakeRepository({
         getNode: () => Promise.resolve(callSiteNode),
-        neighbors: (_scope, _id, _direction, _kind) =>
-          Promise.resolve([{ edge: bindingEdge, node: propP1 }]),
+        neighborsPage: (_scope, _id, _direction, _options) =>
+          Promise.resolve<Page<Neighbor>>({
+            items: [{ edge: bindingEdge, node: propP1 }],
+            nextCursor: null,
+          }),
       }),
     );
 
@@ -310,6 +313,70 @@ describe('GraphViewService pass-through', () => {
   it('returns null from call-bindings when the id is not a call-site', async () => {
     const service = new GraphViewService(fakeRepository({ getNode: () => Promise.resolve(nodeA) }));
     expect(await service.callBindings(SCOPE, { id: 'sA' })).toBeNull();
+  });
+
+  it('stitches EVERY argument of a many-binding call-site, none falsely unbound (D1 bound)', async () => {
+    // More bindings than any small page default — and the fake caps each page well
+    // below that — so a real binding is only stitched if callBindings bounds the
+    // fetch to the argument count AND drains. A naive single-default-page fetch
+    // would render the overflow arguments as falsely unbound (the false negative).
+    const N = 60; // > DEFAULT_PAGE_LIMIT (50)
+    const args = Array.from({ length: N }, (_, i) => ({
+      ordinal: i,
+      name: `p${i}`,
+      passKind: 'named' as const,
+      value: '1',
+      resolution: 'deterministic' as const,
+    }));
+    const params: Node[] = args.map((arg) => ({
+      kind: 'symbol',
+      id: `param-${arg.name}`,
+      name: arg.name,
+      properties: {},
+    }));
+    const allEdges: Neighbor[] = params.map((param) => ({
+      edge: {
+        kind: 'references',
+        sourceId: 'csN',
+        targetId: param.id,
+        subKind: 'react:propBinding',
+        resolution: 'deterministic',
+        provenance: { pass: 'resolve', rule: 'react/binds-prop' },
+      },
+      node: param,
+    }));
+    const callSiteNode: Node = {
+      kind: 'callSite',
+      id: 'csN',
+      enclosingSymbolId: 'sA',
+      callee: 'Widget',
+      ordinal: 0,
+      payload: args,
+      properties: {},
+    };
+    const SERVER_PAGE_CAP = 25; // the fake's own per-page limit, forcing a drain
+    const neighborsPage = vi.fn((_scope, _id, _direction, options?: NeighborPageOptions) => {
+      const start = options?.cursor === undefined ? 0 : Number(options.cursor);
+      const size = Math.min(options?.limit ?? 50, SERVER_PAGE_CAP);
+      const slice = allEdges.slice(start, start + size);
+      const next = start + slice.length;
+      return Promise.resolve<Page<Neighbor>>({
+        items: slice,
+        nextCursor: next < allEdges.length ? String(next) : null,
+      });
+    });
+    const service = new GraphViewService(
+      fakeRepository({ getNode: () => Promise.resolve(callSiteNode), neighborsPage }),
+    );
+
+    const view = await service.callBindings(SCOPE, { id: 'csN' });
+    expect(view?.bindings).toHaveLength(N);
+    expect(view?.bindings.every((b) => b.parameter !== null && b.edge !== null)).toBe(true);
+    expect(view?.bindings.map((b) => b.parameter?.id)).toEqual(params.map((p) => p.id));
+    // The fetch was bounded by the argument count, never over-fetched.
+    for (const call of neighborsPage.mock.calls) {
+      expect(call[3]?.limit).toBe(N);
+    }
   });
 
   it('carries the page total through to the envelope, and omits it when absent (D9)', async () => {

@@ -56,6 +56,19 @@ describe('parameter pattern extraction (A1 / C6)', () => {
     expect(childNames(document, id(PATH, term('deep')))).toEqual(['top']);
   });
 
+  it('skips a computed or string object-pattern key, never fabricating a [expr]/"s" symbol', async () => {
+    const document = await parse(
+      PATH,
+      `const k = 'x'; function pick({ [k]: dynamic, "lit-key": lit, plain }: Rec): void {}`,
+    );
+    // A computed (`[k]`) or string (`"lit-key"`) key has no stable public name, so
+    // it is skipped — only the plain identifier key is captured (mirrors classifyMember).
+    expect(childNames(document, id(PATH, term('pick')))).toEqual(['plain']);
+    const names = document.nodes.filter(isSymbolNode).map((node) => node.name);
+    expect(names).not.toContain('[k]');
+    expect(names.some((name) => name.includes('lit-key'))).toBe(false);
+  });
+
   it('treats destructured props on a component as react:prop, others as ts:parameter', async () => {
     const document = await parse(
       PATH,

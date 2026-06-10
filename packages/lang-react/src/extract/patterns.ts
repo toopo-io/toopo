@@ -39,7 +39,12 @@ function objectField(child: SyntaxNode | null): PatternBinding[] {
       return [{ name: child.text, node: child }];
     case 'pair_pattern': {
       const key = child.childForFieldName('key');
-      return key === null ? [] : [{ name: key.text, node: key }];
+      // Only a plain identifier key has a stable public name; a computed (`[expr]`),
+      // string, or numeric key has none and is skipped, never fabricated as a
+      // symbol named `[expr]`/`"s"` (trust principle; mirrors classifyMember).
+      return key === null || key.type !== 'property_identifier'
+        ? []
+        : [{ name: key.text, node: key }];
     }
     case 'object_assignment_pattern': {
       const left = child.childForFieldName('left');

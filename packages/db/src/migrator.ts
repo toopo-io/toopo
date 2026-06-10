@@ -20,12 +20,30 @@ import {
 import type { DatabaseBackend } from './config.js';
 
 /**
- * Splits a `.sql` file into individual statements. The committed SQL is
- * machine-generated (Better Auth) or simple hand-written DDL — no semicolons
- * appear inside string literals or identifiers — so a split on `;` is exact.
+ * Strip `--` line comments (everything from `--` to the end of the line) so a
+ * semicolon inside a comment can never sever a statement. The committed SQL is
+ * machine-generated or simple hand-written DDL with no string literal or
+ * identifier containing `--`, so a per-line cut at the first `--` is exact.
+ */
+function stripLineComments(sqlText: string): string {
+  return sqlText
+    .split('\n')
+    .map((line) => {
+      const comment = line.indexOf('--');
+      return comment === -1 ? line : line.slice(0, comment);
+    })
+    .join('\n');
+}
+
+/**
+ * Splits a `.sql` file into individual statements. `--` line comments are
+ * stripped first (so a `;` written inside a comment does not split a statement),
+ * then the comment-free SQL is split on `;`. The committed SQL is machine-
+ * generated (Better Auth) or simple hand-written DDL — no semicolons appear
+ * inside string literals or identifiers — so the split on `;` is exact.
  */
 export function splitSqlStatements(sqlText: string): string[] {
-  return sqlText
+  return stripLineComments(sqlText)
     .split(';')
     .map((statement) => statement.trim())
     .filter((statement) => statement.length > 0);

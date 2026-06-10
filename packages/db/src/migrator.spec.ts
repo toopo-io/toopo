@@ -39,6 +39,16 @@ describe('splitSqlStatements', () => {
   it('returns an empty list for whitespace-only input', () => {
     expect(splitSqlStatements('   \n  ;  ')).toEqual([]);
   });
+
+  it('ignores semicolons inside -- line comments (full-line and trailing)', () => {
+    const sql = [
+      '-- a comment; with a semicolon that must not split',
+      'create table t (x);',
+      'create index i on t (x); -- trailing; note',
+      '-- closing; note',
+    ].join('\n');
+    expect(splitSqlStatements(sql)).toEqual(['create table t (x)', 'create index i on t (x)']);
+  });
 });
 
 const AUTH_TABLES = ['user', 'session', 'account', 'verification'] as const;

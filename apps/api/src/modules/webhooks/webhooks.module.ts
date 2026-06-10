@@ -8,12 +8,14 @@
  */
 import { Module } from '@nestjs/common';
 import { Env } from '../../env';
+import { GithubModule } from '../github/github.module';
 import { GithubSignatureGuard } from './github-signature.guard';
 import { GithubWebhookController } from './github-webhook.controller';
 import { GithubWebhookService } from './github-webhook.service';
 import { GITHUB_WEBHOOK_SECRET } from './github-webhook.tokens';
 
 @Module({
+  imports: [GithubModule],
   controllers: [GithubWebhookController],
   providers: [
     GithubWebhookService,

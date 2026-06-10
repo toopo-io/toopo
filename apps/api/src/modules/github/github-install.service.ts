@@ -106,6 +106,34 @@ export class GithubInstallService {
     return repos.length;
   }
 
+  /**
+   * Soft-archive every project of an installation (ADR-0026 §7) — the
+   * `installation.deleted` / `suspend` path. Needs no App auth (project repo
+   * only), so it works even if the App later becomes unconfigured. Returns the
+   * count archived.
+   */
+  async archiveInstallationProjects(installationId: string): Promise<number> {
+    const projects = await this.projects.findProjectsByInstallationId(installationId);
+    const now = new Date();
+    for (const project of projects) {
+      await this.projects.archiveProject(project.id, now);
+    }
+    return projects.length;
+  }
+
+  /**
+   * Soft-archive a single repo's project (ADR-0026 §7) — the
+   * `installation_repositories.removed` path. Returns whether a project was found.
+   */
+  async archiveRepo(owner: string, name: string): Promise<boolean> {
+    const project = await this.projects.findProjectByRepo(GITHUB_WEBHOOK_HOST, owner, name);
+    if (project === null) {
+      return false;
+    }
+    await this.projects.archiveProject(project.id, new Date());
+    return true;
+  }
+
   private async provisionRepo(
     auth: GithubAppAuth,
     installationId: number,

@@ -24,7 +24,11 @@ import type { ProjectRecord, ProjectRepository } from '@toopo/db';
 import { createInMemoryQueue, type InMemoryQueueHandle, type Queue } from '@toopo/queue';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppModule } from '../src/app.module';
-import { PROJECT_REPOSITORY } from '../src/modules/database/database.module';
+import {
+  GITHUB_INSTALLATION_REPOSITORY,
+  PROJECT_REPOSITORY,
+} from '../src/modules/database/database.module';
+import { GithubInstallService } from '../src/modules/github/github-install.service';
 import { QueueService } from '../src/modules/queue/queue.module';
 import { GITHUB_WEBHOOK_MAX_PAYLOAD_BYTES } from '../src/modules/webhooks/github-webhook.constants';
 import { GITHUB_WEBHOOK_SECRET } from '../src/modules/webhooks/github-webhook.tokens';
@@ -83,12 +87,35 @@ const projectsStub = {
     findProjectByRepo(host, owner, name),
 } as unknown as ProjectRepository;
 
+// Installation-flow stubs (ADR-0026 §3): the install service and link store are
+// driven through forwarders so the booted app stays DB-free while each test pins
+// whether the installation is linked and asserts the provisioning side effects.
+let findInstallation: ReturnType<typeof vi.fn<(id: string) => Promise<unknown>>>;
+let provisionRepos: ReturnType<
+  typeof vi.fn<(id: number, owner: string, repos: unknown) => Promise<number>>
+>;
+let archiveInstallationProjects: ReturnType<typeof vi.fn<(id: string) => Promise<number>>>;
+let deleteInstallation: ReturnType<typeof vi.fn<(id: string) => Promise<void>>>;
+const installationsStub = {
+  findInstallation: (id: string) => findInstallation(id),
+  deleteInstallation: (id: string) => deleteInstallation(id),
+};
+const installStub = {
+  provisionRepos: (id: number, owner: string, repos: unknown) => provisionRepos(id, owner, repos),
+  archiveInstallationProjects: (id: string) => archiveInstallationProjects(id),
+  archiveRepo: async () => false,
+};
+
 async function bootWebhookApp(secret: string | undefined): Promise<NestFastifyApplication> {
   const module = await Test.createTestingModule({ imports: [AppModule] })
     .overrideProvider(QueueService)
     .useValue({ queue: forwardingQueue })
     .overrideProvider(PROJECT_REPOSITORY)
     .useValue(projectsStub)
+    .overrideProvider(GITHUB_INSTALLATION_REPOSITORY)
+    .useValue(installationsStub)
+    .overrideProvider(GithubInstallService)
+    .useValue(installStub)
     .overrideProvider(GITHUB_WEBHOOK_SECRET)
     .useValue(secret)
     .compile();
@@ -127,7 +154,25 @@ function claimOne() {
 beforeEach(() => {
   queueHandle = createInMemoryQueue();
   findProjectByRepo = vi.fn<FindProjectByRepo>(async () => connectedProject());
+  findInstallation = vi.fn(async () => ({
+    installationId: '55',
+    ownerUserId: 'u1',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  }));
+  provisionRepos = vi.fn(async () => 1);
+  archiveInstallationProjects = vi.fn(async () => 1);
+  deleteInstallation = vi.fn(async () => undefined);
 });
+
+/** A signed installation-event body (created/deleted), one granted repo. */
+function installationBody(action: string): string {
+  return JSON.stringify({
+    action,
+    installation: { id: 55, account: { login: 'acme' } },
+    repositories: [{ name: 'web', full_name: 'acme/web' }],
+  });
+}
 
 describe('GitHub webhook (e2e) — secret configured', () => {
   let app: NestFastifyApplication;
@@ -261,6 +306,42 @@ describe('GitHub webhook (e2e) — secret configured', () => {
     const response = await post(app, { payload, signature: sign(payload, SECRET) });
     expect(response.statusCode).toBe(400);
     expect(await claimOne()).toBeNull();
+  });
+
+  it('verifies and provisions a signed installation.created (fixture-signed, ADR-0026 §3)', async () => {
+    const payload = installationBody('created');
+    const response = await post(app, {
+      payload,
+      signature: sign(payload, SECRET),
+      event: 'installation',
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ status: 'acknowledged' });
+    expect(provisionRepos).toHaveBeenCalledWith(55, 'u1', [{ owner: 'acme', name: 'web' }]);
+  });
+
+  it('rejects a tampered installation event with 403 and does NO provisioning', async () => {
+    const signature = sign(installationBody('created'), SECRET);
+    const response = await post(app, {
+      payload: installationBody('deleted'),
+      signature,
+      event: 'installation',
+    });
+    expect(response.statusCode).toBe(403);
+    expect(provisionRepos).not.toHaveBeenCalled();
+    expect(archiveInstallationProjects).not.toHaveBeenCalled();
+  });
+
+  it('archives on a signed installation.deleted and drops the link', async () => {
+    const payload = installationBody('deleted');
+    const response = await post(app, {
+      payload,
+      signature: sign(payload, SECRET),
+      event: 'installation',
+    });
+    expect(response.statusCode).toBe(200);
+    expect(archiveInstallationProjects).toHaveBeenCalledWith('55');
+    expect(deleteInstallation).toHaveBeenCalledWith('55');
   });
 });
 

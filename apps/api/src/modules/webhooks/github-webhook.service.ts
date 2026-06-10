@@ -9,12 +9,21 @@
  * work unit `${projectId}:${commitSha}` so GitHub's redeliveries coalesce.
  */
 import { BadRequestException, Inject, Injectable } from '@nestjs/common';
-import type { ProjectRepository } from '@toopo/db';
+import type { GithubInstallationRepository, ProjectRepository } from '@toopo/db';
+import type { InstallationRepo } from '@toopo/github-app';
 import type { JobReference, Queue } from '@toopo/queue';
 import { Logger } from 'nestjs-pino';
 import { ZodValidationException } from 'nestjs-zod';
-import { PROJECT_REPOSITORY } from '../database/database.module';
+import { GITHUB_INSTALLATION_REPOSITORY, PROJECT_REPOSITORY } from '../database/database.module';
+import { GithubInstallService } from '../github/github-install.service';
 import { QUEUE } from '../queue/queue.module';
+import {
+  type InstallationEvent,
+  InstallationEventSchema,
+  type InstallationRepositoriesEvent,
+  InstallationRepositoriesEventSchema,
+  splitFullName,
+} from './github-installation-event.schema';
 import { type GithubPushEvent, GithubPushEventSchema } from './github-push-event.schema';
 import { GITHUB_WEBHOOK_HOST } from './github-webhook.constants';
 
@@ -30,26 +39,53 @@ function isZeroSha(sha: string): boolean {
 }
 
 /**
- * Parse and validate the VERIFIED raw body as a push event (ADR-0024 §4,
- * ADR-0006). Parsing the exact bytes the gate signed — rather than a framework
- * re-parse — keeps the verified payload and the acted-on payload identical.
- * Malformed JSON or a schema miss surfaces as a `400`, never a `500`.
+ * Parse the VERIFIED raw body as JSON (ADR-0024 §4, ADR-0006). Parsing the exact
+ * bytes the gate signed — rather than a framework re-parse — keeps the verified
+ * and acted-on payloads identical. Malformed JSON or an empty body surfaces as a
+ * `400`, never a `500`; the per-event schema parse below does the same on a miss.
  */
-function parsePushEvent(rawBody: Buffer | undefined): GithubPushEvent {
+function parseJsonBody(rawBody: Buffer | undefined): unknown {
   if (rawBody === undefined || rawBody.length === 0) {
     throw new BadRequestException('Empty webhook payload');
   }
-  let json: unknown;
   try {
-    json = JSON.parse(rawBody.toString('utf8'));
+    return JSON.parse(rawBody.toString('utf8'));
   } catch {
     throw new BadRequestException('Malformed webhook payload (invalid JSON)');
   }
-  const result = GithubPushEventSchema.safeParse(json);
+}
+
+function parsePushEvent(rawBody: Buffer | undefined): GithubPushEvent {
+  const result = GithubPushEventSchema.safeParse(parseJsonBody(rawBody));
   if (!result.success) {
     throw new ZodValidationException(result.error);
   }
   return result.data;
+}
+
+function parseInstallationEvent(rawBody: Buffer | undefined): InstallationEvent {
+  const result = InstallationEventSchema.safeParse(parseJsonBody(rawBody));
+  if (!result.success) {
+    throw new ZodValidationException(result.error);
+  }
+  return result.data;
+}
+
+function parseInstallationReposEvent(rawBody: Buffer | undefined): InstallationRepositoriesEvent {
+  const result = InstallationRepositoriesEventSchema.safeParse(parseJsonBody(rawBody));
+  if (!result.success) {
+    throw new ZodValidationException(result.error);
+  }
+  return result.data;
+}
+
+/** Map GitHub repo refs (`full_name`) to provisioning repos, dropping malformed ones. */
+function toInstallationRepos(
+  refs: ReadonlyArray<{ readonly full_name: string }>,
+): InstallationRepo[] {
+  return refs
+    .map((ref) => splitFullName(ref.full_name))
+    .filter((repo): repo is InstallationRepo => repo !== null);
 }
 
 @Injectable()
@@ -57,24 +93,34 @@ export class GithubWebhookService {
   constructor(
     @Inject(QUEUE) private readonly queue: Queue,
     @Inject(PROJECT_REPOSITORY) private readonly projects: ProjectRepository,
+    @Inject(GITHUB_INSTALLATION_REPOSITORY)
+    private readonly installations: GithubInstallationRepository,
+    private readonly install: GithubInstallService,
     private readonly logger: Logger,
   ) {}
 
   /**
-   * Handle one verified delivery, given the verified raw body. Non-push events
-   * are acknowledged untouched (no parse); a push is parsed and validated (a bad
-   * payload → 400) and routed through the scope, resolve, and enqueue steps.
+   * Handle one verified delivery, given the verified raw body. `push` resolves an
+   * existing project and enqueues (ADR-0024). `installation` and
+   * `installation_repositories` (ADR-0026 §3) create/archive projects via the same
+   * provisioning seam the install redirect uses. Every other event is acknowledged
+   * untouched. A bad payload for a handled event surfaces as `400`, never `500`.
    */
   async handle(
     event: string | undefined,
     deliveryId: string | undefined,
     rawBody: Buffer | undefined,
   ): Promise<WebhookResult> {
-    if (event !== 'push') {
-      return { status: 'acknowledged', reason: `event '${event ?? 'unknown'}' is not a push` };
+    if (event === 'push') {
+      return this.handlePush(parsePushEvent(rawBody), deliveryId);
     }
-    const payload = parsePushEvent(rawBody);
-    return this.handlePush(payload, deliveryId);
+    if (event === 'installation') {
+      return this.handleInstallation(parseInstallationEvent(rawBody), deliveryId);
+    }
+    if (event === 'installation_repositories') {
+      return this.handleInstallationRepositories(parseInstallationReposEvent(rawBody), deliveryId);
+    }
+    return { status: 'acknowledged', reason: `event '${event ?? 'unknown'}' is not handled` };
   }
 
   private async handlePush(
@@ -107,5 +153,103 @@ export class GithubWebhookService {
       dedupeKey: `${project.id}:${payload.after}`,
     });
     return { status: 'enqueued', deduplicated: outcome.deduplicated };
+  }
+
+  /**
+   * `installation` lifecycle (ADR-0026 §3): created / unsuspend (re)provision the
+   * granted repos; deleted / suspend archive the installation's projects (deleted
+   * also drops the link). Every other action is acknowledged untouched.
+   */
+  private async handleInstallation(
+    payload: InstallationEvent,
+    deliveryId: string | undefined,
+  ): Promise<WebhookResult> {
+    const installationId = String(payload.installation.id);
+    if (payload.action === 'deleted' || payload.action === 'suspend') {
+      const archived = await this.install.archiveInstallationProjects(installationId);
+      if (payload.action === 'deleted') {
+        await this.installations.deleteInstallation(installationId);
+      }
+      this.logger.log(
+        { deliveryId, installationId, action: payload.action, archived },
+        'github installation archived',
+      );
+      return { status: 'acknowledged', reason: `installation ${payload.action}` };
+    }
+    if (payload.action === 'created' || payload.action === 'unsuspend') {
+      return this.provisionForInstallation(installationId, payload.repositories ?? [], deliveryId);
+    }
+    return {
+      status: 'acknowledged',
+      reason: `installation action '${payload.action}' not handled`,
+    };
+  }
+
+  /**
+   * `installation_repositories` (ADR-0026 §3): `added` provisions the new repos,
+   * `removed` soft-archives them. `added` resolves the owner from the link and
+   * never fabricates one; `removed` archives by repo and needs no link.
+   */
+  private async handleInstallationRepositories(
+    payload: InstallationRepositoriesEvent,
+    deliveryId: string | undefined,
+  ): Promise<WebhookResult> {
+    const installationId = String(payload.installation.id);
+    if (payload.action === 'added') {
+      return this.provisionForInstallation(
+        installationId,
+        payload.repositories_added ?? [],
+        deliveryId,
+      );
+    }
+    if (payload.action === 'removed') {
+      let archived = 0;
+      for (const repo of toInstallationRepos(payload.repositories_removed ?? [])) {
+        if (await this.install.archiveRepo(repo.owner, repo.name)) {
+          archived += 1;
+        }
+      }
+      this.logger.log(
+        { deliveryId, installationId, archived },
+        'github installation repositories removed',
+      );
+      return { status: 'acknowledged', reason: `archived ${archived} repositories` };
+    }
+    return {
+      status: 'acknowledged',
+      reason: `repositories action '${payload.action}' not handled`,
+    };
+  }
+
+  /**
+   * The shared create-side path: resolve the installation's owner from the link
+   * (the only user-bearing signal) and provision the repos. A webhook for an
+   * UNLINKED installation acks `ignored` and creates nothing — never fabricate an
+   * owner (ADR-0026 §3, symmetric to ADR-0024's resolve-existing-only).
+   */
+  private async provisionForInstallation(
+    installationId: string,
+    refs: ReadonlyArray<{ readonly full_name: string }>,
+    deliveryId: string | undefined,
+  ): Promise<WebhookResult> {
+    const link = await this.installations.findInstallation(installationId);
+    if (link === null) {
+      this.logger.log(
+        { deliveryId, installationId },
+        'github installation webhook ignored: installation is not linked to a user',
+      );
+      return { status: 'ignored', reason: 'installation is not linked to a user' };
+    }
+    const repos = toInstallationRepos(refs);
+    const provisioned = await this.install.provisionRepos(
+      Number(installationId),
+      link.ownerUserId,
+      repos,
+    );
+    this.logger.log(
+      { deliveryId, installationId, provisioned },
+      'github installation repositories provisioned',
+    );
+    return { status: 'acknowledged', reason: `provisioned ${provisioned} repositories` };
   }
 }

@@ -5,11 +5,18 @@
  * deduped by `${projectId}:${commitSha}`; every other case does zero work — no
  * resolve and no enqueue (the cost guarantee the gate exists to protect).
  */
-import type { EnqueueOutcome, ProjectRecord, ProjectRepository } from '@toopo/db';
+import type {
+  EnqueueOutcome,
+  GithubInstallationRecord,
+  GithubInstallationRepository,
+  ProjectRecord,
+  ProjectRepository,
+} from '@toopo/db';
 import type { JobReference, Queue } from '@toopo/queue';
 import type { Logger } from 'nestjs-pino';
 import { ZodValidationException } from 'nestjs-zod';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { GithubInstallService } from '../github/github-install.service';
 import { GithubWebhookService } from './github-webhook.service';
 
 const PROJECT_ID = 'project-123';
@@ -45,19 +52,73 @@ function pushPayload(overrides: Record<string, unknown> = {}): Buffer {
   );
 }
 
+/** An installation event raw body (created / deleted / suspend / unsuspend). */
+function installationPayload(action: string, fullNames: readonly string[] = ['acme/web']): Buffer {
+  return Buffer.from(
+    JSON.stringify({
+      action,
+      installation: { id: 55, account: { login: 'acme' } },
+      repositories: fullNames.map((full_name) => ({ name: full_name.split('/')[1], full_name })),
+    }),
+  );
+}
+
+/** An installation_repositories event raw body (added / removed). */
+function installationReposPayload(
+  action: 'added' | 'removed',
+  fullNames: readonly string[],
+): Buffer {
+  const repos = fullNames.map((full_name) => ({ name: full_name.split('/')[1], full_name }));
+  return Buffer.from(
+    JSON.stringify({
+      action,
+      installation: { id: 55 },
+      ...(action === 'added' ? { repositories_added: repos } : { repositories_removed: repos }),
+    }),
+  );
+}
+
 let enqueue: ReturnType<typeof vi.fn>;
 let findProjectByRepo: ReturnType<typeof vi.fn>;
+let findInstallation: ReturnType<typeof vi.fn>;
+let deleteInstallation: ReturnType<typeof vi.fn>;
+let provisionRepos: ReturnType<typeof vi.fn>;
+let archiveInstallationProjects: ReturnType<typeof vi.fn>;
+let archiveRepo: ReturnType<typeof vi.fn>;
 let queue: Queue;
 let projects: ProjectRepository;
+let installations: GithubInstallationRepository;
+let install: GithubInstallService;
 let service: GithubWebhookService;
 
 beforeEach(() => {
   enqueue = vi.fn(async (): Promise<EnqueueOutcome> => ({ id: 'job-1', deduplicated: false }));
   findProjectByRepo = vi.fn(async (): Promise<ProjectRecord | null> => projectRecord());
+  findInstallation = vi.fn(
+    async (): Promise<GithubInstallationRecord | null> => ({
+      installationId: '55',
+      ownerUserId: 'user-1',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }),
+  );
+  deleteInstallation = vi.fn(async () => undefined);
+  provisionRepos = vi.fn(async () => 1);
+  archiveInstallationProjects = vi.fn(async () => 2);
+  archiveRepo = vi.fn(async () => true);
   queue = { enqueue } as unknown as Queue;
   projects = { findProjectByRepo } as unknown as ProjectRepository;
+  installations = {
+    findInstallation,
+    deleteInstallation,
+  } as unknown as GithubInstallationRepository;
+  install = {
+    provisionRepos,
+    archiveInstallationProjects,
+    archiveRepo,
+  } as unknown as GithubInstallService;
   const logger = { log: vi.fn(), warn: vi.fn() } as unknown as Logger;
-  service = new GithubWebhookService(queue, projects, logger);
+  service = new GithubWebhookService(queue, projects, installations, install, logger);
 });
 
 describe('GithubWebhookService', () => {
@@ -148,5 +209,68 @@ describe('GithubWebhookService', () => {
   it('resolves against the canonical host github.com', async () => {
     await service.handle('push', 'd1', pushPayload());
     expect(findProjectByRepo).toHaveBeenCalledWith('github.com', 'acme', 'web');
+  });
+});
+
+describe('GithubWebhookService — installation events', () => {
+  it('provisions the granted repos on installation.created for a linked installation', async () => {
+    const result = await service.handle('installation', 'd1', installationPayload('created'));
+    expect(result.status).toBe('acknowledged');
+    expect(provisionRepos).toHaveBeenCalledWith(55, 'user-1', [{ owner: 'acme', name: 'web' }]);
+  });
+
+  it('IGNORES installation.created for an UNLINKED installation — fabricates no owner', async () => {
+    findInstallation.mockResolvedValueOnce(null);
+    const result = await service.handle('installation', 'd1', installationPayload('created'));
+    expect(result.status).toBe('ignored');
+    expect(provisionRepos).not.toHaveBeenCalled();
+  });
+
+  it('archives the installation projects and drops the link on installation.deleted', async () => {
+    const result = await service.handle('installation', 'd1', installationPayload('deleted'));
+    expect(result.status).toBe('acknowledged');
+    expect(archiveInstallationProjects).toHaveBeenCalledWith('55');
+    expect(deleteInstallation).toHaveBeenCalledWith('55');
+  });
+
+  it('archives but keeps the link on installation.suspend', async () => {
+    await service.handle('installation', 'd1', installationPayload('suspend'));
+    expect(archiveInstallationProjects).toHaveBeenCalledWith('55');
+    expect(deleteInstallation).not.toHaveBeenCalled();
+  });
+
+  it('acknowledges an unhandled installation action without side effects', async () => {
+    const result = await service.handle(
+      'installation',
+      'd1',
+      installationPayload('new_permissions_accepted'),
+    );
+    expect(result.status).toBe('acknowledged');
+    expect(provisionRepos).not.toHaveBeenCalled();
+    expect(archiveInstallationProjects).not.toHaveBeenCalled();
+  });
+
+  it('provisions added repos on installation_repositories.added', async () => {
+    const result = await service.handle(
+      'installation_repositories',
+      'd1',
+      installationReposPayload('added', ['acme/web', 'acme/api']),
+    );
+    expect(result.status).toBe('acknowledged');
+    expect(provisionRepos).toHaveBeenCalledWith(55, 'user-1', [
+      { owner: 'acme', name: 'web' },
+      { owner: 'acme', name: 'api' },
+    ]);
+  });
+
+  it('archives removed repos on installation_repositories.removed', async () => {
+    const result = await service.handle(
+      'installation_repositories',
+      'd1',
+      installationReposPayload('removed', ['acme/web']),
+    );
+    expect(result.status).toBe('acknowledged');
+    expect(archiveRepo).toHaveBeenCalledWith('acme', 'web');
+    expect(provisionRepos).not.toHaveBeenCalled();
   });
 });

@@ -1,5 +1,12 @@
 import { inferBackend } from '@toopo/db';
-import { baseEnvShape } from '@toopo/env';
+import {
+  baseEnvShape,
+  githubAppClientIdSchema,
+  githubAppClientSecretSchema,
+  githubAppIdSchema,
+  githubAppPrivateKeySchema,
+  githubAppSlugSchema,
+} from '@toopo/env';
 import { z } from 'zod';
 
 export const ApiEnvSchema = z.object({
@@ -38,5 +45,15 @@ export const ApiEnvSchema = z.object({
   // closed (503) when it is unset — it never accepts an unsigned request. When
   // present it must be at least 16 characters.
   GITHUB_WEBHOOK_SECRET: z.string().min(16).optional(),
+
+  // GitHub-App connect credentials (ADR-0026 §1). All optional and fail-closed:
+  // unset ⇒ the connect endpoints return 503 and the worker stays public-clone
+  // only. Declared as literal properties (not a second spread) so the inferred
+  // ApiEnv stays a precise object. The private key arrives base64-encoded (§7).
+  GITHUB_APP_ID: githubAppIdSchema,
+  GITHUB_APP_PRIVATE_KEY: githubAppPrivateKeySchema,
+  GITHUB_APP_CLIENT_ID: githubAppClientIdSchema,
+  GITHUB_APP_CLIENT_SECRET: githubAppClientSecretSchema,
+  GITHUB_APP_SLUG: githubAppSlugSchema,
 });
 export type ApiEnv = z.infer<typeof ApiEnvSchema>;

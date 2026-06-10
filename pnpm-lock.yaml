@@ -421,6 +421,9 @@ importers:
       '@toopo/vitest-config':
         specifier: workspace:*
         version: link:../../tooling/vitest
+      '@types/node':
+        specifier: 25.8.0
+        version: 25.8.0
       '@vitest/coverage-v8':
         specifier: 4.1.6
         version: 4.1.6(vitest@4.1.6)

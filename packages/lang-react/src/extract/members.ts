@@ -5,6 +5,7 @@ import { SUBKIND, type SymbolSubKind } from '../subkinds.js';
 import { callableDetail, fieldDetail } from './detail.js';
 import { parseEdge } from './edges.js';
 import { extractLocals } from './locals.js';
+import { nextOccurrence } from './occurrences.js';
 import { extractParameters } from './params.js';
 import type { ExtractedSymbol } from './symbols.js';
 
@@ -213,13 +214,6 @@ function memberDisambiguator(
     return 'set';
   }
   return (counts.get(member.name) ?? 0) > 1 ? String(occurrence) : undefined;
-}
-
-/** Take and advance the per-name occurrence counter (drives overload disambiguation). */
-function nextOccurrence(occurrences: Map<string, number>, name: string): number {
-  const occurrence = occurrences.get(name) ?? 0;
-  occurrences.set(name, occurrence + 1);
-  return occurrence;
 }
 
 /** Count plain-method names across the container, to detect overload collisions. */

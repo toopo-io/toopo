@@ -6,6 +6,7 @@ import { classifySymbol } from './classify.js';
 import { callableDetail, declarationDetail, paramDetail, typeText } from './detail.js';
 import { parseEdge } from './edges.js';
 import { bodyReturnsJsx } from './jsx-body.js';
+import { nextOccurrence } from './occurrences.js';
 import { extractParameters } from './params.js';
 import { destructuredBindings } from './patterns.js';
 import type { ExtractedSymbol } from './symbols.js';
@@ -231,12 +232,6 @@ function identifierBinding(
     properties: declarationDetail(declarator, type === undefined ? undefined : { type }),
     fnNode: null,
   };
-}
-
-function nextOccurrence(occurrences: Map<string, number>, name: string): number {
-  const occurrence = occurrences.get(name) ?? 0;
-  occurrences.set(name, occurrence + 1);
-  return occurrence;
 }
 
 function nameCounts(raw: readonly RawLocal[]): ReadonlyMap<string, number> {

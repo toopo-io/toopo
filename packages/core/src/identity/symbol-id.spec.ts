@@ -63,6 +63,34 @@ const CORPUS: ReadonlyArray<{ readonly label: string; readonly identity: SymbolI
     identity: { descriptors: [{ name: 'a/b#c.d', suffix: 'type' }] },
   },
   {
+    label: 'a local binding under an enclosing scope',
+    identity: {
+      descriptors: [
+        { name: 'outer', suffix: 'term' },
+        { name: 'total', suffix: 'local' },
+      ],
+    },
+  },
+  {
+    label: 'a shadowing local with a disambiguator',
+    identity: {
+      descriptors: [
+        { name: 'outer', suffix: 'term' },
+        { name: 'x', suffix: 'local', disambiguator: '1' },
+      ],
+    },
+  },
+  {
+    label: 'a parameter of a nested local function',
+    identity: {
+      descriptors: [
+        { name: 'outer', suffix: 'term' },
+        { name: 'inner', suffix: 'local' },
+        { name: 'z', suffix: 'parameter' },
+      ],
+    },
+  },
+  {
     label: 'an external reference (manager + name only)',
     identity: {
       package: { manager: 'npm', name: 'react' },
@@ -100,6 +128,16 @@ describe('formatSymbolId', () => {
 
   it('backtick-wraps and doubles embedded backticks', () => {
     expect(formatSymbolId({ descriptors: [{ name: 'a`b', suffix: 'term' }] })).toBe('`a``b`.');
+  });
+
+  it('encodes a local binding with the doubled-tilde sigil', () => {
+    expect(formatSymbolId({ descriptors: [{ name: 'total', suffix: 'local' }] })).toBe('total~~');
+  });
+
+  it('encodes a shadowing local with its disambiguator', () => {
+    expect(
+      formatSymbolId({ descriptors: [{ name: 'x', suffix: 'local', disambiguator: '1' }] }),
+    ).toBe('x~1~');
   });
 
   it('prefixes external references with the package coordinate', () => {
@@ -142,6 +180,10 @@ describe('parseSymbolId', () => {
 
   it('throws on an unterminated type-parameter descriptor', () => {
     expect(() => parseSymbolId('[K')).toThrow();
+  });
+
+  it('throws on an unterminated local descriptor', () => {
+    expect(() => parseSymbolId('outer.x~1')).toThrow();
   });
 
   it('throws when an identifier is expected but a suffix char appears', () => {

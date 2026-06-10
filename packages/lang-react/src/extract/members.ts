@@ -4,6 +4,7 @@ import type { Node as SyntaxNode } from 'web-tree-sitter';
 import { SUBKIND, type SymbolSubKind } from '../subkinds.js';
 import { callableDetail, fieldDetail } from './detail.js';
 import { parseEdge } from './edges.js';
+import { extractLocals } from './locals.js';
 import { extractParameters } from './params.js';
 import type { ExtractedSymbol } from './symbols.js';
 
@@ -60,6 +61,7 @@ export function extractMembers(
   definition: SyntaxNode,
   parentDescriptor: Descriptor,
   parentSymbolId: SymbolId,
+  jsx: boolean,
 ): MemberExtraction {
   const body = definition.childForFieldName('body');
   if (body === null || (body.type !== 'class_body' && body.type !== 'interface_body')) {
@@ -115,6 +117,14 @@ export function extractMembers(
         heritage: NO_HERITAGE,
         memberOf: parentSymbolId,
       });
+
+      const methodBody = member.node.childForFieldName('body');
+      if (methodBody !== null) {
+        const locals = extractLocals(ctx, methodBody, [parentDescriptor, descriptor], id, jsx);
+        nodes.push(...locals.nodes);
+        edges.push(...locals.edges);
+        symbols.push(...locals.symbols);
+      }
     }
   }
 

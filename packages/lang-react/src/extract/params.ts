@@ -4,6 +4,7 @@ import type { Node as SyntaxNode } from 'web-tree-sitter';
 import { SUBKIND } from '../subkinds.js';
 import { paramDetail, typeText } from './detail.js';
 import { parseEdge } from './edges.js';
+import { destructuredBindings } from './patterns.js';
 
 /**
  * A symbol's declared input, kept for payload→receiver binding (Phase E/F).
@@ -146,47 +147,14 @@ function declaredFields(pattern: SyntaxNode, param: SyntaxNode): DeclaredField[]
           ];
     }
     case 'object_pattern':
-      return pattern.namedChildren.flatMap(objectPatternField);
     case 'array_pattern':
-      return pattern.namedChildren
-        .filter((child): child is SyntaxNode => child?.type === 'identifier')
-        .map((child) => ({ name: child.text, node: child, destructured: true }));
-    default:
-      return [];
-  }
-}
-
-/** One field of an object destructuring pattern, addressed by its public key. */
-function objectPatternField(child: SyntaxNode | null): DeclaredField[] {
-  if (child === null) {
-    return [];
-  }
-  switch (child.type) {
-    case 'shorthand_property_identifier_pattern':
-      return [{ name: child.text, node: child, destructured: true }];
-    case 'pair_pattern': {
-      const key = child.childForFieldName('key');
-      return key === null ? [] : [{ name: key.text, node: key, destructured: true }];
-    }
-    case 'object_assignment_pattern': {
-      const left = child.childForFieldName('left');
-      return left === null
-        ? []
-        : [
-            {
-              name: left.text,
-              node: left,
-              destructured: true,
-              defaultValue: child.childForFieldName('right')?.text,
-            },
-          ];
-    }
-    case 'rest_pattern': {
-      const inner = child.namedChildren.find((node) => node?.type === 'identifier') ?? null;
-      return inner === null
-        ? []
-        : [{ name: inner.text, node: inner, destructured: true, rest: true }];
-    }
+      return destructuredBindings(pattern).map((binding) => ({
+        name: binding.name,
+        node: binding.node,
+        destructured: true,
+        rest: binding.rest,
+        defaultValue: binding.defaultValue,
+      }));
     default:
       return [];
   }

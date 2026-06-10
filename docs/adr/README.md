@@ -46,3 +46,4 @@ a new ADR that supersedes the old one.
 | [0024](0024-github-push-webhook-ingestion.md) | GitHub push-webhook ingestion — verify-before-processing gate, resolve-existing-only, default-branch scope | Accepted |
 | [0025](0025-worker-ingest-clone-and-incremental-persist.md) | Worker ingest — shallow clone, content-hash delta, parse-fragment cache, full-resolve + full-replace persist | Accepted |
 | [0026](0026-github-app-connect-and-installation-auth.md) | GitHub-App connect — install→project flow, installation tokens, private clone | Accepted |
+| [0027](0027-local-symbol-identity.md) | Local-symbol identity — the `local` descriptor suffix | Accepted |

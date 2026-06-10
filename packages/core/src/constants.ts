@@ -45,8 +45,15 @@ export const PROVENANCE_PASSES = ['parse', 'resolve', 'ai'] as const;
 export const PASS_KINDS = ['positional', 'named', 'spread'] as const;
 
 /**
- * SCIP descriptor suffixes (verified against sourcegraph/scip `scip.proto`).
- * Each names the structural role of one segment of a stable identity path.
+ * Descriptor suffixes — the structural role of one segment of a stable identity
+ * path. The first eight are SCIP descriptor suffixes (verified against
+ * sourcegraph/scip `scip.proto`). `local` is a Toopo additive extension
+ * (ADR-0027): SCIP models a local as the opaque `local <id>` symbol form, which
+ * is not edit-stable; Toopo instead gives an in-scope binding (a nested function
+ * or a local variable) a `local` path segment under its enclosing named scope,
+ * so it is addressable and edit-stable in the same descriptor scheme. Adding a
+ * suffix is non-breaking (ADR-0015 §5): existing ids never use it and still
+ * round-trip; only new local ids carry it.
  */
 export const DESCRIPTOR_SUFFIXES = [
   'namespace',
@@ -57,6 +64,7 @@ export const DESCRIPTOR_SUFFIXES = [
   'parameter',
   'meta',
   'macro',
+  'local',
 ] as const;
 
 /**

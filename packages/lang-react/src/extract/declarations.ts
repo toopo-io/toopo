@@ -5,7 +5,7 @@ import { SUBKIND, type SymbolSubKind } from '../subkinds.js';
 import { classifySymbol } from './classify.js';
 import { callableDetail, declarationDetail, typeText } from './detail.js';
 import { classHeritage, type Heritage } from './heritage.js';
-import { JSX_QUERY } from './queries.js';
+import { bodyReturnsJsx } from './jsx-body.js';
 import { isReactComponentWrapper, wrapperRenderParams } from './react-wrappers.js';
 
 /** What one top-level declaration contributes: its name, subKind, declared
@@ -18,10 +18,11 @@ export interface ClassifiedDeclaration {
   readonly isComponent: boolean;
   readonly heritage: Heritage;
   readonly properties: JsonObject;
+  /** The function-like body to scan for in-scope locals (ADR-0027), or null. */
+  readonly bodyNode: SyntaxNode | null;
 }
 
 const NO_HERITAGE: Heritage = { extends: [], implements: [] };
-const JSX_BODY_TYPES = new Set(['jsx_element', 'jsx_self_closing_element']);
 /** Base classes that make a class a React component (high-signal, subKind only). */
 const REACT_COMPONENT_BASES: ReadonlySet<string> = new Set([
   'Component',
@@ -70,7 +71,13 @@ function fromFunction(
   }
   const body = def.childForFieldName('body');
   const subKind = classifySymbol(name, jsx && bodyReturnsJsx(ctx, body));
-  return descriptorOf(name, subKind, def.childForFieldName('parameters'), callableDetail(def, def));
+  return descriptorOf(
+    name,
+    subKind,
+    def.childForFieldName('parameters'),
+    callableDetail(def, def),
+    body,
+  );
 }
 
 function fromVariable(
@@ -93,6 +100,7 @@ function fromVariable(
       subKind,
       value.childForFieldName('parameters'),
       callableDetail(value, def),
+      value.childForFieldName('body'),
     );
   }
   if (isReactComponentWrapper(value)) {
@@ -101,6 +109,7 @@ function fromVariable(
       SUBKIND.component,
       wrapperRenderParams(value),
       declarationDetail(def),
+      null,
     );
   }
   const type = typeText(def.childForFieldName('type'));
@@ -111,6 +120,7 @@ function fromVariable(
     isComponent: false,
     heritage: NO_HERITAGE,
     properties: declarationDetail(def, type === undefined ? undefined : { type }),
+    bodyNode: null,
   };
 }
 
@@ -133,7 +143,7 @@ function fromNamed(
   if (name === null) {
     return null;
   }
-  return { name, subKind, params: null, isComponent: false, heritage, properties };
+  return { name, subKind, params: null, isComponent: false, heritage, properties, bodyNode: null };
 }
 
 /** A function-like descriptor whose params are props iff it is a component. */
@@ -142,6 +152,7 @@ function descriptorOf(
   subKind: SymbolSubKind,
   params: SyntaxNode | null,
   properties: JsonObject,
+  bodyNode: SyntaxNode | null,
 ): ClassifiedDeclaration {
   return {
     name,
@@ -150,6 +161,7 @@ function descriptorOf(
     isComponent: subKind === SUBKIND.component,
     heritage: NO_HERITAGE,
     properties,
+    bodyNode,
   };
 }
 
@@ -159,20 +171,4 @@ function identifierText(node: SyntaxNode | null): string | null {
     return node.text;
   }
   return null;
-}
-
-/**
- * Whether a function body returns JSX (documented heuristic): an arrow body that
- * IS a JSX node counts directly; otherwise any JSX descendant counts. Combined
- * with the Capitalized-name gate it sets the subKind only — never an edge — so a
- * false positive is recoverable.
- */
-function bodyReturnsJsx(ctx: ExtractContext, body: SyntaxNode | null): boolean {
-  if (body === null) {
-    return false;
-  }
-  if (JSX_BODY_TYPES.has(body.type)) {
-    return true;
-  }
-  return ctx.query(JSX_QUERY).captures(body).length > 0;
 }

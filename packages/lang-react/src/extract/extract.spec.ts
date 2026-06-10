@@ -13,6 +13,7 @@ import { describe, expect, it } from 'vitest';
 import {
   byJson,
   id,
+  local,
   param,
   projectEdges,
   projectSymbols,
@@ -50,6 +51,17 @@ describe('extractReact — Phase C structural graph', () => {
           name: 'start',
           subKind: 'ts:parameter',
         },
+        // the hook's array-destructured locals (ADR-0027)
+        {
+          id: id(path, term('useCounter'), local('count')),
+          name: 'count',
+          subKind: 'ts:variable',
+        },
+        {
+          id: id(path, term('useCounter'), local('setCount')),
+          name: 'setCount',
+          subKind: 'ts:variable',
+        },
       ]),
     );
 
@@ -81,6 +93,16 @@ describe('extractReact — Phase C structural graph', () => {
           id(path, term('useCounter')),
           id(path, term('useCounter'), param('start')),
           'react/declares-parameter',
+        ),
+        contains(
+          id(path, term('useCounter')),
+          id(path, term('useCounter'), local('count')),
+          'react/declares-local',
+        ),
+        contains(
+          id(path, term('useCounter')),
+          id(path, term('useCounter'), local('setCount')),
+          'react/declares-local',
         ),
       ]),
     );

@@ -45,6 +45,17 @@ describe('parameter pattern extraction (A1 / C6)', () => {
     expect(childNames(document, id(PATH, term('take')))).toEqual(['first', 'rest', 'x', 'y']);
   });
 
+  it('captures an array-pattern rest element', async () => {
+    const document = await parse(PATH, `function head([first, ...tail]: number[]): void {}`);
+    expect(childNames(document, id(PATH, term('head')))).toEqual(['first', 'tail']);
+  });
+
+  it('skips a deeply nested element with no stable public name', async () => {
+    const document = await parse(PATH, `function deep([[inner], top]: number[][]): void {}`);
+    // The nested `[inner]` element has no single public name; only `top` is captured.
+    expect(childNames(document, id(PATH, term('deep')))).toEqual(['top']);
+  });
+
   it('treats destructured props on a component as react:prop, others as ts:parameter', async () => {
     const document = await parse(
       PATH,

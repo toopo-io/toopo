@@ -63,6 +63,8 @@ function encodeDescriptor(d: Descriptor): string {
       return `[${name}]`;
     case 'parameter':
       return `(${name})`;
+    case 'local':
+      return `${name}~${d.disambiguator ?? ''}~`;
   }
 }
 
@@ -172,6 +174,25 @@ function parseDescriptorPath(path: string): Descriptor[] {
           : { name, suffix: 'method' },
       );
       cursor = scan + 2;
+      continue;
+    }
+
+    if (suffix === '~') {
+      let scan = next + 1;
+      let disambiguator = '';
+      while (scan < path.length && path.charAt(scan) !== '~') {
+        disambiguator += path.charAt(scan);
+        scan += 1;
+      }
+      if (path.charAt(scan) !== '~') {
+        throw new Error(`Unterminated local descriptor in symbol id: ${path}`);
+      }
+      descriptors.push(
+        disambiguator.length > 0
+          ? { name, suffix: 'local', disambiguator }
+          : { name, suffix: 'local' },
+      );
+      cursor = scan + 1;
       continue;
     }
 

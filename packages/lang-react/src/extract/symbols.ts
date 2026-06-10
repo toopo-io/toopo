@@ -1,12 +1,15 @@
 import type { Descriptor, Edge, Node, SymbolId } from '@toopo/core';
 import type { ExtractContext } from '@toopo/parser';
 import type { Node as SyntaxNode } from 'web-tree-sitter';
-import type { SymbolSubKind } from '../subkinds.js';
+import { SUBKIND, type SymbolSubKind } from '../subkinds.js';
 import { classifyDeclaration } from './declarations.js';
+import { paramDetail } from './detail.js';
 import { parseEdge } from './edges.js';
 import type { Heritage } from './heritage.js';
+import { extractLocals } from './locals.js';
 import { extractMembers } from './members.js';
 import { type DeclaredChild, extractParameters } from './params.js';
+import { destructuredBindings } from './patterns.js';
 import { SYMBOL_QUERY } from './queries.js';
 
 /** A top-level symbol the file declares, kept for the call/render/heritage passes. */
@@ -52,6 +55,9 @@ export function extractSymbols(ctx: ExtractContext, jsx: boolean): SymbolExtract
     const definition = capture.node;
     const declaration = classifyDeclaration(ctx, definition, jsx);
     if (declaration === null) {
+      const destructured = moduleDestructuredSymbols(ctx, definition);
+      nodes.push(...destructured.nodes);
+      edges.push(...destructured.edges);
       continue;
     }
 
@@ -87,8 +93,15 @@ export function extractSymbols(ctx: ExtractContext, jsx: boolean): SymbolExtract
       heritage: declaration.heritage,
     });
 
+    if (declaration.bodyNode !== null) {
+      const locals = extractLocals(ctx, declaration.bodyNode, [descriptor], id, jsx);
+      nodes.push(...locals.nodes);
+      edges.push(...locals.edges);
+      symbols.push(...locals.symbols);
+    }
+
     if (isContainerDeclaration(definition)) {
-      const members = extractMembers(ctx, definition, descriptor, id);
+      const members = extractMembers(ctx, definition, descriptor, id, jsx);
       nodes.push(...members.nodes);
       edges.push(...members.edges);
       symbols.push(...members.symbols);
@@ -96,6 +109,40 @@ export function extractSymbols(ctx: ExtractContext, jsx: boolean): SymbolExtract
   }
 
   return { nodes, edges, symbols };
+}
+
+/**
+ * Module-level destructured bindings (`const { a, b } = x`, `const [x] = y`) the
+ * classifier skips for lacking a single name. Each binding is a top-level symbol
+ * with a unique public name, so it keeps the `term` suffix (ADR-0027) — no local
+ * scope, no disambiguation.
+ */
+function moduleDestructuredSymbols(
+  ctx: ExtractContext,
+  definition: SyntaxNode,
+): { readonly nodes: Node[]; readonly edges: Edge[] } {
+  if (definition.type !== 'variable_declarator') {
+    return { nodes: [], edges: [] };
+  }
+  const pattern = definition.childForFieldName('name');
+  if (pattern === null || (pattern.type !== 'object_pattern' && pattern.type !== 'array_pattern')) {
+    return { nodes: [], edges: [] };
+  }
+  const nodes: Node[] = [];
+  const edges: Edge[] = [];
+  for (const binding of destructuredBindings(pattern)) {
+    const id = ctx.childId([{ name: binding.name, suffix: 'term' }]);
+    nodes.push({
+      kind: 'symbol',
+      id,
+      name: binding.name,
+      subKind: SUBKIND.variable,
+      location: ctx.locate(binding.node),
+      properties: paramDetail({ rest: binding.rest, defaultValue: binding.defaultValue }),
+    });
+    edges.push(parseEdge('contains', ctx.fileId, id, 'react/contains-symbol'));
+  }
+  return { nodes, edges };
 }
 
 const CONTAINER_TYPES: ReadonlySet<string> = new Set([

@@ -9,6 +9,11 @@ export function id(path: string, ...descriptors: Descriptor[]): string {
 
 export const term = (name: string): Descriptor => ({ name, suffix: 'term' });
 export const param = (name: string): Descriptor => ({ name, suffix: 'parameter' });
+export const local = (name: string, disambiguator?: string): Descriptor => ({
+  name,
+  suffix: 'local',
+  ...(disambiguator === undefined ? {} : { disambiguator }),
+});
 
 export function projectSymbols(document: GraphDocument) {
   return document.nodes

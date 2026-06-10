@@ -45,14 +45,26 @@ export {
 } from './repositories/graph.repository.js';
 export { KyselyGraphRepository } from './repositories/graph.repository.kysely.js';
 export {
+  buildPage,
   type CursorPart,
+  clampLimit,
   DEFAULT_PAGE_LIMIT,
+  decodeCursorTuple,
+  encodeCursor,
   InvalidCursorError,
   MAX_PAGE_LIMIT,
   type Page,
   type PageOptions,
 } from './repositories/graph-page.js';
 export type { GraphScope } from './repositories/graph-scope.js';
+export type {
+  ClaimOptions,
+  EnqueueOutcome,
+  JobStatus,
+  JobStore,
+  NewJobInput,
+  QueuedJob,
+} from './repositories/job.repository.js';
 export type {
   CreateProjectInput,
   ProjectRepository,

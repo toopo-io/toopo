@@ -42,3 +42,4 @@ a new ADR that supersedes the old one.
 | [0020](0020-serve-pass-architecture.md) | Serve-pass architecture — read API, derived views, pagination | Accepted |
 | [0021](0021-blast-radius-per-hit-path-trust.md) | Blast-radius per-hit path trust | Accepted |
 | [0022](0022-project-tenancy-and-graph-access-control.md) | Project tenancy & graph access control | Accepted |
+| [0023](0023-job-queue-strategy.md) | Job-queue strategy — abstract port, DB-backed dual-backend + in-memory | Accepted |

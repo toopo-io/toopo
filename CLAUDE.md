@@ -41,14 +41,15 @@ and ADR-0020 (Serve).
 | `apps/web`, `apps/api` | existing | UI; API (thin) |
 | `apps/worker` | existing | minimal ingest→persist CLI to populate the graph DB; precursor to the queue/webhook worker (ADR-0020) |
 | `packages/{api-contracts, env, i18n, ui}` | existing | shared plumbing |
-| `packages/db` | existing | persistence: Kysely dual-backend (SQLite self-host / Postgres cloud) + Better Auth tables + project tenancy + project-scoped Serve read primitives (ADR-0017, ADR-0020, ADR-0022) |
+| `packages/db` | existing | persistence: Kysely dual-backend (SQLite self-host / Postgres cloud) + Better Auth tables + project tenancy + project-scoped Serve read primitives + the `job` table & `JobStore` claim seam (ADR-0017, ADR-0020, ADR-0022, ADR-0023) |
 | `packages/core` | existing | universal graph format + types (ADR-0015) |
 | `packages/parser` | existing | tree-sitter orchestration |
 | `packages/resolver` | existing | semantic resolution |
 | `packages/lang-react` | existing | React/TS rules (first language) |
 | `packages/ingest` | existing | Parse→Resolve pipeline driver (filesystem edge → graph document) |
 | `packages/serve` | existing | Serve pass: derived read views + composition over the graph (ADR-0020) |
-| `packages/{analysis, ai-router, queue}` | planned | AI analysis; model router; job-queue abstraction |
+| `packages/queue` | existing | job-queue abstraction: `Queue`/`Consumer` port + reliability driver (idempotency, backoff+jitter retries, never-silent dead-letter) over a swappable `JobStore`; in-memory + DB-backed; Redis deferred (ADR-0023) |
+| `packages/{analysis, ai-router}` | planned | AI analysis; model router |
 
 Adding a language = a new `lang-*` package, zero change to core or pipeline.
 
@@ -62,6 +63,7 @@ supersede it with a new ADR. Foundational set:
 - **ADR-0017** — storage: dual-backend (SQLite self-host / Postgres cloud) via Kysely; supersedes ADR-0012.
 - **ADR-0020** — Serve pass: `packages/serve` composition + `@toopo/db` read primitives + thin `apps/api`; REST + Zod; on-read views; keyset pagination; `apps/worker` populate CLI.
 - **ADR-0022** — Project tenancy & graph access control: administrative `project` entity (distinct from the graph `repo` node); graph scoped by composite PK `(project_id, …)` + a mandatory `GraphScope`; instance-tenant OSS authorization; `/v1/projects/:projectId/graph/*` behind the session guard. Extends ADR-0017 (does not supersede).
+- **ADR-0023** — Job queue: abstract `Queue`/`Consumer` port selected by config; DB-backed dual-backend (SQLite serialized claim / Postgres `FOR UPDATE SKIP LOCKED`) + in-memory; Redis/BullMQ deferred; at-least-once, idempotent consumers, backoff+jitter retries, never-silent dead-letter; reference-only job payload. Extends ADR-0017 (the claim is its one documented portable-SQL exception).
 
 Read `docs/adr/README.md` before architectural work.
 

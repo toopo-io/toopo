@@ -20,6 +20,8 @@ type JsonColumn = ColumnType<unknown, string, string>;
 type NullableJsonColumn = ColumnType<unknown | null, string | null, string | null>;
 
 export interface NodeTable {
+  /** Tenancy scope (ADR-0022 §3): part of the composite primary key with `id`. */
+  project_id: string;
   id: string;
   kind: string;
   sub_kind: string | null;
@@ -46,6 +48,8 @@ export interface NodeTable {
  * migration change, never a dead write-only column here (YAGNI).
  */
 export interface EdgeTable {
+  /** Tenancy scope (ADR-0022 §3): part of the composite primary key with `edge_key`. */
+  project_id: string;
   edge_key: string;
   source_id: string;
   target_id: string;

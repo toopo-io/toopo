@@ -37,6 +37,8 @@ const document: GraphDocument = {
   edges: [],
 };
 
+const SCOPE = { projectId: 'proj-json' };
+
 const backends = [
   { backend: 'sqlite' as const, skip: false },
   { backend: 'postgres' as const, skip: SKIP_POSTGRES },
@@ -51,7 +53,7 @@ for (const { backend, skip } of backends) {
       harness = await startBackend(backend);
       db = harness.db as unknown as Kysely<GraphDatabase>;
       await migrateToLatest({ db: harness.db, backend, rootDir: MIGRATIONS_DIR });
-      await new KyselyGraphRepository(db).persistGraph(document);
+      await new KyselyGraphRepository(db).persistGraph(SCOPE, document);
     }, 120_000);
 
     afterAll(async () => {

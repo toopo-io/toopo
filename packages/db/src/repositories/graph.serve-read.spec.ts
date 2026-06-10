@@ -138,6 +138,8 @@ async function drain<T>(fetch: (cursor: string | undefined) => Promise<Page<T>>)
   throw new Error('drain: pagination did not terminate');
 }
 
+const SCOPE = { projectId: 'proj-serve' };
+
 const backends = [
   { backend: 'sqlite' as const, skip: false },
   { backend: 'postgres' as const, skip: SKIP_POSTGRES },
@@ -153,7 +155,7 @@ for (const { backend, skip } of backends) {
       const db = harness.db as unknown as Kysely<GraphDatabase>;
       await migrateToLatest({ db: harness.db, backend, rootDir: MIGRATIONS_DIR });
       repository = new KyselyGraphRepository(db);
-      await repository.persistGraph(document);
+      await repository.persistGraph(SCOPE, document);
     }, 120_000);
 
     afterAll(async () => {
@@ -163,7 +165,7 @@ for (const { backend, skip } of backends) {
     describe('neighborsPage', () => {
       it('pages every forward edge of sA across small pages, then stops', async () => {
         const items = await drain((cursor) =>
-          repository.neighborsPage('sA', 'out', { limit: 2, cursor }),
+          repository.neighborsPage(SCOPE, 'sA', 'out', { limit: 2, cursor }),
         );
         const keys = items.map((n) => `${n.edge.kind}:${n.edge.targetId}`).sort();
         expect(keys).toEqual([
@@ -177,13 +179,13 @@ for (const { backend, skip } of backends) {
       });
 
       it('filters by edge kind within a page', async () => {
-        const page = await repository.neighborsPage('sA', 'out', { kind: 'calls' });
+        const page = await repository.neighborsPage(SCOPE, 'sA', 'out', { kind: 'calls' });
         expect(page.items.map((n) => n.edge.targetId)).toEqual(['sA2']);
         expect(page.nextCursor).toBeNull();
       });
 
       it('hydrates the far node and nulls an external target', async () => {
-        const page = await repository.neighborsPage('sA', 'out', { kind: 'references' });
+        const page = await repository.neighborsPage(SCOPE, 'sA', 'out', { kind: 'references' });
         const byTarget = new Map(page.items.map((n) => [n.edge.targetId, n.node?.id ?? null]));
         expect(byTarget.get('sB')).toBe('sB');
         expect(byTarget.get('EXT')).toBeNull();
@@ -192,36 +194,36 @@ for (const { backend, skip } of backends) {
 
     describe('search', () => {
       it('matches a name substring case-insensitively', async () => {
-        const page = await repository.search({ query: 'button' });
+        const page = await repository.search(SCOPE, { query: 'button' });
         expect(page.items.map((n) => n.id)).toEqual(['sB']);
       });
 
       it('matches a file path substring', async () => {
-        const page = await repository.search({ query: 'b/one' });
+        const page = await repository.search(SCOPE, { query: 'b/one' });
         expect(page.items.map((n) => n.id)).toEqual(['fileB1']);
       });
 
       it('filters by kind', async () => {
-        const page = await repository.search({ kind: 'package' });
+        const page = await repository.search(SCOPE, { kind: 'package' });
         expect(page.items.map((n) => n.id).sort()).toEqual(['pkgA', 'pkgB']);
       });
 
       it('filters by subKind and paginates by id', async () => {
         const items = await drain((cursor) =>
-          repository.search({ subKind: 'react:prop', limit: 1, cursor }),
+          repository.search(SCOPE, { subKind: 'react:prop', limit: 1, cursor }),
         );
         expect(items.map((n) => n.id)).toEqual(['propP1', 'propP2']);
       });
 
       it('treats LIKE wildcards in the query as literal text', async () => {
-        const page = await repository.search({ query: '%' });
+        const page = await repository.search(SCOPE, { query: '%' });
         expect(page.items).toEqual([]);
       });
     });
 
     describe('declaredInterface', () => {
       it('returns the contained child symbols (props), ordered by id', async () => {
-        const page = await repository.declaredInterface('sA');
+        const page = await repository.declaredInterface(SCOPE, 'sA');
         expect(page.items.map((n) => ({ id: n.id, subKind: n.subKind }))).toEqual([
           { id: 'propP1', subKind: 'react:prop' },
           { id: 'propP2', subKind: 'react:prop' },
@@ -229,20 +231,20 @@ for (const { backend, skip } of backends) {
       });
 
       it('excludes contained call-sites (non-symbol children)', async () => {
-        const page = await repository.declaredInterface('sA');
+        const page = await repository.declaredInterface(SCOPE, 'sA');
         expect(page.items.some((n) => n.id === 'cs1')).toBe(false);
       });
     });
 
     describe('callSitesOf', () => {
       it('returns the call-sites enclosed by a symbol', async () => {
-        const page = await repository.callSitesOf('sA');
+        const page = await repository.callSitesOf(SCOPE, 'sA');
         expect(page.items.map((n) => n.id)).toEqual(['cs1']);
         expect(page.items[0]?.kind).toBe('callSite');
       });
 
       it('returns an empty page for a symbol with no call-sites', async () => {
-        const page = await repository.callSitesOf('sB');
+        const page = await repository.callSitesOf(SCOPE, 'sB');
         expect(page.items).toEqual([]);
         expect(page.nextCursor).toBeNull();
       });
@@ -250,14 +252,14 @@ for (const { backend, skip } of backends) {
 
     describe('blastRadiusPage', () => {
       it('hydrates dependents and is not truncated under the default depth', async () => {
-        const page = await repository.blastRadiusPage('sB');
+        const page = await repository.blastRadiusPage(SCOPE, 'sB');
         expect(page.items.map((h) => h.nodeId).sort()).toEqual(['sA', 'sA2']);
         expect(page.items.every((h) => h.node?.id === h.nodeId)).toBe(true);
         expect(page.truncated).toBe(false);
       });
 
       it('flags truncated when the depth cap is reached', async () => {
-        const page = await repository.blastRadiusPage('sB', { maxDepth: 1 });
+        const page = await repository.blastRadiusPage(SCOPE, 'sB', { maxDepth: 1 });
         expect(page.items.map((h) => h.nodeId).sort()).toEqual(['sA', 'sA2']);
         expect(page.truncated).toBe(true);
       });
@@ -265,14 +267,14 @@ for (const { backend, skip } of backends) {
       it('pages the hits by (depth, id)', async () => {
         const items = await drain((cursor) =>
           repository
-            .blastRadiusPage('sB', { cursor, limit: 1 })
+            .blastRadiusPage(SCOPE, 'sB', { cursor, limit: 1 })
             .then((p) => ({ items: p.items, nextCursor: p.nextCursor })),
         );
         expect(items.map((h) => h.nodeId)).toEqual(['sA', 'sA2']);
       });
 
       it('carries per-hit pathResolution (ADR-0021)', async () => {
-        const page = await repository.blastRadiusPage('sB');
+        const page = await repository.blastRadiusPage(SCOPE, 'sB');
         const byId = new Map(page.items.map((h) => [h.nodeId, h.pathResolution]));
         // sA2 → sB is a deterministic `imports`: proven, certain.
         expect(byId.get('sA2')).toBe('deterministic');
@@ -284,7 +286,7 @@ for (const { backend, skip } of backends) {
 
     describe('mapView', () => {
       it('aggregates the package level with trust-split projected edges', async () => {
-        const view = await repository.mapView({ level: 'package' });
+        const view = await repository.mapView(SCOPE, { level: 'package' });
         expect(view.nodes.map((n) => ({ id: n.node.id, childCount: n.childCount }))).toEqual([
           { id: 'pkgA', childCount: 4 },
           { id: 'pkgB', childCount: 1 },
@@ -296,7 +298,7 @@ for (const { backend, skip } of backends) {
       });
 
       it('aggregates files within a package scope', async () => {
-        const view = await repository.mapView({ level: 'file', scope: 'pkgA' });
+        const view = await repository.mapView(SCOPE, { level: 'file', scope: 'pkgA' });
         expect(view.nodes.map((n) => ({ id: n.node.id, childCount: n.childCount }))).toEqual([
           { id: 'fileA1', childCount: 3 },
           { id: 'fileA2', childCount: 1 },
@@ -307,7 +309,7 @@ for (const { backend, skip } of backends) {
       });
 
       it('aggregates symbols within a file scope', async () => {
-        const view = await repository.mapView({ level: 'symbol', scope: 'fileA1' });
+        const view = await repository.mapView(SCOPE, { level: 'symbol', scope: 'fileA1' });
         const counts = new Map(view.nodes.map((n) => [n.node.id, n.childCount]));
         expect([...counts.keys()].sort()).toEqual(['propP1', 'propP2', 'sA']);
         expect(counts.get('sA')).toBe(3);
@@ -315,13 +317,13 @@ for (const { backend, skip } of backends) {
       });
 
       it('caps containers and flags truncated', async () => {
-        const view = await repository.mapView({ level: 'package', limit: 1 });
+        const view = await repository.mapView(SCOPE, { level: 'package', limit: 1 });
         expect(view.nodes).toHaveLength(1);
         expect(view.truncated).toBe(true);
       });
 
       it('rejects the symbol level without a scope', async () => {
-        await expect(repository.mapView({ level: 'symbol' })).rejects.toThrow(/file scope/);
+        await expect(repository.mapView(SCOPE, { level: 'symbol' })).rejects.toThrow(/file scope/);
       });
     });
   });

@@ -11,6 +11,7 @@ import { migrateToLatest } from '../migrator.js';
 import { type BackendHarness, SKIP_POSTGRES, startBackend } from '../test-support/backends.js';
 
 const NODE_COLUMNS = [
+  'project_id',
   'id',
   'kind',
   'sub_kind',
@@ -30,6 +31,7 @@ const NODE_COLUMNS = [
 ] as const;
 
 const EDGE_COLUMNS = [
+  'project_id',
   'edge_key',
   'source_id',
   'target_id',

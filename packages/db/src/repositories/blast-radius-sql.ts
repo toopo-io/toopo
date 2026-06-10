@@ -22,6 +22,8 @@ import { escapeLikeOperand, LIKE_ESCAPE } from './sql-like.js';
 export const BLAST_PATH_SEPARATOR = String.fromCharCode(31);
 
 export interface BlastRadiusCteParams {
+  /** The tenancy scope (ADR-0022 §3): every traversed edge is bound to it. */
+  readonly projectId: string;
   readonly startId: string;
   readonly kinds: readonly string[];
   readonly maxDepth: number;
@@ -57,7 +59,7 @@ export function blastRadiusCte(params: BlastRadiusCteParams): RawBuilder<unknown
       select "e"."source_id", "b"."depth" + 1, "b"."path" || "e"."source_id" || ${sep},
         "b"."path_det" * (case when "e"."resolution" = 'deterministic' then 1 else 0 end)
       from "blast" as "b"
-      join "edge" as "e" on "e"."target_id" = "b"."node_id"
+      join "edge" as "e" on "e"."target_id" = "b"."node_id" and "e"."project_id" = ${params.projectId}
       where "b"."depth" < ${params.maxDepth}
         and "e"."kind" in (${kindList})
         and "b"."path" not like

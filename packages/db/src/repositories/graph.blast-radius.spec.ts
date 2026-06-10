@@ -72,6 +72,8 @@ function shape(hits: readonly BlastRadiusHit[]): Array<{ nodeId: string; depth: 
     .sort((a, b) => a.nodeId.localeCompare(b.nodeId));
 }
 
+const SCOPE = { projectId: 'proj-blast' };
+
 const backends = [
   { backend: 'sqlite' as const, skip: false },
   { backend: 'postgres' as const, skip: SKIP_POSTGRES },
@@ -90,7 +92,7 @@ for (const { backend, skip } of backends) {
       const db = harness.db as unknown as Kysely<GraphDatabase>;
       await migrateToLatest({ db: harness.db, backend, rootDir: MIGRATIONS_DIR });
       repository = new KyselyGraphRepository(db);
-      await repository.persistGraph(document);
+      await repository.persistGraph(SCOPE, document);
     }, 120_000);
 
     afterAll(async () => {
@@ -98,7 +100,7 @@ for (const { backend, skip } of backends) {
     });
 
     it('reports every transitive dependent with its shortest depth', async () => {
-      const hits = shape(await repository.blastRadius('A'));
+      const hits = shape(await repository.blastRadius(SCOPE, 'A'));
       // B depends on A (1); C and E reach A at depth 2 (E via B); D at depth 3.
       expect(hits).toEqual([
         { nodeId: 'B', depth: 1 },
@@ -110,45 +112,47 @@ for (const { backend, skip } of backends) {
     });
 
     it('never includes the queried node itself', async () => {
-      const hits = await repository.blastRadius('A');
+      const hits = await repository.blastRadius(SCOPE, 'A');
       expect(hits.some((h) => h.nodeId === 'A')).toBe(false);
     });
 
     it('marks every hit deterministic when all paths are deterministic', async () => {
       // The whole fixture is deterministic `calls` edges, so every dependent is
       // reached by a proven chain — none may be reported as inferred (ADR-0021).
-      const hits = await repository.blastRadius('A');
+      const hits = await repository.blastRadius(SCOPE, 'A');
       expect(hits.every((h) => h.pathResolution === 'deterministic')).toBe(true);
     });
 
     it('honours the depth cap', async () => {
-      const hits = shape(await repository.blastRadius('A', { maxDepth: 1 }));
+      const hits = shape(await repository.blastRadius(SCOPE, 'A', { maxDepth: 1 }));
       expect(hits).toEqual([{ nodeId: 'B', depth: 1 }]);
     });
 
     it('terminates on a cycle and reports each node once', async () => {
       // From B the cycle is B<-C<-D<-A<-B; every other node is reachable exactly once.
-      const hits = shape(await repository.blastRadius('B', { maxDepth: 100 }));
+      const hits = shape(await repository.blastRadius(SCOPE, 'B', { maxDepth: 100 }));
       expect(hits.map((h) => h.nodeId)).toEqual(['A', 'C', 'D', 'E']);
     });
 
     it('excludes contains by default but can traverse an explicit kind set', async () => {
-      const byDefault = await repository.blastRadius('A');
+      const byDefault = await repository.blastRadius(SCOPE, 'A');
       expect(byDefault.some((h) => h.nodeId === 'F')).toBe(false);
-      const withContains = await repository.blastRadius('A', { kinds: ['calls', 'contains'] });
+      const withContains = await repository.blastRadius(SCOPE, 'A', {
+        kinds: ['calls', 'contains'],
+      });
       expect(withContains.some((h) => h.nodeId === 'F')).toBe(true);
     });
 
     it('returns empty for a leaf, an unknown id, and a non-positive depth', async () => {
       // E is a true leaf: nothing depends on it (it only calls B and C).
-      expect(await repository.blastRadius('E')).toEqual([]);
-      expect(await repository.blastRadius('nope')).toEqual([]);
-      expect(await repository.blastRadius('A', { maxDepth: 0 })).toEqual([]);
-      expect(await repository.blastRadius('A', { kinds: [] })).toEqual([]);
+      expect(await repository.blastRadius(SCOPE, 'E')).toEqual([]);
+      expect(await repository.blastRadius(SCOPE, 'nope')).toEqual([]);
+      expect(await repository.blastRadius(SCOPE, 'A', { maxDepth: 0 })).toEqual([]);
+      expect(await repository.blastRadius(SCOPE, 'A', { kinds: [] })).toEqual([]);
     });
 
     it('rejects an id containing the U+001F path separator', async () => {
-      await expect(repository.blastRadius(`x${String.fromCharCode(31)}y`)).rejects.toThrow(
+      await expect(repository.blastRadius(SCOPE, `x${String.fromCharCode(31)}y`)).rejects.toThrow(
         /U\+001F/,
       );
     });

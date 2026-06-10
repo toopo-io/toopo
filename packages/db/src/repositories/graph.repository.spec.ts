@@ -100,6 +100,8 @@ async function tableCount(db: Kysely<GraphDatabase>, table: 'node' | 'edge'): Pr
   return Number(row.count);
 }
 
+const SCOPE = { projectId: 'proj-repo' };
+
 const backends = [
   { backend: 'sqlite' as const, skip: false },
   { backend: 'postgres' as const, skip: SKIP_POSTGRES },
@@ -123,19 +125,19 @@ for (const { backend, skip } of backends) {
     });
 
     it('persists the document and reports deduped counts', async () => {
-      const result = await repository.persistGraph(document);
+      const result = await repository.persistGraph(SCOPE, document);
       expect(result).toEqual({ nodes: 6, edges: 7 });
     });
 
     it('rehydrates every persisted node losslessly', async () => {
       for (const node of document.nodes) {
-        expect(await repository.getNode(node.id)).toEqual(node);
+        expect(await repository.getNode(SCOPE, node.id)).toEqual(node);
       }
     });
 
     it('returns null for a missing id and for an external (node-less) target', async () => {
-      expect(await repository.getNode('does-not-exist')).toBeNull();
-      expect(await repository.getNode('npm react Component#')).toBeNull();
+      expect(await repository.getNode(SCOPE, 'does-not-exist')).toBeNull();
+      expect(await repository.getNode(SCOPE, 'npm react Component#')).toBeNull();
     });
 
     it('populates file_id from the containment hierarchy', async () => {
@@ -164,7 +166,7 @@ for (const { backend, skip } of backends) {
 
     it('is idempotent — re-persisting leaves row counts unchanged', async () => {
       const before = { nodes: await tableCount(db, 'node'), edges: await tableCount(db, 'edge') };
-      const result = await repository.persistGraph(document);
+      const result = await repository.persistGraph(SCOPE, document);
       expect(result).toEqual({ nodes: 6, edges: 7 });
       expect(await tableCount(db, 'node')).toBe(before.nodes);
       expect(await tableCount(db, 'edge')).toBe(before.edges);

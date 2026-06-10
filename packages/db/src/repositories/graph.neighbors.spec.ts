@@ -68,6 +68,8 @@ function summarize(neighbors: readonly Neighbor[]): Array<{
     );
 }
 
+const SCOPE = { projectId: 'proj-neighbors' };
+
 const backends = [
   { backend: 'sqlite' as const, skip: false },
   { backend: 'postgres' as const, skip: SKIP_POSTGRES },
@@ -83,7 +85,7 @@ for (const { backend, skip } of backends) {
       const db = harness.db as unknown as Kysely<GraphDatabase>;
       await migrateToLatest({ db: harness.db, backend, rootDir: MIGRATIONS_DIR });
       repository = new KyselyGraphRepository(db);
-      await repository.persistGraph(document);
+      await repository.persistGraph(SCOPE, document);
     }, 120_000);
 
     afterAll(async () => {
@@ -91,34 +93,34 @@ for (const { backend, skip } of backends) {
     });
 
     it('follows forward edges, with null for an external target', async () => {
-      expect(summarize(await repository.neighbors('A', 'out'))).toEqual([
+      expect(summarize(await repository.neighbors(SCOPE, 'A', 'out'))).toEqual([
         { kind: 'calls', source: 'A', target: 'B', node: 'B' },
         { kind: 'references', source: 'A', target: 'EXT', node: null },
       ]);
     });
 
     it('follows reverse edges, with null for an external source', async () => {
-      expect(summarize(await repository.neighbors('A', 'in'))).toEqual([
+      expect(summarize(await repository.neighbors(SCOPE, 'A', 'in'))).toEqual([
         { kind: 'calls', source: 'EXTSRC', target: 'A', node: null },
         { kind: 'contains', source: 'file', target: 'A', node: 'file' },
       ]);
     });
 
     it('filters by edge kind', async () => {
-      expect(summarize(await repository.neighbors('A', 'out', 'calls'))).toEqual([
+      expect(summarize(await repository.neighbors(SCOPE, 'A', 'out', 'calls'))).toEqual([
         { kind: 'calls', source: 'A', target: 'B', node: 'B' },
       ]);
     });
 
     it('resolves the reverse neighbours of B', async () => {
-      expect(summarize(await repository.neighbors('B', 'in'))).toEqual([
+      expect(summarize(await repository.neighbors(SCOPE, 'B', 'in'))).toEqual([
         { kind: 'calls', source: 'A', target: 'B', node: 'A' },
         { kind: 'contains', source: 'file', target: 'B', node: 'file' },
       ]);
     });
 
     it('returns an empty list when a node has no edges in the direction', async () => {
-      expect(await repository.neighbors('B', 'out')).toEqual([]);
+      expect(await repository.neighbors(SCOPE, 'B', 'out')).toEqual([]);
     });
   });
 }

@@ -52,6 +52,7 @@ export {
   type Page,
   type PageOptions,
 } from './repositories/graph-page.js';
+export type { GraphScope } from './repositories/graph-scope.js';
 export type {
   CreateProjectInput,
   ProjectRepository,

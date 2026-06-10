@@ -73,6 +73,8 @@ function shape(
     .sort((a, b) => a.nodeId.localeCompare(b.nodeId));
 }
 
+const SCOPE = { projectId: 'proj-pathres' };
+
 const backends = [
   { backend: 'sqlite' as const, skip: false },
   { backend: 'postgres' as const, skip: SKIP_POSTGRES },
@@ -94,7 +96,7 @@ for (const { backend, skip } of backends) {
       const db = harness.db as unknown as Kysely<GraphDatabase>;
       await migrateToLatest({ db: harness.db, backend, rootDir: MIGRATIONS_DIR });
       repository = new KyselyGraphRepository(db);
-      await repository.persistGraph(document);
+      await repository.persistGraph(SCOPE, document);
     }, 120_000);
 
     afterAll(async () => {
@@ -102,13 +104,13 @@ for (const { backend, skip } of backends) {
     });
 
     it('marks a dependent reached by a fully-deterministic path as deterministic', async () => {
-      const hits = shape(await repository.blastRadius('T'));
+      const hits = shape(await repository.blastRadius(SCOPE, 'T'));
       const d1 = hits.find((h) => h.nodeId === 'D1');
       expect(d1).toEqual({ nodeId: 'D1', depth: 1, pathResolution: 'deterministic' });
     });
 
     it('marks an inferred-only dependent as inferred (direct and transitive)', async () => {
-      const hits = shape(await repository.blastRadius('T'));
+      const hits = shape(await repository.blastRadius(SCOPE, 'T'));
       // I1 depends on T through a single inferred edge.
       expect(hits.find((h) => h.nodeId === 'I1')).toEqual({
         nodeId: 'I1',
@@ -124,7 +126,7 @@ for (const { backend, skip } of backends) {
     });
 
     it('marks a mixed-path dependent deterministic — any proven chain wins', async () => {
-      const hits = shape(await repository.blastRadius('T'));
+      const hits = shape(await repository.blastRadius(SCOPE, 'T'));
       // M: shortest path is the inferred M→T edge (depth 1); a proven M→D1→T chain
       // also exists. Trust = any-proven-path, depth = min over all paths — independent.
       expect(hits.find((h) => h.nodeId === 'M')).toEqual({
@@ -135,7 +137,7 @@ for (const { backend, skip } of backends) {
     });
 
     it('captures the full radius for cross-backend comparison', async () => {
-      const hits = shape(await repository.blastRadius('T'));
+      const hits = shape(await repository.blastRadius(SCOPE, 'T'));
       expect(hits).toEqual([
         { nodeId: 'D1', depth: 1, pathResolution: 'deterministic' },
         { nodeId: 'I1', depth: 1, pathResolution: 'inferred' },
@@ -146,7 +148,7 @@ for (const { backend, skip } of backends) {
     });
 
     it('carries pathResolution through the hydrated, paginated view', async () => {
-      const page = await repository.blastRadiusPage('T');
+      const page = await repository.blastRadiusPage(SCOPE, 'T');
       const byId = new Map(page.items.map((h) => [h.nodeId, h.pathResolution]));
       expect(byId.get('D1')).toBe('deterministic');
       expect(byId.get('I1')).toBe('inferred');

@@ -32,6 +32,8 @@ import { KyselyGraphRepository } from './graph.repository.kysely.js';
 
 const KINDS = DEFAULT_BLAST_RADIUS_KINDS;
 
+const SCOPE = { projectId: 'proj-dogfood' };
+
 interface BackendMetrics {
   readonly nodes: number;
   readonly edges: number;
@@ -84,6 +86,7 @@ async function measureExpansion(
   startId: string,
 ): Promise<{ expanded: number; result: number }> {
   const cte = blastRadiusCte({
+    projectId: SCOPE.projectId,
     startId,
     kinds: [...KINDS],
     maxDepth: DEFAULT_BLAST_RADIUS_MAX_DEPTH,
@@ -125,7 +128,7 @@ for (const { backend, skip } of backends) {
       expect(document.nodes.length).toBeGreaterThan(0);
 
       const persistStart = performance.now();
-      const persisted = await repository.persistGraph(document);
+      const persisted = await repository.persistGraph(SCOPE, document);
       const persistMs = performance.now() - persistStart;
 
       const hotSymbols = await topSymbols(db, HOT_SAMPLE_SIZE);
@@ -140,7 +143,7 @@ for (const { backend, skip } of backends) {
       expect(hot.id.includes(BLAST_PATH_SEPARATOR)).toBe(false);
 
       const blastStart = performance.now();
-      const radius = await repository.blastRadius(hot.id);
+      const radius = await repository.blastRadius(SCOPE, hot.id);
       const blastMs = performance.now() - blastStart;
 
       expect(radius.length).toBeGreaterThan(0);
@@ -193,8 +196,8 @@ for (const { backend, skip } of backends) {
     }, 180_000);
 
     it('is idempotent on the real graph', async () => {
-      const first = await repository.persistGraph(document);
-      const second = await repository.persistGraph(document);
+      const first = await repository.persistGraph(SCOPE, document);
+      const second = await repository.persistGraph(SCOPE, document);
       expect(second).toEqual(first);
     }, 180_000);
   });

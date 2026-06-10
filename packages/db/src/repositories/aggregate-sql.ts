@@ -41,6 +41,7 @@ interface ProjectedRow {
  */
 export function selectContainerRows(
   db: Kysely<GraphDatabase>,
+  projectId: string,
   level: MapLevel,
   scope: SymbolId | undefined,
   limit: number,
@@ -49,13 +50,18 @@ export function selectContainerRows(
     return db
       .selectFrom('node')
       .selectAll()
+      .where('project_id', '=', projectId)
       .where('kind', '=', 'package')
       .orderBy('id')
       .limit(limit)
       .execute();
   }
   if (level === 'file') {
-    let query = db.selectFrom('node').selectAll().where('kind', '=', 'file');
+    let query = db
+      .selectFrom('node')
+      .selectAll()
+      .where('project_id', '=', projectId)
+      .where('kind', '=', 'file');
     if (scope !== undefined) {
       query = query.where(
         'id',
@@ -63,6 +69,7 @@ export function selectContainerRows(
         db
           .selectFrom('edge')
           .select('target_id')
+          .where('project_id', '=', projectId)
           .where('source_id', '=', scope)
           .where('kind', '=', 'contains'),
       );
@@ -72,6 +79,7 @@ export function selectContainerRows(
   return db
     .selectFrom('node')
     .selectAll()
+    .where('project_id', '=', projectId)
     .where('kind', '=', 'symbol')
     .where('file_id', '=', scope ?? '')
     .orderBy('id')
@@ -82,6 +90,7 @@ export function selectContainerRows(
 /** Count the symbols each container holds (for UI sizing), keyed by container id. */
 export async function selectChildCounts(
   db: Kysely<GraphDatabase>,
+  projectId: string,
   level: MapLevel,
   ids: readonly SymbolId[],
 ): Promise<Map<SymbolId, number>> {
@@ -89,36 +98,37 @@ export async function selectChildCounts(
     return new Map();
   }
   const idList = sql.join(ids.map((id) => sql`${id}`));
-  const query = childCountQuery(level, idList);
+  const query = childCountQuery(level, idList, projectId);
   const { rows } = await query.execute(db);
   return new Map(rows.map((row) => [row.gid, Number(row.c)]));
 }
 
-function childCountQuery(level: MapLevel, idList: ReturnType<typeof sql.join>) {
+function childCountQuery(level: MapLevel, idList: ReturnType<typeof sql.join>, projectId: string) {
   if (level === 'package') {
     // Symbols under a package: symbol.file_id → file, contained by the package.
     return sql<{ gid: string; c: number | string }>`
       select "pc"."source_id" as "gid", count(distinct "n"."id") as "c"
       from "node" as "n"
-      join "edge" as "pc" on "pc"."target_id" = "n"."file_id" and "pc"."kind" = 'contains'
-      where "n"."kind" = 'symbol' and "pc"."source_id" in (${idList})
+      join "edge" as "pc" on "pc"."target_id" = "n"."file_id" and "pc"."kind" = 'contains' and "pc"."project_id" = ${projectId}
+      where "n"."kind" = 'symbol' and "n"."project_id" = ${projectId} and "pc"."source_id" in (${idList})
       group by "pc"."source_id"`;
   }
   if (level === 'file') {
     return sql<{ gid: string; c: number | string }>`
       select "file_id" as "gid", count(*) as "c"
-      from "node" where "kind" = 'symbol' and "file_id" in (${idList})
+      from "node" where "kind" = 'symbol' and "project_id" = ${projectId} and "file_id" in (${idList})
       group by "file_id"`;
   }
   return sql<{ gid: string; c: number | string }>`
     select "source_id" as "gid", count(*) as "c"
-    from "edge" where "kind" = 'contains' and "source_id" in (${idList})
+    from "edge" where "kind" = 'contains' and "project_id" = ${projectId} and "source_id" in (${idList})
     group by "source_id"`;
 }
 
 /** Project dependency edges between the given containers, folded into trust counts. */
 export async function selectProjectedEdges(
   db: Kysely<GraphDatabase>,
+  projectId: string,
   level: MapLevel,
   ids: readonly SymbolId[],
 ): Promise<MapEdge[]> {
@@ -127,7 +137,7 @@ export async function selectProjectedEdges(
   }
   const idList = sql.join(ids.map((id) => sql`${id}`));
   const kindList = sql.join(MAP_EDGE_KINDS.map((kind) => sql`${kind}`));
-  const query = projectedEdgeQuery(level, idList, kindList);
+  const query = projectedEdgeQuery(level, idList, kindList, projectId);
   const { rows } = await query.execute(db);
   return foldTrust(rows);
 }
@@ -136,12 +146,13 @@ function projectedEdgeQuery(
   level: MapLevel,
   idList: ReturnType<typeof sql.join>,
   kindList: ReturnType<typeof sql.join>,
+  projectId: string,
 ) {
   if (level === 'symbol') {
     return sql<ProjectedRow>`
       select "e"."source_id" as "src", "e"."target_id" as "tgt", "e"."resolution" as "res", count(*) as "c"
       from "edge" as "e"
-      where "e"."kind" in (${kindList})
+      where "e"."kind" in (${kindList}) and "e"."project_id" = ${projectId}
         and "e"."source_id" in (${idList}) and "e"."target_id" in (${idList})
         and "e"."source_id" <> "e"."target_id"
       group by "e"."source_id", "e"."target_id", "e"."resolution"`;
@@ -150,9 +161,9 @@ function projectedEdgeQuery(
     return sql<ProjectedRow>`
       select "ns"."file_id" as "src", "nt"."file_id" as "tgt", "e"."resolution" as "res", count(*) as "c"
       from "edge" as "e"
-      join "node" as "ns" on "ns"."id" = "e"."source_id"
-      join "node" as "nt" on "nt"."id" = "e"."target_id"
-      where "e"."kind" in (${kindList})
+      join "node" as "ns" on "ns"."id" = "e"."source_id" and "ns"."project_id" = ${projectId}
+      join "node" as "nt" on "nt"."id" = "e"."target_id" and "nt"."project_id" = ${projectId}
+      where "e"."kind" in (${kindList}) and "e"."project_id" = ${projectId}
         and "ns"."file_id" in (${idList}) and "nt"."file_id" in (${idList})
         and "ns"."file_id" <> "nt"."file_id"
       group by "ns"."file_id", "nt"."file_id", "e"."resolution"`;
@@ -160,11 +171,11 @@ function projectedEdgeQuery(
   return sql<ProjectedRow>`
     select "sp"."source_id" as "src", "tp"."source_id" as "tgt", "e"."resolution" as "res", count(*) as "c"
     from "edge" as "e"
-    join "node" as "ns" on "ns"."id" = "e"."source_id"
-    join "node" as "nt" on "nt"."id" = "e"."target_id"
-    join "edge" as "sp" on "sp"."target_id" = "ns"."file_id" and "sp"."kind" = 'contains'
-    join "edge" as "tp" on "tp"."target_id" = "nt"."file_id" and "tp"."kind" = 'contains'
-    where "e"."kind" in (${kindList})
+    join "node" as "ns" on "ns"."id" = "e"."source_id" and "ns"."project_id" = ${projectId}
+    join "node" as "nt" on "nt"."id" = "e"."target_id" and "nt"."project_id" = ${projectId}
+    join "edge" as "sp" on "sp"."target_id" = "ns"."file_id" and "sp"."kind" = 'contains' and "sp"."project_id" = ${projectId}
+    join "edge" as "tp" on "tp"."target_id" = "nt"."file_id" and "tp"."kind" = 'contains' and "tp"."project_id" = ${projectId}
+    where "e"."kind" in (${kindList}) and "e"."project_id" = ${projectId}
       and "sp"."source_id" in (${idList}) and "tp"."source_id" in (${idList})
       and "sp"."source_id" <> "tp"."source_id"
     group by "sp"."source_id", "tp"."source_id", "e"."resolution"`;

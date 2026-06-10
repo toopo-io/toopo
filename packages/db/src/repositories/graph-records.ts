@@ -106,9 +106,13 @@ function analysisReason(node: Node): string | null {
   return analysis !== undefined && analysis.status !== 'analyzed' ? analysis.reason : null;
 }
 
-/** Map a validated core node to its insert row. `fileId` is the incremental key. */
-export function nodeToInsert(node: Node, fileId: string | null): NodeInsert {
+/**
+ * Map a validated core node to its insert row. `projectId` is the tenancy scope
+ * (ADR-0022 §3), part of the composite key; `fileId` is the incremental key.
+ */
+export function nodeToInsert(node: Node, fileId: string | null, projectId: string): NodeInsert {
   const base: NodeInsert = {
+    project_id: projectId,
     id: node.id,
     kind: node.kind,
     sub_kind: node.subKind ?? null,
@@ -164,9 +168,10 @@ export function rowToEdge(row: EdgeRow): Edge {
   return EdgeSchema.parse(candidate);
 }
 
-/** Map a validated core edge to its insert row, keyed by canonical identity. */
-export function edgeToInsert(edge: Edge, fileId: string | null): EdgeInsert {
+/** Map a validated core edge to its insert row, keyed by (project, canonical identity). */
+export function edgeToInsert(edge: Edge, fileId: string | null, projectId: string): EdgeInsert {
   return {
+    project_id: projectId,
     edge_key: edgeIdentityKey(edge),
     source_id: edge.sourceId,
     target_id: edge.targetId,

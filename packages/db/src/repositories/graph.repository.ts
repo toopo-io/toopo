@@ -9,6 +9,7 @@
  */
 import type { Edge, EdgeKind, GraphDocument, Node, RESOLUTIONS, SymbolId } from '@toopo/core';
 import type { Page, PageOptions } from './graph-page.js';
+import type { GraphScope } from './graph-scope.js';
 
 /**
  * The trust of a blast-radius PATH (ADR-0021), mirroring an edge's `resolution`
@@ -159,37 +160,43 @@ export interface MapView {
 
 export interface GraphRepository {
   /**
-   * Persist a graph document idempotently (ADR-0015 §11 stored-once): nodes are
-   * upserted by their `SymbolId`, edges by their canonical identity key, so
-   * re-persisting the same document is a no-op on row count. The document is a
-   * fragment (whole-repo or one changed file), merged into the current graph —
+   * Persist a graph document idempotently (ADR-0015 §11 stored-once) under a
+   * project (ADR-0022 §3): nodes are upserted by `(projectId, SymbolId)`, edges
+   * by `(projectId, canonical identity key)`, so re-persisting the same document
+   * into the same project is a no-op on row count. The document is a fragment
+   * (whole-repo or one changed file), merged into the project's current graph —
    * never a destructive replace (per-file replacement is deferred, Decision 4).
    */
-  persistGraph(document: GraphDocument): Promise<PersistGraphResult>;
+  persistGraph(scope: GraphScope, document: GraphDocument): Promise<PersistGraphResult>;
 
-  /** The validated node for an id, or `null` when absent. */
-  getNode(id: SymbolId): Promise<Node | null>;
+  /** The validated node for an id within the project, or `null` when absent. */
+  getNode(scope: GraphScope, id: SymbolId): Promise<Node | null>;
 
   /**
-   * The edges incident to a node and the node on each edge's far end. `out`
-   * follows forward edges (what `id` depends on), `in` follows them in reverse
-   * (who depends on `id`); an optional `kind` filters to one edge kind. Results
-   * are ordered deterministically by edge identity.
+   * The edges incident to a node within the project and the node on each edge's
+   * far end. `out` follows forward edges (what `id` depends on), `in` follows
+   * them in reverse (who depends on `id`); an optional `kind` filters to one edge
+   * kind. Results are ordered deterministically by edge identity.
    */
   neighbors(
+    scope: GraphScope,
     id: SymbolId,
     direction: NeighborDirection,
     kind?: EdgeKind,
   ): Promise<readonly Neighbor[]>;
 
   /**
-   * Transitive reverse-reachability: every node that (transitively) depends on
-   * `id`, by following forward dependency edges backwards (ADR-0015 §11). Each
-   * hit carries its shortest depth. Bounded by `maxDepth` and made cycle-safe by
-   * a visited-path guard, so the traversal always terminates (ADR-0017 §6). The
-   * queried node itself is never a hit.
+   * Transitive reverse-reachability within the project: every node that
+   * (transitively) depends on `id`, by following forward dependency edges
+   * backwards (ADR-0015 §11). Each hit carries its shortest depth. Bounded by
+   * `maxDepth` and made cycle-safe by a visited-path guard, so the traversal
+   * always terminates (ADR-0017 §6). The queried node itself is never a hit.
    */
-  blastRadius(id: SymbolId, options?: BlastRadiusOptions): Promise<readonly BlastRadiusHit[]>;
+  blastRadius(
+    scope: GraphScope,
+    id: SymbolId,
+    options?: BlastRadiusOptions,
+  ): Promise<readonly BlastRadiusHit[]>;
 
   /**
    * Keyset-paginated {@link neighbors} (ADR-0020 Fork 4): one bounded page of a
@@ -197,16 +204,18 @@ export interface GraphRepository {
    * a cursor for the next page. The Serve node-detail view's callers/callees.
    */
   neighborsPage(
+    scope: GraphScope,
     id: SymbolId,
     direction: NeighborDirection,
     options?: NeighborPageOptions,
   ): Promise<Page<Neighbor>>;
 
   /**
-   * Bounded node search by name/path substring and/or kind/subKind, keyset-paged
-   * by id. The substring match is a portable, escaped, case-insensitive LIKE.
+   * Bounded node search within the project by name/path substring and/or
+   * kind/subKind, keyset-paged by id. The substring match is a portable, escaped,
+   * case-insensitive LIKE.
    */
-  search(options?: SearchOptions): Promise<Page<Node>>;
+  search(scope: GraphScope, options?: SearchOptions): Promise<Page<Node>>;
 
   /**
    * The declared interface of a symbol (ADR-0015 §6): its contained child SYMBOL
@@ -214,25 +223,30 @@ export interface GraphRepository {
    * Their subKinds tell the UI which are params vs props; this layer stays
    * language-agnostic and returns every contained symbol.
    */
-  declaredInterface(id: SymbolId, options?: PageOptions): Promise<Page<Node>>;
+  declaredInterface(scope: GraphScope, id: SymbolId, options?: PageOptions): Promise<Page<Node>>;
 
   /**
    * The call-sites enclosed by a symbol (ADR-0015 §3 zoom-in, §7 payloads),
    * looked up by `enclosing_symbol_id` (indexed, ADR-0020 A1), keyset-paged by id.
    */
-  callSitesOf(id: SymbolId, options?: PageOptions): Promise<Page<Node>>;
+  callSitesOf(scope: GraphScope, id: SymbolId, options?: PageOptions): Promise<Page<Node>>;
 
   /**
    * Keyset-paginated, node-hydrated {@link blastRadius} with an honest
    * depth-cap `truncated` flag — the Serve blast-radius view (ADR-0020 Fork 4).
    */
-  blastRadiusPage(id: SymbolId, options?: BlastRadiusPageOptions): Promise<BlastRadiusPage>;
+  blastRadiusPage(
+    scope: GraphScope,
+    id: SymbolId,
+    options?: BlastRadiusPageOptions,
+  ): Promise<BlastRadiusPage>;
 
   /**
-   * The on-read aggregate map at one containment level (ADR-0015 §3): container
-   * nodes (with contained-symbol counts) and the dependency edges projected
-   * between them, split deterministic/inferred (ADR-0015 §8). Always scoped and
-   * capped; `truncated` flags a hit cap. Never stored, never a re-parse.
+   * The on-read aggregate map at one containment level (ADR-0015 §3) within the
+   * project: container nodes (with contained-symbol counts) and the dependency
+   * edges projected between them, split deterministic/inferred (ADR-0015 §8).
+   * Always scoped and capped; `truncated` flags a hit cap. Never stored, never a
+   * re-parse.
    */
-  mapView(options: MapViewOptions): Promise<MapView>;
+  mapView(scope: GraphScope, options: MapViewOptions): Promise<MapView>;
 }

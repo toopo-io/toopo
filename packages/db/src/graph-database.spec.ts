@@ -19,6 +19,8 @@ const document: GraphDocument = {
   edges: [],
 };
 
+const SCOPE = { projectId: 'proj-graphdb' };
+
 describe('createGraphDatabase', () => {
   let dir: string;
   let handle: GraphDatabaseHandle;
@@ -44,9 +46,9 @@ describe('createGraphDatabase', () => {
   });
 
   it('exposes a repository that persists and reads back', async () => {
-    const result = await handle.graphRepository.persistGraph(document);
+    const result = await handle.graphRepository.persistGraph(SCOPE, document);
     expect(result.nodes).toBe(1);
-    const node = await handle.graphRepository.getNode('sA');
+    const node = await handle.graphRepository.getNode(SCOPE, 'sA');
     expect(node?.id).toBe('sA');
   });
 });

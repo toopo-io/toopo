@@ -50,6 +50,7 @@ import {
   type PageOptions,
 } from './graph-page.js';
 import { edgeToInsert, nodeToInsert, rowToEdge, rowToNode } from './graph-records.js';
+import type { GraphScope } from './graph-scope.js';
 import { escapeLikeOperand, LIKE_ESCAPE } from './sql-like.js';
 
 /** Rows per bulk insert. Node is the widest table (16 columns); 500 rows stays
@@ -82,16 +83,16 @@ function anchorColumn(direction: NeighborDirection): 'source_id' | 'target_id' {
 export class KyselyGraphRepository implements GraphRepository {
   constructor(private readonly db: Kysely<GraphDatabase>) {}
 
-  async persistGraph(document: GraphDocument): Promise<PersistGraphResult> {
+  async persistGraph(scope: GraphScope, document: GraphDocument): Promise<PersistGraphResult> {
     const parsed = GraphDocumentSchema.parse(document);
     const index = buildFileIndex(parsed);
 
     const nodeRows = dedupe(
-      parsed.nodes.map((node) => nodeToInsert(node, index.forNode(node.id))),
+      parsed.nodes.map((node) => nodeToInsert(node, index.forNode(node.id), scope.projectId)),
       (row) => row.id,
     );
     const edgeRows = dedupe(
-      parsed.edges.map((edge) => edgeToInsert(edge, index.forEdge(edge))),
+      parsed.edges.map((edge) => edgeToInsert(edge, index.forEdge(edge), scope.projectId)),
       (row) => row.edge_key,
     );
 
@@ -101,7 +102,7 @@ export class KyselyGraphRepository implements GraphRepository {
           .insertInto('node')
           .values(batch)
           .onConflict((oc) =>
-            oc.column('id').doUpdateSet((eb) => ({
+            oc.columns(['project_id', 'id']).doUpdateSet((eb) => ({
               kind: eb.ref('excluded.kind'),
               sub_kind: eb.ref('excluded.sub_kind'),
               name: eb.ref('excluded.name'),
@@ -127,7 +128,7 @@ export class KyselyGraphRepository implements GraphRepository {
           .insertInto('edge')
           .values(batch)
           .onConflict((oc) =>
-            oc.column('edge_key').doUpdateSet((eb) => ({
+            oc.columns(['project_id', 'edge_key']).doUpdateSet((eb) => ({
               source_id: eb.ref('excluded.source_id'),
               target_id: eb.ref('excluded.target_id'),
               kind: eb.ref('excluded.kind'),
@@ -146,27 +147,33 @@ export class KyselyGraphRepository implements GraphRepository {
     return { nodes: nodeRows.length, edges: edgeRows.length };
   }
 
-  async getNode(id: SymbolId): Promise<Node | null> {
+  async getNode(scope: GraphScope, id: SymbolId): Promise<Node | null> {
     const row = await this.db
       .selectFrom('node')
       .selectAll()
+      .where('project_id', '=', scope.projectId)
       .where('id', '=', id)
       .executeTakeFirst();
     return row === undefined ? null : rowToNode(row);
   }
 
   async neighbors(
+    scope: GraphScope,
     id: SymbolId,
     direction: NeighborDirection,
     kind?: EdgeKind,
   ): Promise<readonly Neighbor[]> {
-    let query = this.db.selectFrom('edge').selectAll().where(anchorColumn(direction), '=', id);
+    let query = this.db
+      .selectFrom('edge')
+      .selectAll()
+      .where('project_id', '=', scope.projectId)
+      .where(anchorColumn(direction), '=', id);
     if (kind !== undefined) {
       query = query.where('kind', '=', kind);
     }
     // Deterministic order so callers and tests see a stable result.
     const edgeRows = await query.orderBy('edge_key').execute();
-    return this.hydrateNeighbors(edgeRows.map(rowToEdge), direction);
+    return this.hydrateNeighbors(scope, edgeRows.map(rowToEdge), direction);
   }
 
   /**
@@ -175,26 +182,41 @@ export class KyselyGraphRepository implements GraphRepository {
    * external/unresolved far end with no node row yields `null` (ADR-0015 Fork 1).
    */
   private async hydrateNeighbors(
+    scope: GraphScope,
     edges: readonly Edge[],
     direction: NeighborDirection,
   ): Promise<Neighbor[]> {
     const farEndId = (edge: Edge): SymbolId =>
       direction === 'out' ? edge.targetId : edge.sourceId;
-    const nodesById = await this.loadNodes(edges.map(farEndId));
+    const nodesById = await this.loadNodes(scope, edges.map(farEndId));
     return edges.map((edge) => ({ edge, node: nodesById.get(farEndId(edge)) ?? null }));
   }
 
-  /** Batch-load validated nodes by id into a lookup map (absent ids are simply omitted). */
-  private async loadNodes(ids: readonly SymbolId[]): Promise<Map<SymbolId, Node>> {
+  /**
+   * Batch-load validated nodes by id WITHIN the project into a lookup map (absent
+   * ids are simply omitted). The project scope is essential: a far-end id can
+   * collide with another project's node (ids are unique only per project), so an
+   * unscoped load would hydrate a cross-tenant node (ADR-0022 §3).
+   */
+  private async loadNodes(
+    scope: GraphScope,
+    ids: readonly SymbolId[],
+  ): Promise<Map<SymbolId, Node>> {
     const distinct = [...new Set(ids)];
     if (distinct.length === 0) {
       return new Map();
     }
-    const rows = await this.db.selectFrom('node').selectAll().where('id', 'in', distinct).execute();
+    const rows = await this.db
+      .selectFrom('node')
+      .selectAll()
+      .where('project_id', '=', scope.projectId)
+      .where('id', 'in', distinct)
+      .execute();
     return new Map(rows.map((row) => [row.id, rowToNode(row)]));
   }
 
   async blastRadius(
+    scope: GraphScope,
     id: SymbolId,
     options?: BlastRadiusOptions,
   ): Promise<readonly BlastRadiusHit[]> {
@@ -210,7 +232,7 @@ export class KyselyGraphRepository implements GraphRepository {
       return [];
     }
 
-    const cte = blastRadiusCte({ startId: id, kinds, maxDepth });
+    const cte = blastRadiusCte({ projectId: scope.projectId, startId: id, kinds, maxDepth });
     const query = sql<{ node_id: string; depth: number; path_det: number }>`${cte}
       select "node_id", min("depth") as "depth", max("path_det") as "path_det"
       from "blast"
@@ -225,12 +247,17 @@ export class KyselyGraphRepository implements GraphRepository {
   }
 
   async neighborsPage(
+    scope: GraphScope,
     id: SymbolId,
     direction: NeighborDirection,
     options?: NeighborPageOptions,
   ): Promise<Page<Neighbor>> {
     const limit = clampLimit(options?.limit);
-    let query = this.db.selectFrom('edge').selectAll().where(anchorColumn(direction), '=', id);
+    let query = this.db
+      .selectFrom('edge')
+      .selectAll()
+      .where('project_id', '=', scope.projectId)
+      .where(anchorColumn(direction), '=', id);
     if (options?.kind !== undefined) {
       query = query.where('kind', '=', options.kind);
     }
@@ -241,15 +268,15 @@ export class KyselyGraphRepository implements GraphRepository {
       .orderBy('edge_key')
       .limit(limit + 1)
       .execute();
-    const neighbors = await this.hydrateNeighbors(edgeRows.map(rowToEdge), direction);
+    const neighbors = await this.hydrateNeighbors(scope, edgeRows.map(rowToEdge), direction);
     return buildPage(neighbors, limit, (neighbor) =>
       encodeCursor([edgeIdentityKey(neighbor.edge)]),
     );
   }
 
-  async search(options?: SearchOptions): Promise<Page<Node>> {
+  async search(scope: GraphScope, options?: SearchOptions): Promise<Page<Node>> {
     const limit = clampLimit(options?.limit);
-    let query = this.db.selectFrom('node').selectAll();
+    let query = this.db.selectFrom('node').selectAll().where('project_id', '=', scope.projectId);
     if (options?.kind !== undefined) {
       query = query.where('kind', '=', options.kind);
     }
@@ -269,11 +296,19 @@ export class KyselyGraphRepository implements GraphRepository {
     return buildPage(rows.map(rowToNode), limit, (node) => encodeCursor([node.id]));
   }
 
-  async declaredInterface(id: SymbolId, options?: PageOptions): Promise<Page<Node>> {
+  async declaredInterface(
+    scope: GraphScope,
+    id: SymbolId,
+    options?: PageOptions,
+  ): Promise<Page<Node>> {
     const limit = clampLimit(options?.limit);
+    // Both sides are scoped: the contains edge AND the contained node, so a
+    // colliding id in another project can never join in (ADR-0022 §3).
     let query = this.db
       .selectFrom('edge as c')
       .innerJoin('node as n', 'n.id', 'c.target_id')
+      .where('c.project_id', '=', scope.projectId)
+      .where('n.project_id', '=', scope.projectId)
       .where('c.source_id', '=', id)
       .where('c.kind', '=', 'contains')
       .where('n.kind', '=', 'symbol')
@@ -288,11 +323,12 @@ export class KyselyGraphRepository implements GraphRepository {
     return buildPage(rows.map(rowToNode), limit, (node) => encodeCursor([node.id]));
   }
 
-  async callSitesOf(id: SymbolId, options?: PageOptions): Promise<Page<Node>> {
+  async callSitesOf(scope: GraphScope, id: SymbolId, options?: PageOptions): Promise<Page<Node>> {
     const limit = clampLimit(options?.limit);
     let query = this.db
       .selectFrom('node')
       .selectAll()
+      .where('project_id', '=', scope.projectId)
       .where('enclosing_symbol_id', '=', id)
       .where('kind', '=', 'callSite');
     if (options?.cursor !== undefined) {
@@ -305,7 +341,11 @@ export class KyselyGraphRepository implements GraphRepository {
     return buildPage(rows.map(rowToNode), limit, (node) => encodeCursor([node.id]));
   }
 
-  async blastRadiusPage(id: SymbolId, options?: BlastRadiusPageOptions): Promise<BlastRadiusPage> {
+  async blastRadiusPage(
+    scope: GraphScope,
+    id: SymbolId,
+    options?: BlastRadiusPageOptions,
+  ): Promise<BlastRadiusPage> {
     if (id.includes(BLAST_PATH_SEPARATOR)) {
       throw new Error('blastRadiusPage: id must not contain the U+001F path separator');
     }
@@ -316,14 +356,24 @@ export class KyselyGraphRepository implements GraphRepository {
       return { items: [], nextCursor: null, truncated: false };
     }
 
-    const rawRows = await this.runBlastRadiusPage(id, kinds, maxDepth, limit, options?.cursor);
+    const rawRows = await this.runBlastRadiusPage(
+      scope,
+      id,
+      kinds,
+      maxDepth,
+      limit,
+      options?.cursor,
+    );
     const maxDepthReached = rawRows.length > 0 ? Number(rawRows[0]?.max_depth) : 0;
     const hits: BlastRadiusHit[] = rawRows.map((row) => ({
       nodeId: row.node_id,
       depth: Number(row.depth),
       pathResolution: toPathResolution(row.path_det),
     }));
-    const nodesById = await this.loadNodes(hits.map((hit) => hit.nodeId));
+    const nodesById = await this.loadNodes(
+      scope,
+      hits.map((hit) => hit.nodeId),
+    );
     const hydrated: BlastRadiusNode[] = hits.map((hit) => ({
       ...hit,
       node: nodesById.get(hit.nodeId) ?? null,
@@ -338,13 +388,14 @@ export class KyselyGraphRepository implements GraphRepository {
 
   /** Execute the keyset-paginated blast-radius CTE (ordered by depth, then id). */
   private async runBlastRadiusPage(
+    scope: GraphScope,
     id: SymbolId,
     kinds: readonly EdgeKind[],
     maxDepth: number,
     limit: number,
     cursor: string | undefined,
   ): Promise<Array<{ node_id: string; depth: number; path_det: number; max_depth: number }>> {
-    const cte = blastRadiusCte({ startId: id, kinds, maxDepth });
+    const cte = blastRadiusCte({ projectId: scope.projectId, startId: id, kinds, maxDepth });
     const keyset = blastKeysetClause(cursor);
     const query = sql<{
       node_id: string;
@@ -365,13 +416,14 @@ export class KyselyGraphRepository implements GraphRepository {
     return rows;
   }
 
-  async mapView(options: MapViewOptions): Promise<MapView> {
+  async mapView(scope: GraphScope, options: MapViewOptions): Promise<MapView> {
     if (options.level === 'symbol' && options.scope === undefined) {
       throw new Error('mapView: the symbol level requires a file scope');
     }
     const limit = clampLimit(options.limit);
     const containerRows = await selectContainerRows(
       this.db,
+      scope.projectId,
       options.level,
       options.scope,
       limit + 1,
@@ -380,8 +432,8 @@ export class KyselyGraphRepository implements GraphRepository {
     const kept = truncated ? containerRows.slice(0, limit) : containerRows;
     const ids = kept.map((row) => row.id);
     const [counts, edges] = await Promise.all([
-      selectChildCounts(this.db, options.level, ids),
-      selectProjectedEdges(this.db, options.level, ids),
+      selectChildCounts(this.db, scope.projectId, options.level, ids),
+      selectProjectedEdges(this.db, scope.projectId, options.level, ids),
     ]);
     const nodes = kept.map((row) => ({
       node: rowToNode(row),

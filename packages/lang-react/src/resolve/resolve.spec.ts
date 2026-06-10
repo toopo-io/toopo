@@ -103,9 +103,13 @@ describe('createReactResolver — Slice 2 cross-file binding', () => {
         message: expect.any(String),
       },
       {
+        // The module resolved but the export did not — attributed to the target
+        // file and the unbound name so a later "unused" view stays honest (C11).
         code: 'unresolved-export',
         importerFileId: id('src/Partial.tsx'),
         specifier: './Button',
+        targetFileId: id('src/Button.tsx'),
+        name: 'Ghost',
         message: expect.any(String),
       },
     ]);

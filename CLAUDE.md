@@ -38,7 +38,7 @@ and ADR-0020 (Serve).
 
 | Package | Status | Role |
 | --- | --- | --- |
-| `apps/web`, `apps/api` | existing | UI; API (thin) |
+| `apps/web`, `apps/api` | existing | UI; API (thin) — incl. the GitHub push-webhook receiver: verify HMAC, resolve repo→project, enqueue ingest job (ADR-0024) |
 | `apps/worker` | existing | minimal ingest→persist CLI to populate the graph DB; precursor to the queue/webhook worker (ADR-0020) |
 | `packages/{api-contracts, env, i18n, ui}` | existing | shared plumbing |
 | `packages/db` | existing | persistence: Kysely dual-backend (SQLite self-host / Postgres cloud) + Better Auth tables + project tenancy + project-scoped Serve read primitives + the `job` table & `JobStore` claim seam (ADR-0017, ADR-0020, ADR-0022, ADR-0023) |
@@ -64,6 +64,7 @@ supersede it with a new ADR. Foundational set:
 - **ADR-0020** — Serve pass: `packages/serve` composition + `@toopo/db` read primitives + thin `apps/api`; REST + Zod; on-read views; keyset pagination; `apps/worker` populate CLI.
 - **ADR-0022** — Project tenancy & graph access control: administrative `project` entity (distinct from the graph `repo` node); graph scoped by composite PK `(project_id, …)` + a mandatory `GraphScope`; instance-tenant OSS authorization; `/v1/projects/:projectId/graph/*` behind the session guard. Extends ADR-0017 (does not supersede).
 - **ADR-0023** — Job queue: abstract `Queue`/`Consumer` port selected by config; DB-backed dual-backend (SQLite serialized claim / Postgres `FOR UPDATE SKIP LOCKED`) + in-memory; Redis/BullMQ deferred; at-least-once, idempotent consumers, backoff+jitter retries, never-silent dead-letter; reference-only job payload. Extends ADR-0017 (the claim is its one documented portable-SQL exception).
+- **ADR-0024** — GitHub push-webhook ingestion: signature verification is a gate before any processing (HMAC-SHA256 over the raw body vs `X-Hub-Signature-256`, constant-time, reject before resolve/enqueue); raw body via Nest `rawBody: true`, `bodyLimit` 25 MB (GitHub's max deliverable payload); `GITHUB_WEBHOOK_SECRET` optional + fail-closed `503` when unset; only default-branch pushes enqueue; resolve-existing-only (miss → `200` ignored, B5 owns create); reference-only job deduped by `${projectId}:${commitSha}`; canonical host `'github.com'`. Extends ADR-0020/0022/0023.
 
 Read `docs/adr/README.md` before architectural work.
 

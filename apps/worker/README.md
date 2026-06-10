@@ -34,6 +34,13 @@ so the queue retries with backoff and dead-letters past the cap — never silent
 (ADR-0023). One job per process; scale by running more processes (the queue is the
 scaling seam — Postgres `FOR UPDATE SKIP LOCKED` hands distinct jobs to each).
 
+**Private repos (ADR-0026 §5).** When a project carries a GitHub-App installation
+id and the App is configured (`GITHUB_APP_ID` + `GITHUB_APP_PRIVATE_KEY`), the
+handler mints a short-lived installation token and the cloner feeds it to `git`
+through a `GIT_ASKPASS` program — never the remote URL, the argv, or a ref. With
+the App unset the worker clones public repos only (the unchanged B4 behavior). See
+[`docs/github-app-connect-setup.md`](../../docs/github-app-connect-setup.md).
+
 `SIGINT`/`SIGTERM` trigger a graceful shutdown: stop claiming, drain the in-flight
 job, then close every connection.
 
@@ -65,6 +72,8 @@ on boot — ADR-0008).
 | Name | Type | Default | Description |
 | --- | --- | --- | --- |
 | `DATABASE_URL` | SQLite (`file:`/`libsql:`) or Postgres URL | — | Target database; the scheme selects the backend (ADR-0017). Required by `consume`. |
+| `GITHUB_APP_ID` | number | — | GitHub-App id; with the key below, enables private-repo clones (ADR-0026). Unset ⇒ public clone only. |
+| `GITHUB_APP_PRIVATE_KEY` | base64 PEM | — | The App private key, base64-encoded; decoded at startup to mint installation tokens. |
 
 ## Project layout
 

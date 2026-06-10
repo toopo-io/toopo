@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Toopo worker — minimal ingest→persist CLI to populate the graph database (ADR-0020 Fork 5)",
+  "description": "Toopo worker — ingest→persist populate CLI + queue consume mode (clone, content-hash delta, full-replace persist; ADR-0020, ADR-0025)",
   "license": "AGPL-3.0-or-later",
   "bin": {
     "toopo-worker": "./dist/cli/bin.js",
@@ -29,7 +29,9 @@
     "@toopo/queue": "workspace:*"
   },
   "devDependencies": {
+    "@testcontainers/postgresql": "12.0.1",
     "@toopo/core": "workspace:*",
+    "@toopo/parser": "workspace:*",
     "@toopo/tsconfig": "workspace:*",
     "@toopo/vitest-config": "workspace:*",
     "@types/node": "25.8.0",

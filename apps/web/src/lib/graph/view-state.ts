@@ -25,8 +25,11 @@ export const DEFAULT_GRAPH_VIEW_STATE: GraphViewState = { level: 'package', blas
 const PARAM = { level: 'level', scope: 'scope', node: 'node', blast: 'blast' } as const;
 
 export function parseGraphViewState(params: URLSearchParams): GraphViewState {
-  const parsedLevel = MapLevelSchema.safeParse(params.get(PARAM.level));
-  const level: MapLevel = parsedLevel.success ? parsedLevel.data : 'package';
+  // Only validate a present value: passing `null` (an absent param) straight to
+  // a Zod enum's safeParse crashes the minified error-formatter in production.
+  const levelParam = params.get(PARAM.level);
+  const parsedLevel = levelParam !== null ? MapLevelSchema.safeParse(levelParam) : null;
+  const level: MapLevel = parsedLevel?.success === true ? parsedLevel.data : 'package';
   const scope = nonEmpty(params.get(PARAM.scope));
   const node = nonEmpty(params.get(PARAM.node));
   const blast = params.get(PARAM.blast) === '1';

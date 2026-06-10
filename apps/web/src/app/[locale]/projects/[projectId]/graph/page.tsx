@@ -2,7 +2,7 @@ import type { MapLevel, MapView } from '@toopo/api-contracts';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
-import type { ReactNode } from 'react';
+import { type ReactNode, Suspense } from 'react';
 import { graphApi } from '../../../../../lib/graph/api';
 import { routes } from '../../../../../lib/routes';
 import { getServerSession } from '../../../../../lib/server-session';
@@ -69,7 +69,15 @@ export default async function ProjectGraphPage({
         <p className="text-muted-foreground text-sm">{t('subtitle')}</p>
       </header>
       <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-border bg-muted/20">
-        <GraphExplorer projectId={projectId} initialLevel={initialLevel} initialMap={initialMap} />
+        {/* GraphExplorer reads useSearchParams (the URL-encoded view state), which
+            Next requires under a Suspense boundary in the production build. */}
+        <Suspense fallback={null}>
+          <GraphExplorer
+            projectId={projectId}
+            initialLevel={initialLevel}
+            initialMap={initialMap}
+          />
+        </Suspense>
       </div>
     </main>
   );

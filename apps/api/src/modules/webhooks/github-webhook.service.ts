@@ -8,10 +8,11 @@
  * reference (project + repo coords + commit sha), never the code, deduped by the
  * work unit `${projectId}:${commitSha}` so GitHub's redeliveries coalesce.
  */
-import { Inject, Injectable } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import type { ProjectRepository } from '@toopo/db';
 import type { JobReference, Queue } from '@toopo/queue';
 import { Logger } from 'nestjs-pino';
+import { ZodValidationException } from 'nestjs-zod';
 import { PROJECT_REPOSITORY } from '../database/database.module';
 import { QUEUE } from '../queue/queue.module';
 import { type GithubPushEvent, GithubPushEventSchema } from './github-push-event.schema';
@@ -28,6 +29,29 @@ function isZeroSha(sha: string): boolean {
   return /^0+$/.test(sha);
 }
 
+/**
+ * Parse and validate the VERIFIED raw body as a push event (ADR-0024 §4,
+ * ADR-0006). Parsing the exact bytes the gate signed — rather than a framework
+ * re-parse — keeps the verified payload and the acted-on payload identical.
+ * Malformed JSON or a schema miss surfaces as a `400`, never a `500`.
+ */
+function parsePushEvent(rawBody: Buffer | undefined): GithubPushEvent {
+  if (rawBody === undefined || rawBody.length === 0) {
+    throw new BadRequestException('Empty webhook payload');
+  }
+  let json: unknown;
+  try {
+    json = JSON.parse(rawBody.toString('utf8'));
+  } catch {
+    throw new BadRequestException('Malformed webhook payload (invalid JSON)');
+  }
+  const result = GithubPushEventSchema.safeParse(json);
+  if (!result.success) {
+    throw new ZodValidationException(result.error);
+  }
+  return result.data;
+}
+
 @Injectable()
 export class GithubWebhookService {
   constructor(
@@ -37,19 +61,19 @@ export class GithubWebhookService {
   ) {}
 
   /**
-   * Handle one verified delivery. Non-push events are acknowledged untouched;
-   * a push is validated (throws `ZodError` → 400) and routed through the scope,
-   * resolve, and enqueue steps.
+   * Handle one verified delivery, given the verified raw body. Non-push events
+   * are acknowledged untouched (no parse); a push is parsed and validated (a bad
+   * payload → 400) and routed through the scope, resolve, and enqueue steps.
    */
   async handle(
     event: string | undefined,
     deliveryId: string | undefined,
-    body: unknown,
+    rawBody: Buffer | undefined,
   ): Promise<WebhookResult> {
     if (event !== 'push') {
       return { status: 'acknowledged', reason: `event '${event ?? 'unknown'}' is not a push` };
     }
-    const payload = GithubPushEventSchema.parse(body);
+    const payload = parsePushEvent(rawBody);
     return this.handlePush(payload, deliveryId);
   }
 

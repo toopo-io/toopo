@@ -46,7 +46,7 @@ export class GithubWebhookController {
   async receive(@Req() request: RawBodyRequest<FastifyRequest>): Promise<GithubWebhookResponse> {
     const event = headerValue(request.headers[GITHUB_EVENT_HEADER]);
     const deliveryId = headerValue(request.headers[GITHUB_DELIVERY_HEADER]);
-    const result = await this.service.handle(event, deliveryId, request.body);
+    const result = await this.service.handle(event, deliveryId, request.rawBody);
     return toResponse(result);
   }
 }

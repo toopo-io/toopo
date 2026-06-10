@@ -8,8 +8,8 @@
 import type { EnqueueOutcome, ProjectRecord, ProjectRepository } from '@toopo/db';
 import type { JobReference, Queue } from '@toopo/queue';
 import type { Logger } from 'nestjs-pino';
+import { ZodValidationException } from 'nestjs-zod';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ZodError } from 'zod';
 import { GithubWebhookService } from './github-webhook.service';
 
 const PROJECT_ID = 'project-123';
@@ -28,17 +28,20 @@ function projectRecord(): ProjectRecord {
   };
 }
 
-function pushPayload(overrides: Record<string, unknown> = {}): Record<string, unknown> {
-  return {
-    ref: 'refs/heads/main',
-    after: COMMIT,
-    repository: {
-      name: 'web',
-      default_branch: 'main',
-      owner: { login: 'acme' },
-    },
-    ...overrides,
-  };
+/** The verified raw body a push delivery would carry, with optional overrides. */
+function pushPayload(overrides: Record<string, unknown> = {}): Buffer {
+  return Buffer.from(
+    JSON.stringify({
+      ref: 'refs/heads/main',
+      after: COMMIT,
+      repository: {
+        name: 'web',
+        default_branch: 'main',
+        owner: { login: 'acme' },
+      },
+      ...overrides,
+    }),
+  );
 }
 
 let enqueue: ReturnType<typeof vi.fn>;
@@ -107,7 +110,11 @@ describe('GithubWebhookService', () => {
   });
 
   it('acknowledges a non-push event without parsing the body — no resolve, no enqueue', async () => {
-    const result = await service.handle('ping', 'd1', { zen: 'Keep it logically awesome.' });
+    const result = await service.handle(
+      'ping',
+      'd1',
+      Buffer.from(JSON.stringify({ zen: 'Keep it logically awesome.' })),
+    );
     expect(result.status).toBe('acknowledged');
     expect(findProjectByRepo).not.toHaveBeenCalled();
     expect(enqueue).not.toHaveBeenCalled();
@@ -121,10 +128,19 @@ describe('GithubWebhookService', () => {
     expect(enqueue).not.toHaveBeenCalled();
   });
 
-  it('throws a ZodError on a malformed push payload — no enqueue', async () => {
-    await expect(service.handle('push', 'd1', { ref: 'refs/heads/main' })).rejects.toBeInstanceOf(
-      ZodError,
+  it('throws a 400 (ZodValidationException) on a malformed push payload — no enqueue', async () => {
+    const malformed = Buffer.from(JSON.stringify({ ref: 'refs/heads/main' }));
+    await expect(service.handle('push', 'd1', malformed)).rejects.toBeInstanceOf(
+      ZodValidationException,
     );
+    expect(enqueue).not.toHaveBeenCalled();
+  });
+
+  it('throws a 400 (BadRequestException) on non-JSON or empty body — no enqueue', async () => {
+    await expect(service.handle('push', 'd1', Buffer.from('not json'))).rejects.toMatchObject({
+      status: 400,
+    });
+    await expect(service.handle('push', 'd1', undefined)).rejects.toMatchObject({ status: 400 });
     expect(enqueue).not.toHaveBeenCalled();
   });
 

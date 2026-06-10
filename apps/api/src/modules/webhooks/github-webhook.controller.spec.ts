@@ -11,10 +11,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { GithubWebhookController } from './github-webhook.controller';
 import type { GithubWebhookService, WebhookResult } from './github-webhook.service';
 
-function requestWith(body: unknown): RawBodyRequest<FastifyRequest> {
+function requestWith(rawBody: Buffer): RawBodyRequest<FastifyRequest> {
   return {
     headers: { 'x-github-event': 'push', 'x-github-delivery': 'delivery-1' },
-    body,
+    rawBody,
   } as unknown as RawBodyRequest<FastifyRequest>;
 }
 
@@ -27,15 +27,15 @@ beforeEach(() => {
 });
 
 describe('GithubWebhookController', () => {
-  it('delegates the event, delivery id, and parsed body to the service', async () => {
-    const body = { ref: 'refs/heads/main' };
-    await controller.receive(requestWith(body));
-    expect(handle).toHaveBeenCalledWith('push', 'delivery-1', body);
+  it('delegates the event, delivery id, and raw body to the service', async () => {
+    const rawBody = Buffer.from('{"ref":"refs/heads/main"}');
+    await controller.receive(requestWith(rawBody));
+    expect(handle).toHaveBeenCalledWith('push', 'delivery-1', rawBody);
   });
 
   it('maps an enqueued result to the envelope, carrying deduplicated', async () => {
     handle.mockResolvedValueOnce({ status: 'enqueued', deduplicated: true });
-    await expect(controller.receive(requestWith({}))).resolves.toEqual({
+    await expect(controller.receive(requestWith(Buffer.from('{}')))).resolves.toEqual({
       status: 'enqueued',
       deduplicated: true,
     });
@@ -46,11 +46,15 @@ describe('GithubWebhookController', () => {
       status: 'ignored',
       reason: 'not a commit to the default branch',
     });
-    await expect(controller.receive(requestWith({}))).resolves.toEqual({ status: 'ignored' });
+    await expect(controller.receive(requestWith(Buffer.from('{}')))).resolves.toEqual({
+      status: 'ignored',
+    });
   });
 
   it('maps an acknowledged result to status only', async () => {
     handle.mockResolvedValueOnce({ status: 'acknowledged', reason: "event 'ping' is not a push" });
-    await expect(controller.receive(requestWith({}))).resolves.toEqual({ status: 'acknowledged' });
+    await expect(controller.receive(requestWith(Buffer.from('{}')))).resolves.toEqual({
+      status: 'acknowledged',
+    });
   });
 });

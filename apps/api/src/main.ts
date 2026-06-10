@@ -12,6 +12,7 @@ import { Env } from './env';
 import { I18nService } from './i18n/i18n.service';
 import { registerAuthRoute } from './modules/auth/auth.fastify-bridge';
 import { AUTH_INSTANCE, type Auth } from './modules/auth/auth.module';
+import { GITHUB_WEBHOOK_MAX_PAYLOAD_BYTES } from './modules/webhooks/github-webhook.constants';
 
 async function bootstrap(): Promise<void> {
   const adapter = new FastifyAdapter({
@@ -26,7 +27,16 @@ async function bootstrap(): Promise<void> {
 
   const app = await NestFactory.create<NestFastifyApplication>(AppModule, adapter, {
     bufferLogs: true,
+    // Capture the raw request body so the GitHub webhook gate can verify the
+    // HMAC over the exact bytes GitHub signed (ADR-0024 §2). Available as
+    // `RawBodyRequest.rawBody`; global JSON parsing is otherwise unchanged.
+    rawBody: true,
   });
+
+  // Raise the JSON parser limit to cover GitHub's maximum deliverable webhook
+  // payload (ADR-0024 §2) so a legitimate large push is never 413'd. Nest
+  // exposes this at parser granularity (global), not per-route.
+  app.useBodyParser('application/json', { bodyLimit: GITHUB_WEBHOOK_MAX_PAYLOAD_BYTES });
 
   const logger = app.get(Logger);
   app.useLogger(logger);

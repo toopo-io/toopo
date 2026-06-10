@@ -32,5 +32,11 @@ export const ApiEnvSchema = z.object({
 
   GOOGLE_CLIENT_ID: z.string().min(1).optional(),
   GOOGLE_CLIENT_SECRET: z.string().min(1).optional(),
+
+  // The GitHub-App webhook secret (ADR-0024 §3). Optional: a self-host with no
+  // GitHub App still boots (graceful degradation), and the webhook route fails
+  // closed (503) when it is unset — it never accepts an unsigned request. When
+  // present it must be at least 16 characters.
+  GITHUB_WEBHOOK_SECRET: z.string().min(16).optional(),
 });
 export type ApiEnv = z.infer<typeof ApiEnvSchema>;

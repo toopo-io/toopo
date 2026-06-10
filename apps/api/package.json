@@ -26,6 +26,7 @@
     "@toopo/db": "workspace:*",
     "@toopo/env": "workspace:*",
     "@toopo/i18n": "workspace:*",
+    "@toopo/queue": "workspace:*",
     "@toopo/serve": "workspace:*",
     "better-auth": "~1.6.11",
     "fastify": "5.8.5",

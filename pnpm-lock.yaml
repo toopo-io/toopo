@@ -68,6 +68,9 @@ importers:
       '@toopo/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
+      '@toopo/queue':
+        specifier: workspace:*
+        version: link:../../packages/queue
       '@toopo/serve':
         specifier: workspace:*
         version: link:../../packages/serve

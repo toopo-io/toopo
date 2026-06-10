@@ -10,12 +10,14 @@ import { DatabaseModule } from './modules/database/database.module';
 import { GraphModule } from './modules/graph/graph.module';
 import { HealthModule } from './modules/health/health.module';
 import { ProjectModule } from './modules/project/project.module';
+import { QueueModule } from './modules/queue/queue.module';
 import { UserModule } from './modules/user/user.module';
 
 @Module({
   imports: [
     CoreModule,
     DatabaseModule,
+    QueueModule,
     I18nModule,
     AuthModule,
     HealthModule,

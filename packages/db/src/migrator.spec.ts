@@ -101,8 +101,47 @@ for (const { backend, skip } of backends) {
         '0007_parse_fragment',
         '0008_github_app_connect',
         '0009_unresolved_reference',
+        '0010_project_workspace',
       ]);
       expect(results.every((r) => r.status === 'Success')).toBe(true);
+    });
+
+    it('lands the project workspace_id column and its index (0010)', async () => {
+      const tables = await harness.db.introspection.getTables();
+      const project = tables.find((t) => t.name === 'project');
+      const workspaceColumn = project?.columns.find((c) => c.name === 'workspace_id');
+      expect(workspaceColumn).toBeDefined();
+      expect(workspaceColumn?.isNullable).toBe(false);
+      expect(await indexExists(harness, 'project_workspace_id_idx')).toBe(true);
+    });
+
+    it('preserves every project column and index through the rebuild (0010)', async () => {
+      const tables = await harness.db.introspection.getTables();
+      const project = tables.find((t) => t.name === 'project');
+      // A silent column or index loss in the SQLite table rebuild is the HIGH risk
+      // of this migration — assert the EXACT final shape on both backends.
+      expect((project?.columns ?? []).map((c) => c.name).sort()).toEqual(
+        [
+          'archived_at',
+          'created_at',
+          'id',
+          'installation_id',
+          'owner_user_id',
+          'repo_host',
+          'repo_name',
+          'repo_owner',
+          'updated_at',
+          'workspace_id',
+        ].sort(),
+      );
+      for (const index of [
+        'project_repo_idx',
+        'project_owner_user_id_idx',
+        'project_archived_at_idx',
+        'project_workspace_id_idx',
+      ]) {
+        expect(await indexExists(harness, index)).toBe(true);
+      }
     });
 
     it('creates the four auth tables with a deletedAt column on user', async () => {

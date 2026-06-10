@@ -82,6 +82,27 @@ export interface MigrateOptions<DB = unknown> {
   readonly rootDir: string;
 }
 
+/** Build the backend's migrator over its committed `.sql` directory. */
+function buildMigrator<DB>(options: MigrateOptions<DB>): Migrator {
+  const directory = path.join(options.rootDir, options.backend);
+  return new Migrator({ db: options.db, provider: new SqlFileMigrationProvider(directory) });
+}
+
+/** Surface a migration failure with the offending migration named — never swallow. */
+function assertNoMigrationError(
+  error: unknown,
+  results: readonly MigrationResult[] | undefined,
+): void {
+  if (error === undefined) {
+    return;
+  }
+  const failed = results?.find((result) => result.status === 'Error');
+  const detail = failed !== undefined ? ` (failed at "${failed.migrationName}")` : '';
+  throw new Error(
+    `Database migration failed${detail}: ${error instanceof Error ? error.message : String(error)}`,
+  );
+}
+
 /**
  * Applies all pending migrations for the backend, in filename order. Throws on
  * the first failure with the offending migration surfaced — never swallows.
@@ -89,19 +110,22 @@ export interface MigrateOptions<DB = unknown> {
 export async function migrateToLatest<DB = unknown>(
   options: MigrateOptions<DB>,
 ): Promise<readonly MigrationResult[]> {
-  const directory = path.join(options.rootDir, options.backend);
-  const migrator = new Migrator({
-    db: options.db,
-    provider: new SqlFileMigrationProvider(directory),
-  });
+  const { error, results } = await buildMigrator(options).migrateToLatest();
+  assertNoMigrationError(error, results);
+  return results ?? [];
+}
 
-  const { error, results } = await migrator.migrateToLatest();
-  if (error !== undefined) {
-    const failed = results?.find((result) => result.status === 'Error');
-    const detail = failed !== undefined ? ` (failed at "${failed.migrationName}")` : '';
-    throw new Error(
-      `Database migration failed${detail}: ${error instanceof Error ? error.message : String(error)}`,
-    );
-  }
+/**
+ * Applies migrations up to and including `targetMigration` (Kysely's `migrateTo`),
+ * in filename order. Used to stage a backfill test: migrate to the migration
+ * BEFORE the one under test, seed legacy data, then migrate the rest. Same
+ * never-swallow error contract as {@link migrateToLatest}.
+ */
+export async function migrateTo<DB = unknown>(
+  options: MigrateOptions<DB>,
+  targetMigration: string,
+): Promise<readonly MigrationResult[]> {
+  const { error, results } = await buildMigrator(options).migrateTo(targetMigration);
+  assertNoMigrationError(error, results);
   return results ?? [];
 }

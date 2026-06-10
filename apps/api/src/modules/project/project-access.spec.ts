@@ -6,6 +6,7 @@ import { canAccessProject } from './project-access';
 const project: ProjectRecord = {
   id: 'p1',
   ownerUserId: 'owner',
+  workspaceId: 'ws-1',
   repoHost: 'github',
   repoOwner: 'acme',
   repoName: 'web',

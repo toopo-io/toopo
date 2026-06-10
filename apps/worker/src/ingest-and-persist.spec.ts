@@ -24,6 +24,7 @@ function opts(databaseUrl: string, repoName: string) {
     gitignore: false,
     repo: { host: 'github', owner: 'toopo', name: repoName },
     ownerUserId: 'system',
+    workspaceId: 'system',
   };
 }
 

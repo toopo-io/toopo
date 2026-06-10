@@ -16,6 +16,7 @@ export const E2E_PROJECT_ID = 'e2e-project';
 export const e2eProject: ProjectRecord = {
   id: E2E_PROJECT_ID,
   ownerUserId: 'u1',
+  workspaceId: 'ws-1',
   repoHost: 'github',
   repoOwner: 'acme',
   repoName: 'web',

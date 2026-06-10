@@ -17,11 +17,19 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import type { CompleteInstallResponse, InstallUrlResponse } from '@toopo/api-contracts';
-import type { GithubInstallationRepository, ProjectRepository } from '@toopo/db';
+import type {
+  GithubInstallationRepository,
+  MembershipRepository,
+  ProjectRepository,
+} from '@toopo/db';
 import type { GithubAppAuth, InstallationRepo } from '@toopo/github-app';
 import type { JobReference, Queue } from '@toopo/queue';
 import { Logger } from 'nestjs-pino';
-import { GITHUB_INSTALLATION_REPOSITORY, PROJECT_REPOSITORY } from '../database/database.module';
+import {
+  GITHUB_INSTALLATION_REPOSITORY,
+  MEMBERSHIP_REPOSITORY,
+  PROJECT_REPOSITORY,
+} from '../database/database.module';
 import { QUEUE } from '../queue/queue.module';
 import { GITHUB_WEBHOOK_HOST } from '../webhooks/github-webhook.constants';
 import {
@@ -47,6 +55,7 @@ export class GithubInstallService {
     @Inject(GITHUB_APP_SLUG) private readonly appSlug: string | undefined,
     @Inject(GITHUB_INSTALL_STATE_SECRET) private readonly stateSecret: string,
     @Inject(PROJECT_REPOSITORY) private readonly projects: ProjectRepository,
+    @Inject(MEMBERSHIP_REPOSITORY) private readonly memberships: MembershipRepository,
     @Inject(GITHUB_INSTALLATION_REPOSITORY)
     private readonly installations: GithubInstallationRepository,
     @Inject(QUEUE) private readonly queue: Queue,
@@ -100,8 +109,20 @@ export class GithubInstallService {
     repos: readonly InstallationRepo[],
   ): Promise<number> {
     const auth = this.requireConfigured();
+    // Resolve the owner's workspace ONCE — it is constant for the call, and every
+    // connected project must land in it (ADR-0028, Phase 2). The owner reached
+    // this path through the session guard, which lazily provisions a personal
+    // workspace (Phase 1b), so this is non-null in practice; a null is a genuine
+    // invariant breach (we must never fabricate a workspace), so we fail loudly
+    // before connecting anything — all-or-nothing.
+    const workspaceId = await this.memberships.findFirstWorkspaceId(ownerUserId);
+    if (workspaceId === null) {
+      throw new Error(
+        `Cannot connect repositories: owner ${ownerUserId} has no workspace to attribute them to`,
+      );
+    }
     for (const repo of repos) {
-      await this.provisionRepo(auth, installationId, ownerUserId, repo);
+      await this.provisionRepo(auth, installationId, ownerUserId, workspaceId, repo);
     }
     return repos.length;
   }
@@ -138,6 +159,7 @@ export class GithubInstallService {
     auth: GithubAppAuth,
     installationId: number,
     ownerUserId: string,
+    workspaceId: string,
     repo: InstallationRepo,
   ): Promise<void> {
     const installationIdText = String(installationId);
@@ -150,6 +172,7 @@ export class GithubInstallService {
     if (existing === null) {
       const created = await this.projects.createProject({
         ownerUserId,
+        workspaceId,
         repoHost: GITHUB_WEBHOOK_HOST,
         repoOwner: repo.owner,
         repoName: repo.name,

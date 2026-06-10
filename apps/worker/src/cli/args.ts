@@ -13,6 +13,12 @@ import { parseArgs as nodeParseArgs } from 'node:util';
  *  (no FK), recorded for provenance and the future cloud isolation rule. */
 export const DEFAULT_OWNER_USER_ID = 'system';
 
+/** The default Workspace for CLI-populated graphs (ADR-0028): the worker has no
+ *  session, so it cannot resolve a user's workspace the way the install flow does
+ *  (Phase 2). The connect is attributed to a system workspace unless
+ *  `--workspace-id` is given. `workspace_id` is a logical reference (no FK). */
+export const DEFAULT_WORKSPACE_ID = 'system';
+
 export interface WorkerCliOptions {
   readonly rootDir: string;
   readonly databaseUrl: string;
@@ -25,12 +31,14 @@ export interface WorkerCliOptions {
   };
   /** The user the project is attributed to on first connect. */
   readonly ownerUserId: string;
+  /** The workspace the project is attributed to on first connect (ADR-0028). */
+  readonly workspaceId: string;
 }
 
 export const USAGE =
   'Usage: toopo-worker ingest <dir> --database-url <url> \\\n' +
   '         --repo-host <host> --repo-owner <owner> --repo-name <name> \\\n' +
-  '         [--owner-user-id <id>] [--no-gitignore]\n' +
+  '         [--owner-user-id <id>] [--workspace-id <id>] [--no-gitignore]\n' +
   '  (DATABASE_URL env is used when --database-url is omitted; the repo triple\n' +
   '   resolves-or-creates the project the graph is scoped to, ADR-0022)';
 
@@ -47,6 +55,7 @@ export function parseArgs(
       'repo-owner': { type: 'string' },
       'repo-name': { type: 'string' },
       'owner-user-id': { type: 'string' },
+      'workspace-id': { type: 'string' },
       'no-gitignore': { type: 'boolean' },
     },
   });
@@ -84,5 +93,6 @@ export function parseArgs(
     gitignore: values['no-gitignore'] !== true,
     repo: { host, owner, name },
     ownerUserId: values['owner-user-id'] ?? DEFAULT_OWNER_USER_ID,
+    workspaceId: values['workspace-id'] ?? DEFAULT_WORKSPACE_ID,
   };
 }

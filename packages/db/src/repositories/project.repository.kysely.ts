@@ -29,6 +29,7 @@ export class KyselyProjectRepository implements ProjectRepository {
     const row: Insertable<ProjectTable> = {
       id: randomUUID(),
       owner_user_id: input.ownerUserId,
+      workspace_id: input.workspaceId,
       repo_host: input.repoHost,
       repo_owner: input.repoOwner,
       repo_name: input.repoName,

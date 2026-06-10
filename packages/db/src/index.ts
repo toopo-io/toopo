@@ -24,6 +24,7 @@ export { createJobDatabase, type JobDatabaseHandle } from './job-database.js';
 export { MIGRATIONS_DIR } from './migrations-dir.js';
 export {
   type MigrateOptions,
+  migrateTo,
   migrateToLatest,
   SqlFileMigrationProvider,
   splitSqlStatements,
@@ -137,6 +138,13 @@ export type {
 } from './schema/graph-types.js';
 export type { JobDatabase, JobTable } from './schema/job-types.js';
 export type { ParseFragmentDatabase, ParseFragmentTable } from './schema/parse-fragment-types.js';
+export {
+  ORPHANED_WORKSPACE_NAME,
+  ORPHANED_WORKSPACE_SLUG,
+  PERSONAL_WORKSPACE_NAME,
+  PERSONAL_WORKSPACE_OWNER_ROLE,
+  personalWorkspaceSlug,
+} from './schema/personal-workspace.js';
 export type {
   GithubInstallationTable,
   ProjectDatabase,

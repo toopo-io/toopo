@@ -12,6 +12,7 @@ const mockCanAccess = vi.mocked(canAccessProject);
 const project: ProjectRecord = {
   id: 'p1',
   ownerUserId: 'u1',
+  workspaceId: 'ws-1',
   repoHost: 'github',
   repoOwner: 'acme',
   repoName: 'web',

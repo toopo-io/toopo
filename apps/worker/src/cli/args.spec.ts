@@ -23,6 +23,7 @@ describe('parseArgs', () => {
       gitignore: true,
       repo: { host: 'github', owner: 'toopo', name: 'toopo' },
       ownerUserId: 'system',
+      workspaceId: 'system',
     });
   });
 
@@ -60,6 +61,18 @@ describe('parseArgs', () => {
       'user-7',
     ]);
     expect(parsed.ownerUserId).toBe('user-7');
+  });
+
+  it('takes an explicit --workspace-id over the default', () => {
+    const parsed = parseArgs([
+      './repo',
+      '--database-url',
+      'file:g.db',
+      ...REPO_FLAGS,
+      '--workspace-id',
+      'ws-7',
+    ]);
+    expect(parsed.workspaceId).toBe('ws-7');
   });
 
   it('throws when the directory is missing', () => {

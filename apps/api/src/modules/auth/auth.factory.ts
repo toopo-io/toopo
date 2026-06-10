@@ -1,4 +1,9 @@
-import { authSchemaOptions, buildOrganizationPlugin } from '@toopo/db';
+import {
+  authSchemaOptions,
+  buildOrganizationPlugin,
+  PERSONAL_WORKSPACE_NAME,
+  personalWorkspaceSlug,
+} from '@toopo/db';
 import { negotiateLocale } from '@toopo/i18n';
 import { betterAuth } from 'better-auth';
 import type { Logger } from 'nestjs-pino';
@@ -16,9 +21,6 @@ type AuthDatabaseDeps = Pick<
   DatabaseService,
   'betterAuthDatabase' | 'userRepository' | 'membershipRepository'
 >;
-
-/** Display name of a freshly provisioned personal workspace; user-renameable. */
-const PERSONAL_WORKSPACE_NAME = 'Personal';
 
 export function createAuth(logger: Logger, email: AuthEmailService, database: AuthDatabaseDeps) {
   const sessionCreateBefore = createSessionCreateBeforeHook({
@@ -50,7 +52,7 @@ export function createAuth(logger: Logger, email: AuthEmailService, database: Au
       const created = await auth.api.createOrganization({
         body: {
           name: PERSONAL_WORKSPACE_NAME,
-          slug: `user-${userId}`,
+          slug: personalWorkspaceSlug(userId),
           userId,
           keepCurrentActiveOrganization: true,
         },

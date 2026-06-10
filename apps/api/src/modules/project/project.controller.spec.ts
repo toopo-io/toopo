@@ -7,6 +7,7 @@ import { ProjectListQueryDto } from './project.dto';
 const record: ProjectRecord = {
   id: 'p1',
   ownerUserId: 'u1',
+  workspaceId: 'ws-1',
   repoHost: 'github',
   repoOwner: 'acme',
   repoName: 'web',

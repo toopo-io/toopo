@@ -10,6 +10,7 @@ import type { MapQueryDto, NodeQueryDto } from './graph.dto';
 const project: ProjectRecord = {
   id: 'proj-123',
   ownerUserId: 'u1',
+  workspaceId: 'ws-1',
   repoHost: 'github',
   repoOwner: 'acme',
   repoName: 'web',

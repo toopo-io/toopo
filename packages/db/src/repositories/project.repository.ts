@@ -12,6 +12,12 @@ import type { ProjectRecord } from './project-records.js';
 export interface CreateProjectInput {
   /** The connecting user (recorded for provenance + future cloud isolation). */
   readonly ownerUserId: string;
+  /**
+   * The Workspace the project belongs to (ADR-0028): the owner's resolved
+   * workspace at connect time. Graph access is authorized through membership of
+   * this workspace (Phase 3). A logical reference (no SQL FK; ADR-0017 §7).
+   */
+  readonly workspaceId: string;
   /** The repo host (e.g. `github`). */
   readonly repoHost: string;
   /** The owner/org on the host. */

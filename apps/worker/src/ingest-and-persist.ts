@@ -35,6 +35,8 @@ export interface IngestAndPersistOptions {
   };
   /** The user the project is attributed to on first connect (ADR-0022 §1, §2). */
   readonly ownerUserId: string;
+  /** The workspace the project is attributed to on first connect (ADR-0028). */
+  readonly workspaceId: string;
 }
 
 export interface IngestAndPersistResult {
@@ -66,6 +68,7 @@ async function resolveProject(
   }
   const created = await projects.createProject({
     ownerUserId: options.ownerUserId,
+    workspaceId: options.workspaceId,
     repoHost: host,
     repoOwner: owner,
     repoName: name,

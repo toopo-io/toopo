@@ -15,6 +15,13 @@ type DbTimestamp = Date | string;
 export interface ProjectTable {
   id: string;
   owner_user_id: string;
+  /**
+   * The Workspace (a Better Auth `organization`, ADR-0028) this project belongs
+   * to. A LOGICAL no-FK reference to `organization`("id") — cross-module, like
+   * `owner_user_id` (ADR-0017 §7). Graph access is authorized through membership
+   * of this workspace (Phase 3); the graph keys never include it (ADR-0022 §3).
+   */
+  workspace_id: string;
   repo_host: string;
   repo_owner: string;
   repo_name: string;

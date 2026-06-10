@@ -26,6 +26,7 @@ function projectRecord(): ProjectRecord {
   return {
     id: PROJECT_ID,
     ownerUserId: 'user-1',
+    workspaceId: 'ws-1',
     repoHost: 'github.com',
     repoOwner: 'acme',
     repoName: 'web',

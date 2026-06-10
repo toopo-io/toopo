@@ -42,6 +42,7 @@ function connectedProject(): ProjectRecord {
   return {
     id: PROJECT_ID,
     ownerUserId: 'u1',
+    workspaceId: 'ws-1',
     repoHost: 'github.com',
     repoOwner: 'acme',
     repoName: 'web',

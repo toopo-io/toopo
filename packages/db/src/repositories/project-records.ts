@@ -16,6 +16,8 @@ export const ProjectRecordSchema = z.object({
   id: z.string(),
   /** Logical reference to the connecting `user` (no SQL FK; ADR-0017 §7). */
   ownerUserId: z.string(),
+  /** The owning Workspace (no SQL FK; ADR-0028, ADR-0022 §3). */
+  workspaceId: z.string(),
   repoHost: z.string(),
   repoOwner: z.string(),
   repoName: z.string(),
@@ -31,6 +33,7 @@ export type ProjectRecord = z.infer<typeof ProjectRecordSchema>;
 type ProjectRowLike = {
   readonly id: string;
   readonly owner_user_id: string;
+  readonly workspace_id: string;
   readonly repo_host: string;
   readonly repo_owner: string;
   readonly repo_name: string;
@@ -45,6 +48,7 @@ export function rowToProject(row: ProjectRowLike): ProjectRecord {
   return ProjectRecordSchema.parse({
     id: row.id,
     ownerUserId: row.owner_user_id,
+    workspaceId: row.workspace_id,
     repoHost: row.repo_host,
     repoOwner: row.repo_owner,
     repoName: row.repo_name,

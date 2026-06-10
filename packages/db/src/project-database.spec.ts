@@ -39,6 +39,7 @@ describe('createProjectDatabase', () => {
   it('exposes a repository that creates and reads back', async () => {
     const created = await handle.projectRepository.createProject({
       ownerUserId: 'user-1',
+      workspaceId: 'ws-1',
       repoHost: 'github',
       repoOwner: 'toopo',
       repoName: 'toopo',

@@ -32,12 +32,14 @@ for (const { backend, skip } of backends) {
       repository = new KyselyProjectRepository(harness.db as unknown as Kysely<ProjectDatabase>);
       web = await repository.createProject({
         ownerUserId: 'user-1',
+        workspaceId: 'ws-acme',
         repoHost: 'github',
         repoOwner: 'acme',
         repoName: 'web',
       });
       api = await repository.createProject({
         ownerUserId: 'user-1',
+        workspaceId: 'ws-acme',
         repoHost: 'github',
         repoOwner: 'acme',
         repoName: 'api',
@@ -59,6 +61,12 @@ for (const { backend, skip } of backends) {
       expect(web.archivedAt).toBeNull();
       expect(web.createdAt).toBeInstanceOf(Date);
       expect(web.updatedAt).toBeInstanceOf(Date);
+    });
+
+    it('round-trips the workspace_id (ADR-0028, Phase 2)', async () => {
+      expect(web.workspaceId).toBe('ws-acme');
+      const found = await repository.findProjectById(web.id);
+      expect(found?.workspaceId).toBe('ws-acme');
     });
 
     it('round-trips an optional installation id', () => {
@@ -100,6 +108,7 @@ for (const { backend, skip } of backends) {
       await expect(
         repository.createProject({
           ownerUserId: 'user-2',
+          workspaceId: 'ws-acme',
           repoHost: 'github',
           repoOwner: 'acme',
           repoName: 'web',
@@ -116,6 +125,7 @@ for (const { backend, skip } of backends) {
     it('soft-archives a project: it drops out of the listing but stays resolvable', async () => {
       const target = await repository.createProject({
         ownerUserId: 'user-1',
+        workspaceId: 'ws-acme',
         repoHost: 'github',
         repoOwner: 'acme',
         repoName: 'archived-repo',
@@ -135,6 +145,7 @@ for (const { backend, skip } of backends) {
     it('revives an archived project, clearing the archive and refreshing the installation', async () => {
       const target = await repository.createProject({
         ownerUserId: 'user-1',
+        workspaceId: 'ws-acme',
         repoHost: 'github',
         repoOwner: 'acme',
         repoName: 'revived-repo',

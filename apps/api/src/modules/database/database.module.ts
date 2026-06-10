@@ -25,6 +25,7 @@ import { Env } from '../../env';
 export const USER_REPOSITORY = Symbol.for('toopo.user-repository');
 export const GRAPH_REPOSITORY = Symbol.for('toopo.graph-repository');
 export const PROJECT_REPOSITORY = Symbol.for('toopo.project-repository');
+export const MEMBERSHIP_REPOSITORY = Symbol.for('toopo.membership-repository');
 export const GITHUB_INSTALLATION_REPOSITORY = Symbol.for('toopo.github-installation-repository');
 
 @Injectable()
@@ -103,6 +104,12 @@ export class DatabaseService implements OnModuleDestroy {
       inject: [DatabaseService],
     },
     {
+      provide: MEMBERSHIP_REPOSITORY,
+      useFactory: (database: DatabaseService): MembershipRepository =>
+        database.membershipRepository,
+      inject: [DatabaseService],
+    },
+    {
       provide: GITHUB_INSTALLATION_REPOSITORY,
       useFactory: (database: DatabaseService): GithubInstallationRepository =>
         database.githubInstallationRepository,
@@ -114,6 +121,7 @@ export class DatabaseService implements OnModuleDestroy {
     USER_REPOSITORY,
     GRAPH_REPOSITORY,
     PROJECT_REPOSITORY,
+    MEMBERSHIP_REPOSITORY,
     GITHUB_INSTALLATION_REPOSITORY,
   ],
 })

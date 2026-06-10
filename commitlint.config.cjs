@@ -51,6 +51,7 @@ module.exports = {
         'resolver',
         'ingest',
         'serve',
+        'queue',
         'worker',
         'env',
         'i18n',

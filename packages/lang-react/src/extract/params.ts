@@ -2,6 +2,7 @@ import type { Descriptor, Edge, Node, SymbolId } from '@toopo/core';
 import type { ExtractContext } from '@toopo/parser';
 import type { Node as SyntaxNode } from 'web-tree-sitter';
 import { SUBKIND } from '../subkinds.js';
+import { paramDetail, typeText } from './detail.js';
 import { parseEdge } from './edges.js';
 
 /**
@@ -31,6 +32,10 @@ interface DeclaredField {
   readonly node: SyntaxNode;
   /** A destructured field (object/array pattern member) vs a plain named parameter. */
   readonly destructured: boolean;
+  readonly type?: string | undefined;
+  readonly optional?: boolean | undefined;
+  readonly rest?: boolean | undefined;
+  readonly defaultValue?: string | undefined;
 }
 
 /**
@@ -75,7 +80,7 @@ export function extractParameters(
     if (pattern === null) {
       continue;
     }
-    for (const field of declaredFields(pattern)) {
+    for (const field of declaredFields(pattern, param)) {
       const isProp = field.destructured && isComponent;
       const subKind = isProp ? SUBKIND.prop : SUBKIND.parameter;
       const id = ctx.childId([...parentDescriptors, { name: field.name, suffix: 'parameter' }]);
@@ -85,7 +90,12 @@ export function extractParameters(
         name: field.name,
         subKind,
         location: ctx.locate(field.node),
-        properties: {},
+        properties: paramDetail({
+          type: field.type,
+          optional: field.optional,
+          rest: field.rest,
+          defaultValue: field.defaultValue,
+        }),
       });
       edges.push(
         parseEdge(
@@ -103,14 +113,37 @@ export function extractParameters(
   return { nodes, edges, children };
 }
 
-/** The declared bindings a parameter pattern introduces, by public name. */
-function declaredFields(pattern: SyntaxNode): DeclaredField[] {
+/**
+ * The declared bindings a parameter pattern introduces, by public name. `param`
+ * is the enclosing `required_parameter`/`optional_parameter`, which owns the
+ * type annotation, optionality, and a simple default for a plain identifier.
+ */
+function declaredFields(pattern: SyntaxNode, param: SyntaxNode): DeclaredField[] {
   switch (pattern.type) {
     case 'identifier':
-      return [{ name: pattern.text, node: pattern, destructured: false }];
+      return [
+        {
+          name: pattern.text,
+          node: pattern,
+          destructured: false,
+          type: typeText(param.childForFieldName('type')),
+          optional: param.type === 'optional_parameter',
+          defaultValue: param.childForFieldName('value')?.text,
+        },
+      ];
     case 'rest_pattern': {
       const inner = pattern.namedChildren.find((child) => child?.type === 'identifier') ?? null;
-      return inner === null ? [] : [{ name: inner.text, node: inner, destructured: false }];
+      return inner === null
+        ? []
+        : [
+            {
+              name: inner.text,
+              node: inner,
+              destructured: false,
+              rest: true,
+              type: typeText(param.childForFieldName('type')),
+            },
+          ];
     }
     case 'object_pattern':
       return pattern.namedChildren.flatMap(objectPatternField);
@@ -137,11 +170,22 @@ function objectPatternField(child: SyntaxNode | null): DeclaredField[] {
     }
     case 'object_assignment_pattern': {
       const left = child.childForFieldName('left');
-      return left === null ? [] : [{ name: left.text, node: left, destructured: true }];
+      return left === null
+        ? []
+        : [
+            {
+              name: left.text,
+              node: left,
+              destructured: true,
+              defaultValue: child.childForFieldName('right')?.text,
+            },
+          ];
     }
     case 'rest_pattern': {
       const inner = child.namedChildren.find((node) => node?.type === 'identifier') ?? null;
-      return inner === null ? [] : [{ name: inner.text, node: inner, destructured: true }];
+      return inner === null
+        ? []
+        : [{ name: inner.text, node: inner, destructured: true, rest: true }];
     }
     default:
       return [];

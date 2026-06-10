@@ -43,12 +43,23 @@ function clauseNames(clause: SyntaxNode | null): string[] {
   return names;
 }
 
-/** The bare identifier of a (possibly generic) supertype reference, or null. */
+/**
+ * The name of a (possibly generic) supertype reference, or null. A plain
+ * identifier/type-identifier yields its text; a dotted reference
+ * (`React.Component`, `ns.Mixin`) yields the full dotted text so a qualified
+ * base (e.g. a React class component's base) is recognizable — binding it to a
+ * symbol stays the caller's job, and an unbindable dotted name simply gets no
+ * heritage edge (trust principle). Generic arguments are dropped (`Base<T>` →
+ * `Base`).
+ */
 function baseTypeName(node: SyntaxNode | null): string | null {
   if (node === null) {
     return null;
   }
   if (node.type === 'identifier' || node.type === 'type_identifier') {
+    return node.text;
+  }
+  if (node.type === 'member_expression' || node.type === 'nested_type_identifier') {
     return node.text;
   }
   if (node.type === 'generic_type') {

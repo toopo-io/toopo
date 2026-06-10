@@ -2,7 +2,6 @@ import type { Descriptor, Edge, Node, SymbolId } from '@toopo/core';
 import type { ExtractContext } from '@toopo/parser';
 import type { Node as SyntaxNode } from 'web-tree-sitter';
 import type { SymbolSubKind } from '../subkinds.js';
-import { SUBKIND } from '../subkinds.js';
 import { classifyDeclaration } from './declarations.js';
 import { parseEdge } from './edges.js';
 import type { Heritage } from './heritage.js';
@@ -65,7 +64,7 @@ export function extractSymbols(ctx: ExtractContext, jsx: boolean): SymbolExtract
       name: declaration.name,
       subKind: declaration.subKind,
       location: ctx.locate(definition),
-      properties: {},
+      properties: declaration.properties,
     });
     edges.push(parseEdge('contains', ctx.fileId, id, 'react/contains-symbol'));
 
@@ -88,7 +87,7 @@ export function extractSymbols(ctx: ExtractContext, jsx: boolean): SymbolExtract
       heritage: declaration.heritage,
     });
 
-    if (declaration.subKind === SUBKIND.class || declaration.subKind === SUBKIND.interface) {
+    if (isContainerDeclaration(definition)) {
       const members = extractMembers(ctx, definition, descriptor, id);
       nodes.push(...members.nodes);
       edges.push(...members.edges);
@@ -97,4 +96,16 @@ export function extractSymbols(ctx: ExtractContext, jsx: boolean): SymbolExtract
   }
 
   return { nodes, edges, symbols };
+}
+
+const CONTAINER_TYPES: ReadonlySet<string> = new Set([
+  'class_declaration',
+  'abstract_class_declaration',
+  'interface_declaration',
+]);
+
+/** A class/interface declaration owns members — independent of its subKind (a
+ *  React class component is a `react:component` yet still declares members). */
+function isContainerDeclaration(definition: SyntaxNode): boolean {
+  return CONTAINER_TYPES.has(definition.type);
 }

@@ -2,6 +2,7 @@ import type { Descriptor, Edge, Node, SymbolId } from '@toopo/core';
 import type { ExtractContext } from '@toopo/parser';
 import type { Node as SyntaxNode } from 'web-tree-sitter';
 import { SUBKIND, type SymbolSubKind } from '../subkinds.js';
+import { callableDetail, fieldDetail } from './detail.js';
 import { parseEdge } from './edges.js';
 import { extractParameters } from './params.js';
 import type { ExtractedSymbol } from './symbols.js';
@@ -89,7 +90,9 @@ export function extractMembers(
       name: member.name,
       subKind: SUBKIND_BY_ROLE[member.role],
       location: ctx.locate(member.node),
-      properties: {},
+      properties: isMethodLike(member.role)
+        ? callableDetail(member.node, member.node)
+        : fieldDetail(member.node),
     });
     edges.push(parseEdge('contains', parentSymbolId, id, RULE_BY_ROLE[member.role]));
 

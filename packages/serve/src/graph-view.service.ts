@@ -14,6 +14,8 @@
 import type {
   BlastRadiusPage,
   BlastRadiusQuery,
+  CallBinding,
+  CallBindings,
   GraphNeighbor,
   MapQuery,
   MapView,
@@ -25,7 +27,7 @@ import type {
   NodeRelationsQuery,
   SearchQuery,
 } from '@toopo/api-contracts';
-import type { Node } from '@toopo/core';
+import type { Edge, Node } from '@toopo/core';
 import type { GraphRepository, GraphScope, Neighbor, Page } from '@toopo/db';
 
 /** Carry the optional page `total` into the contract envelope only when present (D9). */
@@ -126,6 +128,35 @@ export class GraphViewService {
       cursor: query.cursor,
     });
     return toNodePage(page);
+  }
+
+  /**
+   * D1 — the binding-stitched view of one call-site: each payload argument joined
+   * to the parameter/prop it binds, via the call-site's outgoing binding
+   * `references` edges. A prop/arg binds its receiver BY NAME (the parser/resolver
+   * binding rule), so the stitch matches each argument's name to the receiving
+   * symbol's name — language-agnostic here; the binding's `subKind` stays on the
+   * edge for the UI. An argument that bound nothing is shown unbound (nulls),
+   * never guessed (the trust principle). Returns `null` when the id is not a
+   * call-site (the host maps that to 404).
+   */
+  async callBindings(scope: GraphScope, query: NodeQuery): Promise<CallBindings | null> {
+    const callSite = await this.repository.getNode(scope, query.id);
+    if (callSite === null || callSite.kind !== 'callSite') {
+      return null;
+    }
+    const references = await this.repository.neighbors(scope, query.id, 'out', 'references');
+    const byParamName = new Map<string, { node: Node; edge: Edge }>();
+    for (const { edge, node } of references) {
+      if (node !== null && node.kind === 'symbol') {
+        byParamName.set(node.name, { node, edge });
+      }
+    }
+    const bindings: CallBinding[] = callSite.payload.map((argument) => {
+      const match = argument.name === undefined ? undefined : byParamName.get(argument.name);
+      return { argument, parameter: match?.node ?? null, edge: match?.edge ?? null };
+    });
+    return { callSite, bindings };
   }
 
   /** V5 — bounded node search by name/path substring and/or kind/subKind. */

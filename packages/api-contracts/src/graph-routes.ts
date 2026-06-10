@@ -45,6 +45,8 @@ export const GRAPH_SEGMENTS = {
   DECLARED_INTERFACE: 'declared-interface',
   /** Call-sites (zoom-in): the call-sites a symbol encloses. */
   CALL_SITES: 'call-sites',
+  /** D1 — a call-site's payload arguments stitched to the params/props they bind. */
+  CALL_BINDINGS: 'call-bindings',
   /** V5 — node search by name/path/kind/subKind. */
   SEARCH: 'search',
 } as const;

@@ -77,6 +77,22 @@ structure, not the model (ADR-0015) or storage (ADR-0017), which it obeys.
 - **Materialized/stored views** — precluded by ADR-0015 §3 unless superseded.
 - **Offset pagination** — rejected (drifts and scans on large graphs).
 
+## Amendment — 2026-06-10 (Phase B): catalog additions
+
+The view catalog (§5) gains two read views and one envelope fill, all additive:
+
+- **D1 — binding-stitched call view** (`GraphViewService.callBindings`): one
+  call-site's payload arguments joined to the parameters/props they bind, by
+  matching each argument's name to the receiving symbol's (the resolver binds
+  props/args by name). Pure composition over existing primitives (`getNode` +
+  `neighbors`) — no new SQL. The binding `references` edge carries its
+  `resolution`/`confidence`, and an argument that bound nothing is shown unbound
+  (nulls), never guessed (the trust principle). Route `…/graph/call-bindings`.
+- **D9 — populated `total`**: the keyset envelope's `total` (Fork 4) is now filled
+  on the FIRST page only (one count alongside the first read, reflecting the
+  query's filters); later pages omit it. Keyset paging never needs it — it stays a
+  UI affordance, so it remains optional.
+
 ## Amendment — 2026-06-10 (C11): unresolved-reference read primitive
 
 The catalog (§5) gains `GraphRepository.unresolvedReferences(scope, options?)` —

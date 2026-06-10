@@ -12,7 +12,14 @@
  * Node ids (SCIP descriptor paths) contain `/`, spaces and backticks, so every
  * id-bearing endpoint takes the id as a query parameter, never a path segment.
  */
-import { EDGE_KINDS, EdgeSchema, NODE_KINDS, NodeSchema, RESOLUTIONS } from '@toopo/core';
+import {
+  CallSitePayloadArgumentSchema,
+  EDGE_KINDS,
+  EdgeSchema,
+  NODE_KINDS,
+  NodeSchema,
+  RESOLUTIONS,
+} from '@toopo/core';
 import { z } from 'zod';
 
 /** The containment level a map view aggregates to (ADR-0015 §2). */
@@ -192,3 +199,31 @@ export const NodeDetailSchema = z
   })
   .strict();
 export type NodeDetail = z.infer<typeof NodeDetailSchema>;
+
+/**
+ * One payload argument of a call, stitched to the parameter/prop it binds (D1):
+ * `parameter` is the receiving declared symbol and `edge` the binding `references`
+ * edge (carrying `resolution`/`confidence`, so trust is visible) — both `null`
+ * for an argument that bound to nothing (a spread, a positional/dynamic value, or
+ * a named arg the receiver does not declare). Nothing is invented: an unbound
+ * argument is shown as unbound, never guessed (the trust principle).
+ */
+export const CallBindingSchema = z
+  .object({
+    argument: CallSitePayloadArgumentSchema,
+    parameter: NodeSchema.nullable(),
+    edge: EdgeSchema.nullable(),
+  })
+  .strict();
+export type CallBinding = z.infer<typeof CallBindingSchema>;
+
+/**
+ * The binding-stitched view of one call-site (D1): the call-site node (its callee,
+ * ordinal, and payload) plus one {@link CallBinding} per payload argument, in
+ * payload order — the cross-file "this call passes these args into those
+ * parameters/props". Returns `null` upstream when the id is not a call-site.
+ */
+export const CallBindingsSchema = z
+  .object({ callSite: NodeSchema, bindings: z.array(CallBindingSchema) })
+  .strict();
+export type CallBindings = z.infer<typeof CallBindingsSchema>;

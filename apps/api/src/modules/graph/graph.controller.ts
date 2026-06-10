@@ -15,6 +15,7 @@ import { Controller, Get, NotFoundException, Query, UseGuards } from '@nestjs/co
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
   type BlastRadiusPage,
+  type CallBindings,
   GRAPH_API_VERSION,
   GRAPH_CONTROLLER_ROUTE,
   GRAPH_SEGMENTS,
@@ -32,6 +33,7 @@ import { SessionGuard } from '../user/session.guard';
 import {
   BlastRadiusPageDto,
   BlastRadiusQueryDto,
+  CallBindingsDto,
   MapQueryDto,
   MapViewDto,
   NeighborPageDto,
@@ -113,6 +115,22 @@ export class GraphController {
     @Query() query: NodeRelationsQueryDto,
   ): Promise<NodePage> {
     return this.views.callSites(scopeOf(project), query);
+  }
+
+  @Get(GRAPH_SEGMENTS.CALL_BINDINGS)
+  @ApiOperation({
+    summary: "A call-site's payload arguments stitched to the params/props they bind",
+  })
+  @ZodSerializerDto(CallBindingsDto)
+  async callBindings(
+    @CurrentProject() project: ProjectRecord,
+    @Query() query: NodeQueryDto,
+  ): Promise<CallBindings> {
+    const view = await this.views.callBindings(scopeOf(project), query);
+    if (view === null) {
+      throw new NotFoundException('Call-site not found');
+    }
+    return view;
   }
 
   @Get(GRAPH_SEGMENTS.SEARCH)

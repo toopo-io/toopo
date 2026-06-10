@@ -240,6 +240,59 @@ describe('GraphViewService pass-through', () => {
     expect(callSitesOf).toHaveBeenCalledWith(SCOPE, 'sA', { limit: undefined, cursor: undefined });
   });
 
+  it('stitches a call-site payload to the params it binds, leaving unbound args null (D1)', async () => {
+    const boundArg = {
+      ordinal: 0,
+      name: 'label',
+      passKind: 'named' as const,
+      value: '"x"',
+      resolution: 'deterministic' as const,
+    };
+    const spreadArg = {
+      ordinal: 1,
+      passKind: 'spread' as const,
+      value: 'rest',
+      resolution: 'inferred' as const,
+      confidence: 'low' as const,
+    };
+    const callSiteNode: Node = {
+      kind: 'callSite',
+      id: 'cs9',
+      enclosingSymbolId: 'sA',
+      callee: 'Widget',
+      ordinal: 0,
+      payload: [boundArg, spreadArg],
+      properties: {},
+    };
+    const bindingEdge: Edge = {
+      kind: 'references',
+      sourceId: 'cs9',
+      targetId: 'propP1',
+      subKind: 'react:propBinding',
+      resolution: 'deterministic',
+      provenance: { pass: 'resolve', rule: 'react/binds-prop' },
+    };
+    const service = new GraphViewService(
+      fakeRepository({
+        getNode: () => Promise.resolve(callSiteNode),
+        neighbors: (_scope, _id, _direction, _kind) =>
+          Promise.resolve([{ edge: bindingEdge, node: propP1 }]),
+      }),
+    );
+
+    const view = await service.callBindings(SCOPE, { id: 'cs9' });
+    expect(view?.callSite.id).toBe('cs9');
+    expect(view?.bindings).toEqual([
+      { argument: boundArg, parameter: propP1, edge: bindingEdge },
+      { argument: spreadArg, parameter: null, edge: null },
+    ]);
+  });
+
+  it('returns null from call-bindings when the id is not a call-site', async () => {
+    const service = new GraphViewService(fakeRepository({ getNode: () => Promise.resolve(nodeA) }));
+    expect(await service.callBindings(SCOPE, { id: 'sA' })).toBeNull();
+  });
+
   it('carries the page total through to the envelope, and omits it when absent (D9)', async () => {
     const withTotal = new GraphViewService(
       fakeRepository({

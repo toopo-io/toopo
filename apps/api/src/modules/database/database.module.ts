@@ -15,6 +15,7 @@ import {
   type GithubInstallationRepository,
   type GraphDatabaseHandle,
   type GraphRepository,
+  type MembershipRepository,
   type ProjectDatabaseHandle,
   type ProjectRepository,
   type UserRepository,
@@ -51,6 +52,11 @@ export class DatabaseService implements OnModuleDestroy {
 
   get userRepository(): UserRepository {
     return this.authHandle.userRepository;
+  }
+
+  /** Read seam over the organization plugin's `member` table (ADR-0028). */
+  get membershipRepository(): MembershipRepository {
+    return this.authHandle.membershipRepository;
   }
 
   /** The read-only code-graph repository backing the Serve API (ADR-0020). */

@@ -108,6 +108,16 @@ export interface InvitationTable {
   createdAt: DbTimestamp;
 }
 
+/**
+ * Toopo product vocabulary for the organization-plugin tables (ADR-0028, F4):
+ * an `organization` IS a Workspace, a `member` IS a Membership. The aliases let
+ * product/domain code speak the user-facing term while the row definitions —
+ * and every Better Auth write — keep the library's column names verbatim.
+ */
+export type WorkspaceTable = OrganizationTable;
+export type MembershipTable = MemberTable;
+export type WorkspaceInvitationTable = InvitationTable;
+
 /** The Kysely database schema for the auth module. */
 export interface AuthDatabase {
   user: UserTable;

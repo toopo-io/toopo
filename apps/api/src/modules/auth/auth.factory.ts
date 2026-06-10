@@ -7,11 +7,18 @@ import type { DatabaseService } from '../database/database.module';
 import { createSessionCreateBeforeHook } from './auth.soft-delete-guard';
 import type { AuthEmailService } from './email/email.service';
 import { buildResetPasswordUrl, buildVerifyEmailUrl } from './email/url-builders';
+import { createEnsureActiveWorkspace } from './workspace-provisioning';
 
 export type Auth = ReturnType<typeof createAuth>;
 
 /** The persistence surface the auth instance needs (from @toopo/db, F4). */
-type AuthDatabaseDeps = Pick<DatabaseService, 'betterAuthDatabase' | 'userRepository'>;
+type AuthDatabaseDeps = Pick<
+  DatabaseService,
+  'betterAuthDatabase' | 'userRepository' | 'membershipRepository'
+>;
+
+/** Display name of a freshly provisioned personal workspace; user-renameable. */
+const PERSONAL_WORKSPACE_NAME = 'Personal';
 
 export function createAuth(logger: Logger, email: AuthEmailService, database: AuthDatabaseDeps) {
   const sessionCreateBefore = createSessionCreateBeforeHook({
@@ -32,7 +39,28 @@ export function createAuth(logger: Logger, email: AuthEmailService, database: Au
   // CI drift-check guards it. `authSchemaOptions` carries the deletedAt RGPD
   // field extension (ADR-0013) — the single source shared with the migration
   // generator, so the running schema and the committed migrations never differ.
-  return betterAuth({
+  // Lazy personal-workspace provisioning (ADR-0028, Phase 1b). `createPersonal-
+  // Workspace` closes over `auth` declared below; it only runs at request time,
+  // long after construction, so this forward reference is a deferred closure —
+  // never a use-before-init. The fail-soft + race-safe contract lives in the
+  // policy module and is unit-tested there.
+  const ensureActiveWorkspace = createEnsureActiveWorkspace({
+    findFirstWorkspaceId: (userId) => database.membershipRepository.findFirstWorkspaceId(userId),
+    createPersonalWorkspace: async (userId) => {
+      const created = await auth.api.createOrganization({
+        body: {
+          name: PERSONAL_WORKSPACE_NAME,
+          slug: `user-${userId}`,
+          userId,
+          keepCurrentActiveOrganization: true,
+        },
+      });
+      return created?.id ?? null;
+    },
+    logger,
+  });
+
+  const auth = betterAuth({
     ...authSchemaOptions,
     database: database.betterAuthDatabase,
     secret: Env.BETTER_AUTH_SECRET,
@@ -120,9 +148,22 @@ export function createAuth(logger: Logger, email: AuthEmailService, database: Au
     databaseHooks: {
       session: {
         create: {
-          before: sessionCreateBefore,
+          // Soft-delete guard first (it throws to block a banned user), then
+          // ensure the session has an active workspace. Provisioning is fail-
+          // soft — it returns null instead of throwing — so it can never block a
+          // legitimate sign-in (ADR-0028, Phase 1b). Spreading `session`
+          // preserves every field Better Auth set; we only add the active id.
+          before: async (session) => {
+            await sessionCreateBefore(session);
+            const activeOrganizationId = await ensureActiveWorkspace(session.userId);
+            return activeOrganizationId === null
+              ? undefined
+              : { data: { ...session, activeOrganizationId } };
+          },
         },
       },
     },
   });
+
+  return auth;
 }

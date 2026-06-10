@@ -16,6 +16,7 @@ import {
   type BetterAuthDatabase,
   createAuthDatabase,
   type DatabaseBackend,
+  type MembershipRepository,
   MIGRATIONS_DIR,
   migrateToLatest,
   type UserRepository,
@@ -25,6 +26,7 @@ export interface AuthBackend {
   readonly backend: DatabaseBackend;
   readonly betterAuthDatabase: BetterAuthDatabase;
   readonly repository: UserRepository;
+  readonly membershipRepository: MembershipRepository;
   cleanup(): Promise<void>;
 }
 
@@ -50,6 +52,7 @@ async function migrated(
     backend,
     betterAuthDatabase: handle.betterAuthDatabase,
     repository: handle.userRepository,
+    membershipRepository: handle.membershipRepository,
     async cleanup() {
       await handle.close();
       await extraCleanup();

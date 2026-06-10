@@ -9,6 +9,8 @@
 import type { Kysely } from 'kysely';
 import { createDatabase } from './database.js';
 import type { KyselyBackendType } from './dialect.js';
+import type { MembershipRepository } from './repositories/membership.repository.js';
+import { KyselyMembershipRepository } from './repositories/membership.repository.kysely.js';
 import type { UserRepository } from './repositories/user.repository.js';
 import { KyselyUserRepository } from './repositories/user.repository.kysely.js';
 import type { AuthDatabase } from './schema/auth-types.js';
@@ -23,6 +25,8 @@ export interface AuthDatabaseHandle {
   /** Pass straight to `betterAuth({ database })`. */
   readonly betterAuthDatabase: BetterAuthDatabase;
   readonly userRepository: UserRepository;
+  /** Read seam over the organization plugin's `member` table (ADR-0028). */
+  readonly membershipRepository: MembershipRepository;
   /** Closes the underlying connection (call on shutdown). */
   close(): Promise<void>;
 }
@@ -32,6 +36,7 @@ export function createAuthDatabase(input: unknown): AuthDatabaseHandle {
   return {
     betterAuthDatabase: { db: handle.db, type: handle.type },
     userRepository: new KyselyUserRepository(handle.db),
+    membershipRepository: new KyselyMembershipRepository(handle.db),
     close: () => handle.db.destroy(),
   };
 }

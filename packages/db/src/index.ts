@@ -92,6 +92,8 @@ export {
   type JobRowLike,
   rowToJob,
 } from './repositories/job-records.js';
+export type { MembershipRepository } from './repositories/membership.repository.js';
+export { KyselyMembershipRepository } from './repositories/membership.repository.kysely.js';
 export type { ParseFragmentStore } from './repositories/parse-fragment.repository.js';
 export { KyselyParseFragmentStore } from './repositories/parse-fragment.repository.kysely.js';
 export type {
@@ -118,11 +120,14 @@ export type {
   AccountTable,
   AuthDatabase,
   InvitationTable,
+  MembershipTable,
   MemberTable,
   OrganizationTable,
   SessionTable,
   UserTable,
   VerificationTable,
+  WorkspaceInvitationTable,
+  WorkspaceTable,
 } from './schema/auth-types.js';
 export type {
   EdgeTable,

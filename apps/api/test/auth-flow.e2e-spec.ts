@@ -62,6 +62,7 @@ for (const { backend, skip } of backends) {
       auth = createAuth(noopLogger, email as unknown as AuthEmailService, {
         betterAuthDatabase: harness.betterAuthDatabase,
         userRepository: harness.repository,
+        membershipRepository: harness.membershipRepository,
       });
     }, 120_000);
 
@@ -89,6 +90,11 @@ for (const { backend, skip } of backends) {
       expect(signIn.user.email).toBe(signUpEmail);
       expect(signIn.token).toBeTruthy();
 
+      // Phase 1b (ADR-0028): the first session lazily provisions the user's
+      // personal workspace via the session.create.before hook.
+      const workspaceId = await harness.membershipRepository.findFirstWorkspaceId(signIn.user.id);
+      expect(workspaceId).not.toBeNull();
+
       // 4. Request a password reset and complete it with the emailed token.
       email.resetUrl = null;
       await auth.api.requestPasswordReset({
@@ -103,6 +109,12 @@ for (const { backend, skip } of backends) {
         body: { email: signUpEmail, password: NEW_PASSWORD },
       });
       expect(afterReset.user.email).toBe(signUpEmail);
+
+      // Idempotent: a later session reuses the same workspace — the unique
+      // `user-${id}` slug guarantees provisioning never creates a duplicate.
+      expect(await harness.membershipRepository.findFirstWorkspaceId(afterReset.user.id)).toBe(
+        workspaceId,
+      );
       await expect(
         auth.api.signInEmail({ body: { email: signUpEmail, password: PASSWORD } }),
       ).rejects.toThrow();

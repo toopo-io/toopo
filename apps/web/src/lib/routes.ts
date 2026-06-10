@@ -48,6 +48,9 @@ export const routes = {
   /** The cartography explorer for a selected project (ADR-0020 read API, ADR-0022). */
   projectGraph: (locale: string, projectId: string): string =>
     `/${locale}/${ROUTE_SEGMENTS.PROJECTS}/${encodeURIComponent(projectId)}/${ROUTE_SEGMENTS.GRAPH}`,
+
+  /** The GitHub-App post-install return page (ADR-0026 §5; GitHub's "Setup URL"). */
+  connect: (locale: string): string => `/${locale}/${ROUTE_SEGMENTS.CONNECT}`,
 } as const;
 
 /**
@@ -85,4 +88,7 @@ export const protectedPathPrefixes: readonly string[] = [
   // The whole project surface — the picker and every `/projects/:id/graph` — is
   // gated: the graph holds the user's private code (ADR-0022 §5, Fork 5).
   `/${ROUTE_SEGMENTS.PROJECTS}`,
+  // The GitHub-App return links the installation to the session user, so it must
+  // run signed-in (ADR-0026 §7); an anonymous return bounces to sign-in.
+  `/${ROUTE_SEGMENTS.CONNECT}`,
 ];

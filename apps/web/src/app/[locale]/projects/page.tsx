@@ -1,4 +1,10 @@
-import { Card, CardDescription, CardHeader, CardTitle } from '@toopo/ui/components/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@toopo/ui/components/card';
 import type { Route } from 'next';
 import { cookies } from 'next/headers';
 import Link from 'next/link';
@@ -8,6 +14,7 @@ import type { ReactNode } from 'react';
 import { listProjects } from '../../../lib/projects/api';
 import { routes } from '../../../lib/routes';
 import { getServerSession } from '../../../lib/server-session';
+import { ConnectRepositoryButton } from './connect-repository-button';
 
 // The project list reflects out-of-band connects; render dynamically.
 export const dynamic = 'force-dynamic';
@@ -36,11 +43,14 @@ export default async function ProjectsPage({ params }: ProjectsPageProps): Promi
 
   return (
     <main className="mx-auto flex max-w-screen-lg flex-col gap-6 px-6 py-12">
-      <header className="flex flex-col gap-1">
-        <h1 className="font-semibold text-2xl tracking-tight">Projects</h1>
-        <p className="text-muted-foreground text-sm">
-          Pick a connected repository to open its cartography.
-        </p>
+      <header className="flex flex-col gap-3">
+        <div className="flex flex-col gap-1">
+          <h1 className="font-semibold text-2xl tracking-tight">Projects</h1>
+          <p className="text-muted-foreground text-sm">
+            Pick a connected repository to open its cartography.
+          </p>
+        </div>
+        {projects.length > 0 ? <ConnectRepositoryButton /> : null}
       </header>
 
       {projects.length === 0 ? (
@@ -51,6 +61,9 @@ export default async function ProjectsPage({ params }: ProjectsPageProps): Promi
               Connect a repository to populate its graph, then it will appear here.
             </CardDescription>
           </CardHeader>
+          <CardContent>
+            <ConnectRepositoryButton />
+          </CardContent>
         </Card>
       ) : (
         <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">

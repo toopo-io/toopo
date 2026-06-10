@@ -65,6 +65,7 @@ for why catalogs are `.ts` and not `.json`.
 | `RESEND_FROM_NAME` | string | `Toopo` | Sender display name |
 | `GOOGLE_CLIENT_ID` | string | — (optional) | Google OAuth client ID (both `_ID` + `_SECRET` required) |
 | `GOOGLE_CLIENT_SECRET` | string | — (optional) | Google OAuth client secret |
+| `GITHUB_WEBHOOK_SECRET` | string ≥ 16 chars | — (optional) | GitHub-App webhook secret. When unset the webhook fails closed (`503`); see [ADR-0024](../../docs/adr/0024-github-push-webhook-ingestion.md) |
 
 All env vars are validated at boot by `createEnvValidator(ApiEnvSchema)`.
 Boot fails fast with a readable error if any are missing or invalid.
@@ -223,6 +224,39 @@ attaches the session via `@CurrentSession()`):
 The web `/account` page surfaces both as visible actions with localized
 confirmation copy (`Auth.account.export.*`, `Auth.account.delete.*`).
 
+## GitHub push webhook
+
+`modules/webhooks/` exposes a single thin endpoint
+(`POST /v1/webhooks/github`) that turns a GitHub push into a
+reference-only ingest job on the `@toopo/queue` producer (consumed by the
+worker in a later slice). It is the public, unauthenticated edge of the
+ingest pipeline, so signature verification is the first thing that runs
+(see [ADR-0024](../../docs/adr/0024-github-push-webhook-ingestion.md)):
+
+- **Verify-before-processing gate.** A `GithubSignatureGuard` runs before
+  the controller and verifies `X-Hub-Signature-256` as the HMAC-SHA256 of
+  the **raw** request body under `GITHUB_WEBHOOK_SECRET`, compared in
+  constant time (`crypto.timingSafeEqual`, length-checked so it never
+  throws). Missing → `401`, mismatch/tampered/wrong-algorithm → `403`,
+  secret unset → `503` (fail closed). No resolve, no enqueue, no work runs
+  for a bad signature. The raw body is captured via Nest's `rawBody: true`
+  and the JSON body parser limit is raised to **25 MiB** — GitHub's maximum
+  deliverable payload — so a legitimate large push is never `413`'d.
+- **Scope.** Only a `push` to the repository's `default_branch` that is not
+  a branch delete enqueues. `ping`, other events, non-default branches,
+  tags, and deletes are acknowledged `200` with no enqueue.
+- **Resolve-existing-only.** The repo coordinates resolve an existing
+  project via `findProjectByRepo` against the canonical host `github.com`.
+  A miss is acknowledged `200` and logged — project creation belongs to the
+  GitHub-App install/connect flow (a later slice), never the webhook.
+- **Reference-only, deduped.** The job carries `{ projectId, repo, commitSha }`
+  — a reference, never the code — with `dedupeKey = ${projectId}:${commitSha}`
+  so GitHub's redeliveries coalesce to one logical job.
+
+A malformed push payload is rejected `400` (validated with Zod against the
+exact verified bytes). The secret is read from validated `Env` and never
+logged; only the delivery id and event appear in logs.
+
 ## Related ADRs
 
 - [ADR-0011](../../docs/adr/0011-authentication-strategy.md) —
@@ -231,3 +265,6 @@ confirmation copy (`Auth.account.export.*`, `Auth.account.delete.*`).
   dual-backend (SQLite self-host / Postgres cloud); supersedes ADR-0012.
 - [ADR-0013](../../docs/adr/0013-rgpd-compliance.md) — data export,
   soft delete, cookie posture.
+- [ADR-0024](../../docs/adr/0024-github-push-webhook-ingestion.md) —
+  GitHub push-webhook ingestion: verify-before-processing gate,
+  resolve-existing-only, default-branch scope, reference-only enqueue.

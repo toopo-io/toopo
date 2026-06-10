@@ -1,52 +1,43 @@
-# Web E2E — cartography dogfood
+# Web E2E — gated cartography (full stack, self-contained)
 
-Playwright e2e for the visual cartography (ADR-0020). It drives a real browser
-against the running web app and asserts the V1 map renders over a **real,
-worker-populated graph** — by default Toopo's own (the dogfood).
+Playwright e2e for the project-scoped, **authenticated** cartography (ADR-0020 +
+ADR-0022). It is the positive-path complement to the 401 negative-path e2e in
+`apps/api` (`test/graph.e2e-spec.ts`): together they prove Fork 5 is closed —
+the graph is unreachable without a session, and reachable, project-scoped, with
+one.
 
-The web dev server is started/reused by Playwright. The **Serve API on port 4000
-over a populated graph is a prerequisite** — Playwright does not own it because
-it is a separate service with its own database. Stand it up once:
-
-```bash
-# From the repo root. Self-host backend = a local SQLite file (no shared infra).
-export DB="file:$(pwd)/.dogfood/toopo.db"
-
-# 1) Create + migrate the dogfood database (explicit, never on boot — ADR-0008).
-DATABASE_URL="$DB" pnpm --filter @toopo/db exec tsx src/bin/migrate.ts
-
-# 2) Populate it with Toopo's own graph via the worker CLI (ADR-0020 §6).
-pnpm --filter @toopo/worker exec tsx src/cli/bin.ts ingest "$(pwd)" --database-url "$DB"
-
-# 3) Boot the Serve API against that graph (other env from apps/api/.env).
-DATABASE_URL="$DB" node --env-file=apps/api/.env apps/api/dist/main.js
-```
-
-Then run the e2e (from `apps/web`):
+Unlike a thin UI test, this harness **owns the whole stack** — no manual
+prerequisites. From `apps/web`:
 
 ```bash
 pnpm exec playwright install chromium   # first run only
 pnpm test:e2e
 ```
 
-The screenshot artifacts are written to `apps/web/test-results/` —
-`graph-map.png` (the V1 map) and `blast-trust.png` (the blast-radius panel with
-per-hit certain/possible trust, ADR-0021).
+`playwright.config.ts` then:
 
-> **`blast-trust.spec.ts` needs the production web build, not `pnpm dev`.** It
-> opens the node-detail panel and blast overlay, which fetch the Serve API
-> **client-side**. The dev server's Fast Refresh reloads the page and aborts
-> in-flight client fetches, so the panel never settles. Build and serve the app
-> first, then point Playwright at it:
->
-> ```bash
-> pnpm --filter @toopo/web build
-> PORT=3000 pnpm --filter @toopo/web start &   # production server, no HMR
-> pnpm --filter @toopo/web exec playwright test blast-trust.spec.ts
-> ```
->
-> The SSR-rendered `graph.spec.ts` map test is unaffected and runs on `pnpm dev`.
+1. **`webServer` (API)** — `e2e/full-stack/start-api.mjs` wipes + migrates a
+   fresh ephemeral SQLite database (ADR-0008), worker-ingests the monorepo under
+   a project (resolve-or-create, ADR-0022), then starts the Nest API. The seed
+   runs in the server bootstrap because Playwright starts `webServer`s *before*
+   `globalSetup`, and the API connects to the database eagerly at boot.
+2. **`webServer` (web)** — `e2e/full-stack/start-web.mjs` builds and serves the
+   **production** Next app (no Turbopack-dev flakiness; HMR-free client fetches),
+   with `NEXT_PUBLIC_*` baked to point at the e2e API.
+3. **`setup` project** (`auth.setup.ts`) — signs a viewer up, verifies them
+   out-of-band, signs in for a real Better Auth session cookie, asserts the
+   authenticated project list returns the seeded project, and persists the
+   browser `storageState`.
+4. **`chromium` project** (`projects-graph.spec.ts`) — with that session,
+   browses the gated picker and opens the project-scoped graph, asserting the
+   cartography renders (nodes/edges/trust) and capturing the review artifacts
+   `test-results/projects-picker.png` and `test-results/project-graph.png`.
 
-> CI note: wiring steps 1–3 into a Playwright `globalSetup` (so the whole chain
-> is one command) is the follow-up when the e2e moves into CI. For now the
-> prerequisite is explicit and documented.
+One ephemeral SQLite file (under the OS temp dir) backs it all; **ports 3000 and
+4000 must be free**.
+
+> **Follow-up:** the blast-radius panel flow (open a symbol → toggle the overlay
+> → per-hit certain/possible trust, ADR-0021) is covered by unit tests
+> (`node-detail-panel.test.tsx`, the `blast` suite) and the `apps/api`
+> blast-radius e2e; adding its gated-UI screenshot to this harness (drill to a
+> symbol, open the panel) is a clean next step on this backbone.

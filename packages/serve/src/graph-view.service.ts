@@ -121,6 +121,20 @@ export class GraphViewService {
     return toNodePage(page);
   }
 
+  /**
+   * D2 — a container's declarations: its direct contained nodes (a package's
+   * files, a file's top-level symbols, a symbol's members), excluding call-sites.
+   * The UI drills any container one level down; each node's subKind/properties say
+   * what it is. Distinct from {@link declaredInterface} (the symbol-only interface).
+   */
+  async declarations(scope: GraphScope, query: NodeRelationsQuery): Promise<NodePage> {
+    const page = await this.repository.containedDeclarations(scope, query.id, {
+      limit: query.limit,
+      cursor: query.cursor,
+    });
+    return toNodePage(page);
+  }
+
   /** Zoom-in — the call-sites a symbol encloses (ADR-0015 §7 payloads). */
   async callSites(scope: GraphScope, query: NodeRelationsQuery): Promise<NodePage> {
     const page = await this.repository.callSitesOf(scope, query.id, {

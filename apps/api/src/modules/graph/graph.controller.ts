@@ -107,6 +107,16 @@ export class GraphController {
     return this.views.declaredInterface(scopeOf(project), query);
   }
 
+  @Get(GRAPH_SEGMENTS.DECLARATIONS)
+  @ApiOperation({ summary: "A container's declarations (package→files, file/symbol→members)" })
+  @ZodSerializerDto(NodePageDto)
+  declarations(
+    @CurrentProject() project: ProjectRecord,
+    @Query() query: NodeRelationsQueryDto,
+  ): Promise<NodePage> {
+    return this.views.declarations(scopeOf(project), query);
+  }
+
   @Get(GRAPH_SEGMENTS.CALL_SITES)
   @ApiOperation({ summary: 'The call-sites a symbol encloses' })
   @ZodSerializerDto(NodePageDto)

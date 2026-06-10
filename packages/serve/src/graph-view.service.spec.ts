@@ -87,6 +87,9 @@ function fakeRepository(overrides: Partial<GraphRepository>): GraphRepository {
     declaredInterface(_scope: GraphScope, _id: SymbolId, _options?: PageOptions) {
       return Promise.resolve(nodePage([]));
     },
+    containedDeclarations(_scope: GraphScope, _id: SymbolId, _options?: PageOptions) {
+      return Promise.resolve(nodePage([]));
+    },
     callSitesOf(_scope: GraphScope, _id: SymbolId, _options?: PageOptions) {
       return Promise.resolve(nodePage([]));
     },
@@ -238,6 +241,22 @@ describe('GraphViewService pass-through', () => {
 
     expect(declaredInterface).toHaveBeenCalledWith(SCOPE, 'sA', { limit: 5, cursor: 'c' });
     expect(callSitesOf).toHaveBeenCalledWith(SCOPE, 'sA', { limit: undefined, cursor: undefined });
+  });
+
+  it('forwards container declarations paging options with the scope (D2)', async () => {
+    const containedDeclarations = vi.fn(
+      (_scope: GraphScope, _id: SymbolId, _options?: PageOptions) =>
+        Promise.resolve(nodePage([nodeA])),
+    );
+    const service = new GraphViewService(fakeRepository({ containedDeclarations }));
+
+    const page = await service.declarations(SCOPE, { id: 'pkgA', limit: 3 });
+
+    expect(containedDeclarations).toHaveBeenCalledWith(SCOPE, 'pkgA', {
+      limit: 3,
+      cursor: undefined,
+    });
+    expect(page.items.map((n) => n.id)).toEqual(['sA']);
   });
 
   it('stitches a call-site payload to the params it binds, leaving unbound args null (D1)', async () => {

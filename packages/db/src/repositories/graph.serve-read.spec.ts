@@ -236,6 +236,32 @@ for (const { backend, skip } of backends) {
       });
     });
 
+    describe('containedDeclarations (D2)', () => {
+      it('returns a package’s files', async () => {
+        const page = await repository.containedDeclarations(SCOPE, 'pkgA');
+        expect(
+          page.items
+            .map((n) => ({ id: n.id, kind: n.kind }))
+            .sort((a, b) => (a.id < b.id ? -1 : 1)),
+        ).toEqual([
+          { id: 'fileA1', kind: 'file' },
+          { id: 'fileA2', kind: 'file' },
+        ]);
+      });
+
+      it('returns a file’s top-level symbols', async () => {
+        const page = await repository.containedDeclarations(SCOPE, 'fileA1');
+        expect(page.items.map((n) => n.id)).toEqual(['sA']);
+      });
+
+      it('returns a symbol’s members but excludes its call-sites, with a total', async () => {
+        const page = await repository.containedDeclarations(SCOPE, 'sA');
+        expect(page.items.map((n) => n.id)).toEqual(['propP1', 'propP2']);
+        expect(page.items.some((n) => n.id === 'cs1')).toBe(false);
+        expect(page.total).toBe(2);
+      });
+    });
+
     describe('callSitesOf', () => {
       it('returns the call-sites enclosed by a symbol', async () => {
         const page = await repository.callSitesOf(SCOPE, 'sA');

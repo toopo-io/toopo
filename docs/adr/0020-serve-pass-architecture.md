@@ -79,8 +79,15 @@ structure, not the model (ADR-0015) or storage (ADR-0017), which it obeys.
 
 ## Amendment — 2026-06-10 (Phase B): catalog additions
 
-The view catalog (§5) gains two read views and one envelope fill, all additive:
+The view catalog (§5) gains read views and one envelope fill, all additive:
 
+- **D2 — container declarations** (`GraphRepository.containedDeclarations` +
+  `GraphViewService.declarations`): a container's DIRECT contained nodes via
+  `contains`, excluding call-sites — uniform across levels (a package's files, a
+  file's top-level symbols, a symbol's members), so the UI drills any container one
+  level down; subKinds/properties say what each declaration is. Distinct from
+  `declaredInterface` (the symbol-only interface the node-detail view composes).
+  Route `…/graph/declarations`.
 - **D1 — binding-stitched call view** (`GraphViewService.callBindings`): one
   call-site's payload arguments joined to the parameters/props they bind, by
   matching each argument's name to the receiving symbol's (the resolver binds

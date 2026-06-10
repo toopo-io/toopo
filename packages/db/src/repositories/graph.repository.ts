@@ -286,6 +286,22 @@ export interface GraphRepository {
   declaredInterface(scope: GraphScope, id: SymbolId, options?: PageOptions): Promise<Page<Node>>;
 
   /**
+   * A container's declarations (D2): its DIRECT contained nodes via `contains`,
+   * EXCLUDING call-sites (which are statements, served by {@link callSitesOf}),
+   * keyset-paged by id. Uniform across containment levels — a package yields its
+   * files, a file its top-level symbols (functions/classes/types/variables), a
+   * symbol its members — so the UI drills any container one level down. The
+   * subKinds and `properties` carried on each node tell it which kind each
+   * declaration is. Distinct from {@link declaredInterface}, which is the
+   * symbol-only interface (params/props/members) the node-detail view composes.
+   */
+  containedDeclarations(
+    scope: GraphScope,
+    id: SymbolId,
+    options?: PageOptions,
+  ): Promise<Page<Node>>;
+
+  /**
    * The call-sites enclosed by a symbol (ADR-0015 §3 zoom-in, §7 payloads),
    * looked up by `enclosing_symbol_id` (indexed, ADR-0020 A1), keyset-paged by id.
    */

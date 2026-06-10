@@ -43,6 +43,8 @@ export const GRAPH_SEGMENTS = {
   BLAST_RADIUS: 'blast-radius',
   /** Declared interface (zoom-in): a symbol's contained param/prop symbols. */
   DECLARED_INTERFACE: 'declared-interface',
+  /** D2 — a container's declarations (a package's files, a file's/symbol's members). */
+  DECLARATIONS: 'declarations',
   /** Call-sites (zoom-in): the call-sites a symbol encloses. */
   CALL_SITES: 'call-sites',
   /** D1 — a call-site's payload arguments stitched to the params/props they bind. */

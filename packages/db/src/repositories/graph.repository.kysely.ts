@@ -489,6 +489,37 @@ export class KyselyGraphRepository implements GraphRepository {
     return buildPage(rows.map(rowToNode), limit, (node) => encodeCursor([node.id]), total);
   }
 
+  async containedDeclarations(
+    scope: GraphScope,
+    id: SymbolId,
+    options?: PageOptions,
+  ): Promise<Page<Node>> {
+    const limit = clampLimit(options?.limit);
+    // Both sides scoped (ADR-0022 §3). Exclude call-sites — they are statements,
+    // not declarations (served by callSitesOf); every other contained kind is a
+    // declaration (a package's files, a file's symbols, a symbol's members).
+    const base = this.db
+      .selectFrom('edge as c')
+      .innerJoin('node as n', 'n.id', 'c.target_id')
+      .where('c.project_id', '=', scope.projectId)
+      .where('n.project_id', '=', scope.projectId)
+      .where('c.source_id', '=', id)
+      .where('c.kind', '=', 'contains')
+      .where('n.kind', '!=', 'callSite');
+    const total = await firstPageTotal(options?.cursor, async () =>
+      rowCount(await base.select((eb) => eb.fn.countAll().as('count')).executeTakeFirst()),
+    );
+    let page = base.selectAll('n');
+    if (options?.cursor !== undefined) {
+      page = page.where('n.id', '>', String(decodeCursorTuple(options.cursor, 1)[0]));
+    }
+    const rows = await page
+      .orderBy('n.id')
+      .limit(limit + 1)
+      .execute();
+    return buildPage(rows.map(rowToNode), limit, (node) => encodeCursor([node.id]), total);
+  }
+
   async callSitesOf(scope: GraphScope, id: SymbolId, options?: PageOptions): Promise<Page<Node>> {
     const limit = clampLimit(options?.limit);
     const base = this.db

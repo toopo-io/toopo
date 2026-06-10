@@ -6,6 +6,14 @@
 export const GITHUB_WEBHOOK_ROUTE = 'webhooks/github';
 
 /**
+ * The canonical repo host for GitHub.com (ADR-0024 §7). B3 resolves and stamps
+ * the job reference with this literal; B5 (connect) MUST store the same string,
+ * since `findProjectByRepo` is an exact match. This is the binding host
+ * normalization across slices.
+ */
+export const GITHUB_WEBHOOK_HOST = 'github.com';
+
+/**
  * The maximum payload the JSON body parser accepts before the signature gate
  * (ADR-0024 §2). GitHub caps deliverable webhook payloads at 25 MB and never
  * sends a larger one; we buffer 25 MiB (26 214 400 B ≥ 25 MB, a small margin) so

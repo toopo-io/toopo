@@ -11,7 +11,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { setRequestLocale } from 'next-intl/server';
 import type { ReactNode } from 'react';
-import { listProjects } from '../../../lib/projects/api';
+import { listMyProjects } from '../../../lib/projects/api';
 import { routes } from '../../../lib/routes';
 import { getServerSession } from '../../../lib/server-session';
 import { ConnectRepositoryButton } from './connect-repository-button';
@@ -38,7 +38,9 @@ export default async function ProjectsPage({ params }: ProjectsPageProps): Promi
     .getAll()
     .map((entry) => `${entry.name}=${entry.value}`)
     .join('; ');
-  const page = await listProjects(locale, { headers: { cookie: cookieHeader } }).catch(() => null);
+  const page = await listMyProjects(locale, { headers: { cookie: cookieHeader } }).catch(
+    () => null,
+  );
   const projects = page?.items ?? [];
 
   return (

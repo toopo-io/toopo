@@ -41,11 +41,11 @@ export function createAuth(logger: Logger, email: AuthEmailService, database: Au
   // CI drift-check guards it. `authSchemaOptions` carries the deletedAt RGPD
   // field extension (ADR-0013) — the single source shared with the migration
   // generator, so the running schema and the committed migrations never differ.
-  // Lazy personal-workspace provisioning (ADR-0028, Phase 1b). `createPersonal-
-  // Workspace` closes over `auth` declared below; it only runs at request time,
-  // long after construction, so this forward reference is a deferred closure —
-  // never a use-before-init. The fail-soft + race-safe contract lives in the
-  // policy module and is unit-tested there.
+  // Lazy personal-workspace provisioning (ADR-0028, Phase 1b). The
+  // `createPersonalWorkspace` callback closes over `auth` declared below; it only
+  // runs at request time, long after construction, so this forward reference is a
+  // deferred closure — never a use-before-init. The fail-soft + race-safe contract
+  // lives in the policy module and is unit-tested there.
   const ensureActiveWorkspace = createEnsureActiveWorkspace({
     findFirstWorkspaceId: (userId) => database.membershipRepository.findFirstWorkspaceId(userId),
     createPersonalWorkspace: async (userId) => {

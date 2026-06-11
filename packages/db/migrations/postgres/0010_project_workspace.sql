@@ -17,6 +17,11 @@ update "project" set "workspace_id" = (
 
 -- 3) Tier 2 — synthesize the personal workspace for owners that exist but have no
 --    membership: one organization (slug user-<id>) plus one owner member.
+--    Guard invariant: the `not exists member` clause makes Tier 2 MUTUALLY
+--    EXCLUSIVE with Tier 1 (an owner with any membership was already backfilled
+--    there) and idempotent on re-run; the `not exists organization(slug)` clause
+--    guarantees convergence with Phase 1b — a personal workspace created later at
+--    runtime shares the unique slug, so neither side ever duplicates the other.
 insert into "organization" ("id", "name", "slug", "logo", "createdAt", "metadata")
 select gen_random_uuid()::text, 'Personal', 'user-' || "u"."id", null, CURRENT_TIMESTAMP, null
 from "user" "u"

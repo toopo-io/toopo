@@ -1,4 +1,5 @@
 import { resolveLocaleFromPath } from '@toopo/i18n';
+import { organizationClient } from 'better-auth/client/plugins';
 import { createAuthClient } from 'better-auth/react';
 import { Env } from '../../env';
 
@@ -9,6 +10,10 @@ import { Env } from '../../env';
 // request time so client-side navigation never produces a stale value.
 export const authClient = createAuthClient({
   baseURL: `${Env.NEXT_PUBLIC_AUTH_URL}/v1/auth`,
+  // The organization plugin = Workspace tenancy (ADR-0028). It exposes the
+  // membership read seam the shell uses: `organization.list()` (the picker) and
+  // `organization.setActive()` (switching the active workspace).
+  plugins: [organizationClient()],
   fetchOptions: {
     onRequest(context) {
       if (context.headers.has('x-toopo-locale') || typeof window === 'undefined') {

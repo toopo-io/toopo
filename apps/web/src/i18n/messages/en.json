@@ -72,6 +72,26 @@
       "truncated": "Impact shown up to the depth cap — deeper dependents may exist."
     }
   },
+  "AppShell": {
+    "workspace": "Workspace",
+    "repositories": "Repositories",
+    "noWorkspace": "No workspace",
+    "theme": {
+      "light": "Light",
+      "dark": "Dark",
+      "toggle": "Toggle colour theme"
+    },
+    "repo": {
+      "mapped": "mapped",
+      "notMapped": "not mapped yet"
+    },
+    "empty": {
+      "noRepos": "No repositories yet",
+      "noReposHint": "Connect a repository to populate its graph, then it appears here.",
+      "selectRepo": "Select a repository",
+      "selectRepoHint": "Pick a repository from the sidebar to open its cartography."
+    }
+  },
   "LocaleSwitcher": {
     "label": "Language",
     "locale": {

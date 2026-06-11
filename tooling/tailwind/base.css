@@ -40,6 +40,16 @@
   --color-input: var(--tp-line);
   --color-ring: var(--tp-line-strong);
 
+  /* Minimal surfaces + the trust hues, as semantic utilities (bg-canvas,
+     text-faint, border-line-strong, bg-certain/text-inferred). The trust pair
+     stays data-driven: a fact gets certain or inferred from its served
+     `resolution`, never a hardcoded class choice. */
+  --color-canvas: var(--tp-canvas);
+  --color-faint: var(--tp-faint);
+  --color-line-strong: var(--tp-line-strong);
+  --color-certain: var(--tp-certain);
+  --color-inferred: var(--tp-inferred);
+
   /* Kind hues — the gentle per-symbol colour (node borders, kind badges). */
   --color-kind-component: var(--k-component);
   --color-kind-hook: var(--k-hook);

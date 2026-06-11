@@ -2,7 +2,6 @@ import { notFound } from 'next/navigation';
 import { hasLocale, NextIntlClientProvider } from 'next-intl';
 import { getMessages, setRequestLocale } from 'next-intl/server';
 import type { ReactNode } from 'react';
-import { LocaleSwitcher } from '../../components/locale-switcher';
 import { ZodLocaleConfig } from '../../components/zod-locale-config';
 import { routing } from '../../i18n/routing';
 import { QueryProvider } from '../../providers/query-provider';
@@ -32,9 +31,6 @@ export default async function LocaleLayout({
         <ThemeProvider>
           <NextIntlClientProvider locale={locale} messages={messages}>
             <ZodLocaleConfig />
-            <header className="flex justify-end px-6 py-4">
-              <LocaleSwitcher />
-            </header>
             <QueryProvider>{children}</QueryProvider>
           </NextIntlClientProvider>
         </ThemeProvider>

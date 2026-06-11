@@ -45,3 +45,24 @@ export function buildResetPasswordUrl({
   const encodedToken = encodeURIComponent(token);
   return `${origin}/${locale}/${ROUTE_SEGMENTS.RESET_PASSWORD}?token=${encodedToken}`;
 }
+
+export interface BuildAcceptInvitationUrlOptions {
+  invitationId: string;
+  locale: string;
+  frontendOrigin: string;
+}
+
+// The workspace-invitation accept link (ADR-0028, Phase 4). Like the auth emails
+// above, we own the frontend URL via ROUTE_SEGMENTS rather than letting the
+// generated API URL leak the backend host into the invitee's inbox. The
+// invitation `id` (not a token) is the identifier Better Auth's accept endpoint
+// expects.
+export function buildAcceptInvitationUrl({
+  invitationId,
+  locale,
+  frontendOrigin,
+}: BuildAcceptInvitationUrlOptions): string {
+  const origin = trimTrailingSlash(frontendOrigin);
+  const encodedId = encodeURIComponent(invitationId);
+  return `${origin}/${locale}/${ROUTE_SEGMENTS.ACCEPT_INVITATION}?id=${encodedId}`;
+}

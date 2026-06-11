@@ -16,6 +16,12 @@ export interface ResetPasswordParams {
   readonly url: string;
 }
 
+export interface InviteParams {
+  readonly inviterName: string;
+  readonly workspaceName: string;
+  readonly url: string;
+}
+
 export function escapeHtml(value: string): string {
   return value
     .replace(/&/g, '&amp;')

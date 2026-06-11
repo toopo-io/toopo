@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { buildResetPasswordUrl, buildVerifyEmailUrl } from './url-builders';
+import {
+  buildAcceptInvitationUrl,
+  buildResetPasswordUrl,
+  buildVerifyEmailUrl,
+} from './url-builders';
 
 const FRONTEND = 'http://localhost:3000';
 
@@ -103,5 +107,33 @@ describe('buildResetPasswordUrl', () => {
     expect(parsed.origin).toBe(FRONTEND);
     expect(parsed.pathname).toBe('/zz/reset-password');
     expect(parsed.searchParams.get('token')).toBe('rtok');
+  });
+});
+
+describe('buildAcceptInvitationUrl', () => {
+  it('builds a frontend URL with locale segment and the invitation id query', () => {
+    const url = buildAcceptInvitationUrl({
+      invitationId: 'inv-123',
+      locale: 'en',
+      frontendOrigin: FRONTEND,
+    });
+    expect(url).toBe('http://localhost:3000/en/accept-invitation?id=inv-123');
+  });
+
+  it('trims a trailing slash and URL-encodes the invitation id', () => {
+    const url = buildAcceptInvitationUrl({
+      invitationId: 'a/b=c',
+      locale: 'zz',
+      frontendOrigin: 'https://toopo.io/',
+    });
+    expect(url).toBe('https://toopo.io/zz/accept-invitation?id=a%2Fb%3Dc');
+  });
+
+  it('produces a URL the WHATWG URL parser accepts', () => {
+    const parsed = new URL(
+      buildAcceptInvitationUrl({ invitationId: 'inv-1', locale: 'en', frontendOrigin: FRONTEND }),
+    );
+    expect(parsed.pathname).toBe('/en/accept-invitation');
+    expect(parsed.searchParams.get('id')).toBe('inv-1');
   });
 });

@@ -11,7 +11,11 @@ import { Env } from '../../env';
 import type { DatabaseService } from '../database/database.module';
 import { createSessionCreateBeforeHook } from './auth.soft-delete-guard';
 import type { AuthEmailService } from './email/email.service';
-import { buildResetPasswordUrl, buildVerifyEmailUrl } from './email/url-builders';
+import {
+  buildAcceptInvitationUrl,
+  buildResetPasswordUrl,
+  buildVerifyEmailUrl,
+} from './email/url-builders';
 import { createEnsureActiveWorkspace } from './workspace-provisioning';
 
 export type Auth = ReturnType<typeof createAuth>;
@@ -71,9 +75,47 @@ export function createAuth(logger: Logger, email: AuthEmailService, database: Au
     trustedOrigins: [Env.CORS_ORIGIN],
     // Workspace tenancy (ADR-0028). The same plugin builder feeds the migration
     // generator, so the running schema and the committed migration agree
-    // (ADR-0017 §3). Behavioral options (invitation email) arrive in Phase 4;
-    // the default-workspace-on-signup hook is Phase 1b.
-    plugins: [buildOrganizationPlugin()],
+    // (ADR-0017 §3); `sendInvitationEmail` is behavioral (it changes no table), so
+    // wiring it here keeps the generator and the running app in agreement. The
+    // default-workspace-on-signup hook is Phase 1b.
+    plugins: [
+      buildOrganizationPlugin({
+        // Fail-soft invitation email (ADR-0028, Phase 4): mirrors the reset/verify
+        // hooks. The accept URL is ALWAYS logged so a self-host without email
+        // configured can still share the invitation manually; a real send failure
+        // is caught and logged, never thrown, so it can't break the invite write.
+        sendInvitationEmail: async (data, request) => {
+          const locale = negotiateLocale(request?.headers.get('accept-language') ?? null, {
+            override: request?.headers.get('x-toopo-locale') ?? null,
+          });
+          const acceptUrl = buildAcceptInvitationUrl({
+            invitationId: data.id,
+            locale,
+            frontendOrigin: Env.CORS_ORIGIN,
+          });
+          logger.log(
+            {
+              event: 'workspace.invitation.created',
+              invitationId: data.id,
+              to: data.email,
+              acceptUrl,
+            },
+            'workspace: invitation created',
+          );
+          try {
+            await email.sendInvitationEmail({
+              to: data.email,
+              inviterName: data.inviter.user.name,
+              workspaceName: data.organization.name,
+              url: acceptUrl,
+              locale,
+            });
+          } catch (error) {
+            logger.error({ err: error, to: data.email }, 'workspace: invitation send failed');
+          }
+        },
+      }),
+    ],
     ...(googleSocial !== undefined ? { socialProviders: googleSocial } : {}),
     emailAndPassword: {
       enabled: true,

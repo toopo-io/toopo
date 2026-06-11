@@ -15,6 +15,10 @@ export const ROUTE_SEGMENTS = {
   VERIFY_EMAIL: 'verify-email',
   FORGOT_PASSWORD: 'forgot-password',
   RESET_PASSWORD: 'reset-password',
+  // The workspace-invitation accept page (ADR-0028, Phase 4): the invitation
+  // email links here with `?id=<invitationId>`; the page completes the accept
+  // against the API once the invitee has a session.
+  ACCEPT_INVITATION: 'accept-invitation',
   // The project picker — the instance's connected repos (ADR-0022 §5). The graph
   // explorer lives under a selected project: `/projects/:projectId/graph`.
   PROJECTS: 'projects',

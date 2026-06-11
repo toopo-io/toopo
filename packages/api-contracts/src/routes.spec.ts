@@ -5,6 +5,7 @@ describe('ROUTE_SEGMENTS', () => {
   it('exposes the documented segment set', () => {
     expect(Object.keys(ROUTE_SEGMENTS).sort()).toEqual(
       [
+        'ACCEPT_INVITATION',
         'ACCOUNT',
         'CONNECT',
         'FORGOT_PASSWORD',
@@ -32,6 +33,7 @@ describe('ROUTE_SEGMENTS', () => {
   it('pins the canonical values used by Better Auth email hooks', () => {
     expect(ROUTE_SEGMENTS.VERIFY_EMAIL).toBe('verify-email');
     expect(ROUTE_SEGMENTS.RESET_PASSWORD).toBe('reset-password');
+    expect(ROUTE_SEGMENTS.ACCEPT_INVITATION).toBe('accept-invitation');
   });
 
   it('pins the canonical values used by the frontend auth flows', () => {

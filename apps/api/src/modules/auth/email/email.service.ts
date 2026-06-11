@@ -3,9 +3,10 @@ import { DEFAULT_LOCALE, type Locale } from '@toopo/i18n';
 import { Logger } from 'nestjs-pino';
 import { Resend } from 'resend';
 import { Env } from '../../../env';
+import { inviteEn } from './templates/invite.en';
 import { resetPasswordEn } from './templates/reset-password.en';
 import { verifyEmailEn } from './templates/verify-email.en';
-import type { EmailContent, ResetPasswordParams, VerifyEmailParams } from './types';
+import type { EmailContent, InviteParams, ResetPasswordParams, VerifyEmailParams } from './types';
 
 const VERIFY_TEMPLATES = {
   en: verifyEmailEn,
@@ -13,6 +14,10 @@ const VERIFY_TEMPLATES = {
 
 const RESET_TEMPLATES = {
   en: resetPasswordEn,
+} as const;
+
+const INVITE_TEMPLATES = {
+  en: inviteEn,
 } as const;
 
 interface SendVerificationInput {
@@ -25,6 +30,14 @@ interface SendVerificationInput {
 interface SendResetInput {
   readonly to: string;
   readonly name: string;
+  readonly url: string;
+  readonly locale: Locale;
+}
+
+interface SendInvitationInput {
+  readonly to: string;
+  readonly inviterName: string;
+  readonly workspaceName: string;
   readonly url: string;
   readonly locale: Locale;
 }
@@ -50,6 +63,16 @@ export class AuthEmailService {
     const params: ResetPasswordParams = { name: input.name, url: input.url };
     const template = RESET_TEMPLATES[input.locale] ?? RESET_TEMPLATES[DEFAULT_LOCALE];
     await this.send(input.to, template(params), 'reset-password');
+  }
+
+  async sendInvitationEmail(input: SendInvitationInput): Promise<void> {
+    const params: InviteParams = {
+      inviterName: input.inviterName,
+      workspaceName: input.workspaceName,
+      url: input.url,
+    };
+    const template = INVITE_TEMPLATES[input.locale] ?? INVITE_TEMPLATES[DEFAULT_LOCALE];
+    await this.send(input.to, template(params), 'workspace-invitation');
   }
 
   private async send(to: string, content: EmailContent, kind: string): Promise<void> {

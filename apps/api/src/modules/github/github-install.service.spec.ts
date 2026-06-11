@@ -38,8 +38,7 @@ interface Harness {
   auth: GithubAppAuth;
   projects: { [K in keyof ProjectRepository]: ReturnType<typeof vi.fn> };
   memberships: {
-    findFirstWorkspaceId: ReturnType<typeof vi.fn>;
-    isMember: ReturnType<typeof vi.fn>;
+    listWorkspaceIds: ReturnType<typeof vi.fn>;
   };
   installations: {
     upsertInstallation: ReturnType<typeof vi.fn>;
@@ -54,8 +53,10 @@ function harness(options?: {
   slug?: string | undefined;
   repos?: readonly InstallationRepo[];
   findProjectByRepo?: (owner: string, name: string) => ProjectRecord | null;
-  workspaceId?: string | null;
-  isMember?: boolean;
+  /** The workspaces the owner belongs to — drives attribution (the earliest) and
+   * the per-repo re-home check (membership of the existing project's workspace).
+   * Defaults to a single workspace; an empty array means the owner has none. */
+  memberWorkspaceIds?: readonly string[];
 }): Harness {
   const repos = options?.repos ?? [{ owner: 'acme', name: 'web' }];
   const auth: GithubAppAuth = {
@@ -75,10 +76,9 @@ function harness(options?: {
     assignProjectToWorkspace: vi.fn(),
     listProjectsInWorkspaces: vi.fn(),
   };
-  const workspaceId = options?.workspaceId === undefined ? WORKSPACE : options.workspaceId;
+  const memberWorkspaceIds = options?.memberWorkspaceIds ?? [WORKSPACE];
   const memberships = {
-    findFirstWorkspaceId: vi.fn(async () => workspaceId),
-    isMember: vi.fn(async () => options?.isMember ?? true),
+    listWorkspaceIds: vi.fn(async () => memberWorkspaceIds),
   };
   const installations = {
     upsertInstallation: vi.fn(async () => ({})),
@@ -191,7 +191,7 @@ describe('GithubInstallService.completeInstall', () => {
           workspaceId: 'orphaned-workspace',
           archivedAt: new Date(),
         }),
-      isMember: false,
+      // The owner belongs only to WORKSPACE — NOT to the orphaned workspace.
     });
 
     await service.completeInstall({
@@ -201,9 +201,9 @@ describe('GithubInstallService.completeInstall', () => {
       sessionUserId: USER,
     });
 
-    // Membership is checked against the PERSISTED workspace, then re-homed to the
-    // owner's resolved workspace so the project is reachable post-install.
-    expect(memberships.isMember).toHaveBeenCalledWith(USER, 'orphaned-workspace');
+    // Membership is resolved once for the owner; the persisted workspace is not in
+    // the set, so the project is re-homed to the owner's resolved workspace.
+    expect(memberships.listWorkspaceIds).toHaveBeenCalledWith(USER);
     expect(projects.reviveProject).toHaveBeenCalledWith('p-orphan', '55', WORKSPACE);
   });
 
@@ -212,7 +212,8 @@ describe('GithubInstallService.completeInstall', () => {
       repos: [{ owner: 'acme', name: 'api' }],
       findProjectByRepo: () =>
         projectRecord({ id: 'p-team', workspaceId: 'ws-team', archivedAt: new Date() }),
-      isMember: true,
+      // The owner belongs to the team workspace the project already lives in.
+      memberWorkspaceIds: [WORKSPACE, 'ws-team'],
     });
 
     await service.completeInstall({
@@ -234,13 +235,13 @@ describe('GithubInstallService.completeInstall', () => {
       state: validState,
       sessionUserId: USER,
     });
-    expect(memberships.findFirstWorkspaceId).toHaveBeenCalledWith(USER);
+    expect(memberships.listWorkspaceIds).toHaveBeenCalledWith(USER);
   });
 
   it('connects NOTHING when the owner has no workspace (never fabricates one)', async () => {
     const { service, projects, queue } = harness({
       repos: [{ owner: 'acme', name: 'web' }],
-      workspaceId: null,
+      memberWorkspaceIds: [],
     });
     await expect(
       service.completeInstall({

@@ -109,20 +109,31 @@ export class GithubInstallService {
     repos: readonly InstallationRepo[],
   ): Promise<number> {
     const auth = this.requireConfigured();
-    // Resolve the owner's workspace ONCE — it is constant for the call, and every
-    // connected project must land in it (ADR-0028, Phase 2). The owner reached
-    // this path through the session guard, which lazily provisions a personal
-    // workspace (Phase 1b), so this is non-null in practice; a null is a genuine
-    // invariant breach (we must never fabricate a workspace), so we fail loudly
-    // before connecting anything — all-or-nothing.
-    const workspaceId = await this.memberships.findFirstWorkspaceId(ownerUserId);
-    if (workspaceId === null) {
+    // Resolve the owner's memberships ONCE for the whole call (ADR-0028, Phase 2):
+    // the ordered list gives both the attribution workspace (its earliest entry —
+    // the exact rule `findFirstWorkspaceId` uses) and the membership set for the
+    // per-repo re-home check, replacing a per-repo `isMember` round-trip with an
+    // in-memory `Set.has`. The owner reached this path through the session guard,
+    // which lazily provisions a personal workspace (Phase 1b), so the set is
+    // non-empty in practice; an empty set is a genuine invariant breach (we must
+    // never fabricate a workspace), so we fail loudly before connecting anything.
+    const workspaceIds = await this.memberships.listWorkspaceIds(ownerUserId);
+    const workspaceId = workspaceIds[0];
+    if (workspaceId === undefined) {
       throw new Error(
         `Cannot connect repositories: owner ${ownerUserId} has no workspace to attribute them to`,
       );
     }
+    const memberWorkspaceIds = new Set(workspaceIds);
     for (const repo of repos) {
-      await this.provisionRepo(auth, installationId, ownerUserId, workspaceId, repo);
+      await this.provisionRepo(
+        auth,
+        installationId,
+        ownerUserId,
+        workspaceId,
+        memberWorkspaceIds,
+        repo,
+      );
     }
     return repos.length;
   }
@@ -160,6 +171,7 @@ export class GithubInstallService {
     installationId: number,
     ownerUserId: string,
     workspaceId: string,
+    memberWorkspaceIds: ReadonlySet<string>,
     repo: InstallationRepo,
   ): Promise<void> {
     const installationIdText = String(installationId);
@@ -185,7 +197,7 @@ export class GithubInstallService {
       // (an orphan sentinel, or a workspace they were removed from), re-home it to
       // their resolved workspace; if they ARE a member, leave it — a deliberate
       // placement (e.g. a team workspace via the Phase 5 assign-repo) is respected.
-      const member = await this.memberships.isMember(ownerUserId, existing.workspaceId);
+      const member = memberWorkspaceIds.has(existing.workspaceId);
       await this.projects.reviveProject(
         existing.id,
         installationIdText,

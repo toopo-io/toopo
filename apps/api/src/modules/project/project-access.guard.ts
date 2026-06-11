@@ -18,8 +18,8 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import type { ProjectRecord, ProjectRepository } from '@toopo/db';
-import { PROJECT_REPOSITORY } from '../database/database.module';
+import type { MembershipRepository, ProjectRecord, ProjectRepository } from '@toopo/db';
+import { MEMBERSHIP_REPOSITORY, PROJECT_REPOSITORY } from '../database/database.module';
 import type { RequestWithSession } from '../user/session.guard';
 import { canAccessProject } from './project-access';
 
@@ -29,7 +29,10 @@ export interface RequestWithProject extends RequestWithSession {
 
 @Injectable()
 export class ProjectAccessGuard implements CanActivate {
-  constructor(@Inject(PROJECT_REPOSITORY) private readonly projects: ProjectRepository) {}
+  constructor(
+    @Inject(PROJECT_REPOSITORY) private readonly projects: ProjectRepository,
+    @Inject(MEMBERSHIP_REPOSITORY) private readonly memberships: MembershipRepository,
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const req = context.switchToHttp().getRequest<RequestWithProject>();
@@ -51,7 +54,11 @@ export class ProjectAccessGuard implements CanActivate {
       throw new NotFoundException('Project not found');
     }
 
-    if (!canAccessProject(session, project)) {
+    // Membership-scoped access (ADR-0028, Phase 3): the workspace is read from the
+    // PERSISTED project (`project.workspace_id`), never from the request, so a
+    // caller can never spoof the workspace they are checked against.
+    const member = await this.memberships.isMember(session.user.id, project.workspaceId);
+    if (!canAccessProject(session, project, member)) {
       throw new ForbiddenException('Forbidden');
     }
 

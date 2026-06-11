@@ -74,11 +74,16 @@ export interface ProjectRepository {
   reviveProject(id: string, installationId: string | null): Promise<void>;
 
   /**
-   * The instance's ACTIVE projects, keyset-paged by id (ADR-0020 §4 — always
-   * bounded). Archived projects (ADR-0026 §7) are excluded. The OSS authorization
-   * line (ADR-0022 §2) is instance-tenant, so this lists every active project on
-   * the instance; per-user/org filtering is a future hosted concern, above this
-   * layer.
+   * The caller's ACTIVE projects, keyset-paged by id (ADR-0020 §4 — always
+   * bounded): the active projects whose `workspace_id` is one of `workspaceIds`,
+   * the caller's workspaces (ADR-0028, Phase 3). Archived projects (ADR-0026 §7)
+   * are excluded. An empty `workspaceIds` yields an empty page — a user in no
+   * workspace sees nothing. This supersedes the former instance-wide listing
+   * (ADR-0022 §2 → membership-scoped); an instance-admin all-projects view is a
+   * deliberately-deferred additive seam, not built.
    */
-  listProjects(options?: PageOptions): Promise<Page<ProjectRecord>>;
+  listProjectsInWorkspaces(
+    workspaceIds: readonly string[],
+    options?: PageOptions,
+  ): Promise<Page<ProjectRecord>>;
 }

@@ -19,4 +19,20 @@ export interface MembershipRepository {
    * the "ensure a default workspace" logic.
    */
   findFirstWorkspaceId(userId: string): Promise<string | null>;
+
+  /**
+   * Whether the user is a member of the workspace — the graph access predicate
+   * (ADR-0028, Phase 3): a user reaches a project iff they are a member of
+   * `project.workspace_id`. The membership-scoped OSS authorization rule that
+   * supersedes ADR-0022 §2's instance-tenant stance.
+   */
+  isMember(userId: string, workspaceId: string): Promise<boolean>;
+
+  /**
+   * Every workspace the user belongs to (deterministic order). Scopes the
+   * project listing to the caller's workspaces (ADR-0028, Phase 3) — the user
+   * lists only projects in a workspace they are a member of. Empty when the user
+   * belongs to none.
+   */
+  listWorkspaceIds(userId: string): Promise<readonly string[]>;
 }

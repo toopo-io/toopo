@@ -146,10 +146,13 @@ for (const { backend, skip } of backends) {
       expect((await project('proj-solo')).workspace_id).toBe(personal?.id);
     });
 
-    it('Tier 2 — converges: findFirstWorkspaceId now resolves it, so a first sign-in is a no-op', async () => {
+    it('Tier 2 — converges: findFirstWorkspaceId resolves it (no-op sign-in) and the owner is a member (Phase 3 → 200)', async () => {
       const memberships = new KyselyMembershipRepository(db as unknown as Kysely<AuthDatabase>);
       const personal = await orgBySlug(personalWorkspaceSlug(SOLO));
       expect(await memberships.findFirstWorkspaceId(SOLO)).toBe(personal?.id);
+      // The backfilled legacy project's owner IS a member of its synthesized
+      // workspace, so Phase 3's isMember check grants access (200), not 403.
+      expect(await memberships.isMember(SOLO, personal?.id ?? '')).toBe(true);
     });
 
     it('Tier 3 — routes an unattributable project to the members-less sentinel', async () => {

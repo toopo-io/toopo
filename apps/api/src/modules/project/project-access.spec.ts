@@ -23,9 +23,13 @@ function sessionFor(userId: string): CurrentSessionData {
   };
 }
 
-describe('canAccessProject (OSS instance-tenant line, ADR-0022 §2)', () => {
-  it('allows any authenticated user of the instance — even a non-owner', () => {
-    expect(canAccessProject(sessionFor('owner'), project)).toBe(true);
-    expect(canAccessProject(sessionFor('someone-else'), project)).toBe(true);
+describe('canAccessProject (membership-scoped, ADR-0028 §Phase 3)', () => {
+  it('grants access to a member of the project workspace', () => {
+    expect(canAccessProject(sessionFor('anyone'), project, true)).toBe(true);
+  });
+
+  it('denies a non-member — even the recorded owner is gated by membership', () => {
+    expect(canAccessProject(sessionFor('owner'), project, false)).toBe(false);
+    expect(canAccessProject(sessionFor('someone-else'), project, false)).toBe(false);
   });
 });

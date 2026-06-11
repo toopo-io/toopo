@@ -98,9 +98,21 @@ export class KyselyProjectRepository implements ProjectRepository {
       .execute();
   }
 
-  async listProjects(options?: PageOptions): Promise<Page<ProjectRecord>> {
+  async listProjectsInWorkspaces(
+    workspaceIds: readonly string[],
+    options?: PageOptions,
+  ): Promise<Page<ProjectRecord>> {
     const limit = clampLimit(options?.limit);
-    let query = this.db.selectFrom('project').selectAll().where('archived_at', 'is', null);
+    // A user in no workspace sees nothing — return early rather than emit an
+    // empty `in ()` predicate (which dialects handle inconsistently).
+    if (workspaceIds.length === 0) {
+      return buildPage<ProjectRecord>([], limit, (project) => encodeCursor([project.id]));
+    }
+    let query = this.db
+      .selectFrom('project')
+      .selectAll()
+      .where('archived_at', 'is', null)
+      .where('workspace_id', 'in', [...workspaceIds]);
     if (options?.cursor !== undefined) {
       query = query.where('id', '>', String(decodeCursorTuple(options.cursor, 1)[0]));
     }

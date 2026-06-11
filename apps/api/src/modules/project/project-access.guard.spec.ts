@@ -1,13 +1,9 @@
 import type { ExecutionContext } from '@nestjs/common';
 import { ForbiddenException, NotFoundException, UnauthorizedException } from '@nestjs/common';
-import type { ProjectRecord, ProjectRepository } from '@toopo/db';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { MembershipRepository, ProjectRecord, ProjectRepository } from '@toopo/db';
+import { describe, expect, it, vi } from 'vitest';
 import type { CurrentSessionData } from '../user/session.guard';
-import { canAccessProject } from './project-access';
 import { ProjectAccessGuard, type RequestWithProject } from './project-access.guard';
-
-vi.mock('./project-access', () => ({ canAccessProject: vi.fn(() => true) }));
-const mockCanAccess = vi.mocked(canAccessProject);
 
 const project: ProjectRecord = {
   id: 'p1',
@@ -33,53 +29,74 @@ function fakeProjects(findResult: ProjectRecord | null): ProjectRepository {
   } as unknown as ProjectRepository;
 }
 
+function fakeMemberships(isMember: boolean): {
+  repo: MembershipRepository;
+  isMemberFn: ReturnType<typeof vi.fn>;
+} {
+  const isMemberFn = vi.fn(() => Promise.resolve(isMember));
+  return { repo: { isMember: isMemberFn } as unknown as MembershipRepository, isMemberFn };
+}
+
 function contextFor(req: Partial<RequestWithProject>): ExecutionContext {
   return {
     switchToHttp: () => ({ getRequest: () => req }),
   } as unknown as ExecutionContext;
 }
 
-describe('ProjectAccessGuard', () => {
-  beforeEach(() => {
-    mockCanAccess.mockReturnValue(true);
-  });
-
-  it('rejects when no session is present (must run after the SessionGuard)', async () => {
-    const guard = new ProjectAccessGuard(fakeProjects(project));
+describe('ProjectAccessGuard (membership-scoped, ADR-0028 §Phase 3)', () => {
+  it('rejects when no session is present (must run after the SessionGuard) — 401', async () => {
+    const guard = new ProjectAccessGuard(fakeProjects(project), fakeMemberships(true).repo);
     await expect(
       guard.canActivate(contextFor({ params: { projectId: 'p1' } })),
     ).rejects.toBeInstanceOf(UnauthorizedException);
   });
 
   it('404s when the projectId path param is missing', async () => {
-    const guard = new ProjectAccessGuard(fakeProjects(project));
+    const guard = new ProjectAccessGuard(fakeProjects(project), fakeMemberships(true).repo);
     await expect(
       guard.canActivate(contextFor({ betterAuthSession: session, params: {} })),
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
-  it('404s when the project does not exist', async () => {
-    const guard = new ProjectAccessGuard(fakeProjects(null));
+  it('404s when the project does not exist (membership never consulted)', async () => {
+    const memberships = fakeMemberships(true);
+    const guard = new ProjectAccessGuard(fakeProjects(null), memberships.repo);
     await expect(
       guard.canActivate(contextFor({ betterAuthSession: session, params: { projectId: 'nope' } })),
     ).rejects.toBeInstanceOf(NotFoundException);
+    expect(memberships.isMemberFn).not.toHaveBeenCalled();
   });
 
-  it('attaches the resolved project and allows the request', async () => {
-    const guard = new ProjectAccessGuard(fakeProjects(project));
+  it('member → 200: attaches the project, checking membership of the PERSISTED workspace', async () => {
+    const memberships = fakeMemberships(true);
+    const guard = new ProjectAccessGuard(fakeProjects(project), memberships.repo);
     const req: Partial<RequestWithProject> = {
       betterAuthSession: session,
       params: { projectId: 'p1' },
     };
     await expect(guard.canActivate(contextFor(req))).resolves.toBe(true);
     expect(req.toopoProject).toBe(project);
+    // Server-side workspace: checked against project.workspaceId, never the request.
+    expect(memberships.isMemberFn).toHaveBeenCalledWith('u1', 'ws-1');
   });
 
-  it('forbids when the access predicate denies (the cloud-isolation hook)', async () => {
-    mockCanAccess.mockReturnValue(false);
-    const guard = new ProjectAccessGuard(fakeProjects(project));
+  it('non-member → 403 and the project is NOT attached', async () => {
+    const guard = new ProjectAccessGuard(fakeProjects(project), fakeMemberships(false).repo);
+    const req: Partial<RequestWithProject> = {
+      betterAuthSession: session,
+      params: { projectId: 'p1' },
+    };
+    await expect(guard.canActivate(contextFor(req))).rejects.toBeInstanceOf(ForbiddenException);
+    expect(req.toopoProject).toBeUndefined();
+  });
+
+  it('cross-workspace → 403: a member of another workspace cannot reach this project', async () => {
+    // isMember('u1', 'ws-1') is false — the user belongs to a different workspace.
+    const memberships = fakeMemberships(false);
+    const guard = new ProjectAccessGuard(fakeProjects(project), memberships.repo);
     await expect(
       guard.canActivate(contextFor({ betterAuthSession: session, params: { projectId: 'p1' } })),
     ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(memberships.isMemberFn).toHaveBeenCalledWith('u1', 'ws-1');
   });
 });

@@ -87,21 +87,42 @@ for (const { backend, skip } of backends) {
       expect(await repository.findProjectByRepo('github', 'acme', 'missing')).toBeNull();
     });
 
-    it('lists the instance projects, keyset-paginated', async () => {
-      const all = await repository.listProjects();
+    it('lists a workspace projects, keyset-paginated (ADR-0028, Phase 3)', async () => {
+      const all = await repository.listProjectsInWorkspaces(['ws-acme']);
       expect(all.nextCursor).toBeNull();
       expect(all.items.map((p) => p.id).sort()).toEqual([web.id, api.id].sort());
 
-      const firstPage = await repository.listProjects({ limit: 1 });
+      const firstPage = await repository.listProjectsInWorkspaces(['ws-acme'], { limit: 1 });
       expect(firstPage.items).toHaveLength(1);
       expect(firstPage.nextCursor).not.toBeNull();
 
-      const secondPage = await repository.listProjects({
+      const secondPage = await repository.listProjectsInWorkspaces(['ws-acme'], {
         limit: 1,
         cursor: firstPage.nextCursor ?? undefined,
       });
       const seen = [...firstPage.items, ...secondPage.items].map((p) => p.id);
       expect(new Set(seen)).toEqual(new Set([web.id, api.id]));
+    });
+
+    it('scopes the listing to the given workspaces and isolates a foreign one', async () => {
+      // A project in another workspace is never listed for ws-acme.
+      const foreign = await repository.createProject({
+        ownerUserId: 'user-9',
+        workspaceId: 'ws-other',
+        repoHost: 'github',
+        repoOwner: 'other',
+        repoName: 'repo',
+      });
+      const acme = await repository.listProjectsInWorkspaces(['ws-acme']);
+      expect(acme.items.map((p) => p.id)).not.toContain(foreign.id);
+
+      const other = await repository.listProjectsInWorkspaces(['ws-other']);
+      expect(other.items.map((p) => p.id)).toEqual([foreign.id]);
+
+      // An empty workspace set sees nothing.
+      const none = await repository.listProjectsInWorkspaces([]);
+      expect(none.items).toEqual([]);
+      expect(none.nextCursor).toBeNull();
     });
 
     it('rejects a duplicate connect for the same repo triple', async () => {
@@ -134,7 +155,7 @@ for (const { backend, skip } of backends) {
 
       await repository.archiveProject(target.id, new Date('2026-06-10T00:00:00Z'));
 
-      const listed = await repository.listProjects();
+      const listed = await repository.listProjectsInWorkspaces(['ws-acme']);
       expect(listed.items.map((p) => p.id)).not.toContain(target.id);
 
       const resolved = await repository.findProjectByRepo('github', 'acme', 'archived-repo');
@@ -159,7 +180,7 @@ for (const { backend, skip } of backends) {
       expect(revived?.archivedAt).toBeNull();
       expect(revived?.installationId).toBe('99');
 
-      const listed = await repository.listProjects();
+      const listed = await repository.listProjectsInWorkspaces(['ws-acme']);
       expect(listed.items.map((p) => p.id)).toContain(target.id);
     });
   });

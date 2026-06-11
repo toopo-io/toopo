@@ -99,5 +99,19 @@ for (const { backend, skip } of backends) {
     it('returns null for a user with no membership', async () => {
       expect(await repository.findFirstWorkspaceId('nobody')).toBeNull();
     });
+
+    it('isMember is true for a joined workspace and false otherwise (ADR-0028, Phase 3)', async () => {
+      expect(await repository.isMember('user-1', 'ws-old')).toBe(true);
+      expect(await repository.isMember('user-1', 'ws-new')).toBe(true);
+      // A real workspace the user does not belong to → false (cross-workspace).
+      expect(await repository.isMember('user-1', 'ws-stranger')).toBe(false);
+      // An unknown user → false.
+      expect(await repository.isMember('nobody', 'ws-old')).toBe(false);
+    });
+
+    it('listWorkspaceIds returns the user every workspace, earliest first', async () => {
+      expect(await repository.listWorkspaceIds('user-1')).toEqual(['ws-old', 'ws-new']);
+      expect(await repository.listWorkspaceIds('nobody')).toEqual([]);
+    });
   });
 }

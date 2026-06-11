@@ -35,4 +35,15 @@ export interface MembershipRepository {
    * belongs to none.
    */
   listWorkspaceIds(userId: string): Promise<readonly string[]>;
+
+  /**
+   * Whether the user is an OWNER of the workspace — the source-owner half of the
+   * Option B gate that authorizes moving a project between workspaces (ADR-0028,
+   * Phase 5): a project may be re-homed only by an owner of its current workspace.
+   * Reads Better Auth's native `member.role = 'owner'`; the only place Toopo reads
+   * the role, kept localized to this one mutating decision (the membership-scoped
+   * `isMember` predicate stays role-agnostic). `false` for a plain member, a
+   * non-member, or an unknown user/workspace — never leaking which case it was.
+   */
+  isWorkspaceOwner(userId: string, workspaceId: string): Promise<boolean>;
 }

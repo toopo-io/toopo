@@ -113,5 +113,16 @@ for (const { backend, skip } of backends) {
       expect(await repository.listWorkspaceIds('user-1')).toEqual(['ws-old', 'ws-new']);
       expect(await repository.listWorkspaceIds('nobody')).toEqual([]);
     });
+
+    it('isWorkspaceOwner is true only for an owner membership (ADR-0028, Phase 5)', async () => {
+      // user-1 owns ws-old and is a plain member of ws-new (see seed).
+      expect(await repository.isWorkspaceOwner('user-1', 'ws-old')).toBe(true);
+      // A member who is not an owner → false (the Option B source-owner gate).
+      expect(await repository.isWorkspaceOwner('user-1', 'ws-new')).toBe(false);
+      // A real workspace the user does not belong to → false (no leak).
+      expect(await repository.isWorkspaceOwner('user-1', 'ws-stranger')).toBe(false);
+      // An unknown user → false.
+      expect(await repository.isWorkspaceOwner('nobody', 'ws-old')).toBe(false);
+    });
   });
 }

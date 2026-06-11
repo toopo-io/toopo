@@ -45,4 +45,16 @@ export class KyselyMembershipRepository implements MembershipRepository {
       .execute();
     return rows.map((row) => row.organizationId);
   }
+
+  async isWorkspaceOwner(userId: string, workspaceId: string): Promise<boolean> {
+    const row = await this.db
+      .selectFrom('member')
+      .select('id')
+      .where('userId', '=', userId)
+      .where('organizationId', '=', workspaceId)
+      .where('role', '=', 'owner')
+      .limit(1)
+      .executeTakeFirst();
+    return row !== undefined;
+  }
 }

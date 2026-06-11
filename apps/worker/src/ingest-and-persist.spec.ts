@@ -9,22 +9,30 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createGraphDatabase, MIGRATIONS_DIR, migrateToLatest } from '@toopo/db';
+import {
+  createAuthDatabase,
+  createGraphDatabase,
+  MIGRATIONS_DIR,
+  migrateToLatest,
+} from '@toopo/db';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { runCli } from './cli/run.js';
 import { ingestAndPersist } from './ingest-and-persist.js';
 
 const fixtureDir = fileURLToPath(new URL('../test/fixtures/sample', import.meta.url));
 
+/** The pre-existing workspace CLI-populated projects are attributed to (ADR-0028). */
+const WORKSPACE_ID = 'ws-system';
+
 /** Build worker options for a given repo triple (ADR-0022 §3). */
-function opts(databaseUrl: string, repoName: string) {
+function opts(databaseUrl: string, repoName: string, workspaceId: string = WORKSPACE_ID) {
   return {
     rootDir: fixtureDir,
     databaseUrl,
     gitignore: false,
     repo: { host: 'github', owner: 'toopo', name: repoName },
     ownerUserId: 'system',
-    workspaceId: 'system',
+    workspaceId,
   };
 }
 
@@ -40,6 +48,21 @@ describe('ingestAndPersist', () => {
     const handle = createGraphDatabase({ databaseUrl });
     await migrateToLatest({ db: handle.db, backend: handle.backend, rootDir: MIGRATIONS_DIR });
     await handle.close();
+    // Seed the workspace the worker attributes projects to (Better Auth owns this
+    // write in production; here we insert it directly so existence validation passes).
+    const auth = createAuthDatabase({ databaseUrl });
+    await auth.betterAuthDatabase.db
+      .insertInto('organization')
+      .values({
+        id: WORKSPACE_ID,
+        name: 'System',
+        slug: 'system',
+        logo: null,
+        metadata: null,
+        createdAt: '2026-01-01T00:00:00.000Z',
+      })
+      .execute();
+    await auth.close();
   }, 60_000);
 
   afterAll(async () => {
@@ -97,5 +120,11 @@ describe('ingestAndPersist', () => {
     expect(text).toContain('persisted:');
     expect(text).toContain('project:');
     expect(text).toContain(fixtureDir);
+  }, 60_000);
+
+  it('refuses to ingest into a workspace that does not exist (ADR-0028)', async () => {
+    await expect(ingestAndPersist(opts(databaseUrl, 'ghost', 'ws-missing'))).rejects.toThrow(
+      /does not exist/,
+    );
   }, 60_000);
 });

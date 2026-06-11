@@ -13,11 +13,13 @@ import { parseArgs as nodeParseArgs } from 'node:util';
  *  (no FK), recorded for provenance and the future cloud isolation rule. */
 export const DEFAULT_OWNER_USER_ID = 'system';
 
-/** The default Workspace for CLI-populated graphs (ADR-0028): the worker has no
- *  session, so it cannot resolve a user's workspace the way the install flow does
- *  (Phase 2). The connect is attributed to a system workspace unless
- *  `--workspace-id` is given. `workspace_id` is a logical reference (no FK). */
-export const DEFAULT_WORKSPACE_ID = 'system';
+/* `--workspace-id` is MANDATORY (ADR-0028): the worker has no session, so it
+ * cannot resolve a user's workspace the way the install flow does (Phase 2). It
+ * attributes the project to a workspace it is GIVEN, and that workspace must
+ * already exist — a missing or unreal one would silently produce a project no one
+ * can reach under membership-scoped access (Phase 3). There is deliberately NO
+ * default: existence is validated at ingest time, not papered over with a
+ * sentinel. `owner_user_id` is provenance only (no FK) and keeps its default. */
 
 export interface WorkerCliOptions {
   readonly rootDir: string;
@@ -38,9 +40,10 @@ export interface WorkerCliOptions {
 export const USAGE =
   'Usage: toopo-worker ingest <dir> --database-url <url> \\\n' +
   '         --repo-host <host> --repo-owner <owner> --repo-name <name> \\\n' +
-  '         [--owner-user-id <id>] [--workspace-id <id>] [--no-gitignore]\n' +
+  '         --workspace-id <id> [--owner-user-id <id>] [--no-gitignore]\n' +
   '  (DATABASE_URL env is used when --database-url is omitted; the repo triple\n' +
-  '   resolves-or-creates the project the graph is scoped to, ADR-0022)';
+  '   resolves-or-creates the project the graph is scoped to, ADR-0022; the\n' +
+  '   workspace must already exist — the worker cannot create one, ADR-0028)';
 
 export function parseArgs(
   args: readonly string[],
@@ -87,12 +90,17 @@ export function parseArgs(
     );
   }
 
+  const workspaceId = values['workspace-id'];
+  if (workspaceId === undefined || workspaceId.length === 0) {
+    throw new Error(`A workspace id is required (--workspace-id).\n${USAGE}`);
+  }
+
   return {
     rootDir,
     databaseUrl,
     gitignore: values['no-gitignore'] !== true,
     repo: { host, owner, name },
     ownerUserId: values['owner-user-id'] ?? DEFAULT_OWNER_USER_ID,
-    workspaceId: values['workspace-id'] ?? DEFAULT_WORKSPACE_ID,
+    workspaceId,
   };
 }

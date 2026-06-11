@@ -8,6 +8,7 @@
  * The database must already be migrated (`db:migrate`, ADR-0008 — never on boot).
  */
 import {
+  createAuthDatabase,
   createGraphDatabase,
   createProjectDatabase,
   type PersistGraphResult,
@@ -77,6 +78,26 @@ async function resolveProject(
 }
 
 /**
+ * Confirm the target workspace exists before attributing a project to it
+ * (ADR-0028): the worker cannot create workspaces (Better Auth owns organization
+ * writes), so an unreal `--workspace-id` would silently produce a project no one
+ * can reach under membership-scoped access (Phase 3). Fail loud instead.
+ */
+async function assertWorkspaceExists(databaseUrl: string, workspaceId: string): Promise<void> {
+  const auth = createAuthDatabase({ databaseUrl });
+  try {
+    if (!(await auth.workspaceRepository.exists(workspaceId))) {
+      throw new Error(
+        `Workspace "${workspaceId}" does not exist. The worker cannot create workspaces ` +
+          '(Better Auth owns organization writes); pass an existing --workspace-id.',
+      );
+    }
+  } finally {
+    await auth.close();
+  }
+}
+
+/**
  * Ingest `rootDir` with the TS/React plugins and persist the graph under the
  * repo's project (resolve-or-create), scoped by `projectId` (ADR-0022 §3). The
  * database must already be migrated (`db:migrate`, ADR-0008 — never on boot).
@@ -84,6 +105,10 @@ async function resolveProject(
 export async function ingestAndPersist(
   options: IngestAndPersistOptions,
 ): Promise<IngestAndPersistResult> {
+  // Validate the workspace up front — a cheap read that avoids a wasted parse and
+  // guarantees the project we are about to create is reachable (ADR-0028).
+  await assertWorkspaceExists(options.databaseUrl, options.workspaceId);
+
   const ingestion = await ingestProject(options.rootDir, {
     languagePlugins: createReactPlugins(),
     resolverPlugins: [createReactResolver()],

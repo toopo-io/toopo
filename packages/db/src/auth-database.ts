@@ -13,6 +13,8 @@ import type { MembershipRepository } from './repositories/membership.repository.
 import { KyselyMembershipRepository } from './repositories/membership.repository.kysely.js';
 import type { UserRepository } from './repositories/user.repository.js';
 import { KyselyUserRepository } from './repositories/user.repository.kysely.js';
+import type { WorkspaceRepository } from './repositories/workspace.repository.js';
+import { KyselyWorkspaceRepository } from './repositories/workspace.repository.kysely.js';
 import type { AuthDatabase } from './schema/auth-types.js';
 
 /** The `database` value Better Auth's Kysely adapter accepts. */
@@ -27,6 +29,8 @@ export interface AuthDatabaseHandle {
   readonly userRepository: UserRepository;
   /** Read seam over the organization plugin's `member` table (ADR-0028). */
   readonly membershipRepository: MembershipRepository;
+  /** Read seam over the organization plugin's `organization` table (ADR-0028). */
+  readonly workspaceRepository: WorkspaceRepository;
   /** Closes the underlying connection (call on shutdown). */
   close(): Promise<void>;
 }
@@ -37,6 +41,7 @@ export function createAuthDatabase(input: unknown): AuthDatabaseHandle {
     betterAuthDatabase: { db: handle.db, type: handle.type },
     userRepository: new KyselyUserRepository(handle.db),
     membershipRepository: new KyselyMembershipRepository(handle.db),
+    workspaceRepository: new KyselyWorkspaceRepository(handle.db),
     close: () => handle.db.destroy(),
   };
 }

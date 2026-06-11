@@ -117,6 +117,8 @@ export {
   type UserRecord,
   UserRecordSchema,
 } from './repositories/user-records.js';
+export type { WorkspaceRepository } from './repositories/workspace.repository.js';
+export { KyselyWorkspaceRepository } from './repositories/workspace.repository.kysely.js';
 export type {
   AccountTable,
   AuthDatabase,

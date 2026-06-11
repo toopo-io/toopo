@@ -15,30 +15,39 @@ const REPO_FLAGS = [
   'toopo',
 ] as const;
 
+// The workspace id is mandatory (ADR-0028); every happy-path call supplies it.
+const REQUIRED_FLAGS = [...REPO_FLAGS, '--workspace-id', 'ws-1'] as const;
+
 describe('parseArgs', () => {
-  it('parses a directory, --database-url, and the repo coordinates', () => {
-    expect(parseArgs(['./repo', '--database-url', 'file:graph.db', ...REPO_FLAGS])).toEqual({
+  it('parses a directory, --database-url, the repo coordinates, and the workspace', () => {
+    expect(parseArgs(['./repo', '--database-url', 'file:graph.db', ...REQUIRED_FLAGS])).toEqual({
       rootDir: './repo',
       databaseUrl: 'file:graph.db',
       gitignore: true,
       repo: { host: 'github', owner: 'toopo', name: 'toopo' },
       ownerUserId: 'system',
-      workspaceId: 'system',
+      workspaceId: 'ws-1',
     });
   });
 
   it('accepts the optional `ingest` subcommand', () => {
-    const parsed = parseArgs(['ingest', './repo', '--database-url', 'file:g.db', ...REPO_FLAGS]);
+    const parsed = parseArgs([
+      'ingest',
+      './repo',
+      '--database-url',
+      'file:g.db',
+      ...REQUIRED_FLAGS,
+    ]);
     expect(parsed.rootDir).toBe('./repo');
   });
 
   it('falls back to DATABASE_URL from the env', () => {
-    const parsed = parseArgs(['./repo', ...REPO_FLAGS], { DATABASE_URL: 'postgres://x/y' });
+    const parsed = parseArgs(['./repo', ...REQUIRED_FLAGS], { DATABASE_URL: 'postgres://x/y' });
     expect(parsed.databaseUrl).toBe('postgres://x/y');
   });
 
   it('prefers the explicit flag over the env', () => {
-    const parsed = parseArgs(['./repo', '--database-url', 'file:a.db', ...REPO_FLAGS], {
+    const parsed = parseArgs(['./repo', '--database-url', 'file:a.db', ...REQUIRED_FLAGS], {
       DATABASE_URL: 'file:b.db',
     });
     expect(parsed.databaseUrl).toBe('file:a.db');
@@ -46,7 +55,7 @@ describe('parseArgs', () => {
 
   it('honors --no-gitignore', () => {
     expect(
-      parseArgs(['./repo', '--database-url', 'file:g.db', ...REPO_FLAGS, '--no-gitignore'])
+      parseArgs(['./repo', '--database-url', 'file:g.db', ...REQUIRED_FLAGS, '--no-gitignore'])
         .gitignore,
     ).toBe(false);
   });
@@ -56,36 +65,30 @@ describe('parseArgs', () => {
       './repo',
       '--database-url',
       'file:g.db',
-      ...REPO_FLAGS,
+      ...REQUIRED_FLAGS,
       '--owner-user-id',
       'user-7',
     ]);
     expect(parsed.ownerUserId).toBe('user-7');
   });
 
-  it('takes an explicit --workspace-id over the default', () => {
-    const parsed = parseArgs([
-      './repo',
-      '--database-url',
-      'file:g.db',
-      ...REPO_FLAGS,
-      '--workspace-id',
-      'ws-7',
-    ]);
-    expect(parsed.workspaceId).toBe('ws-7');
-  });
-
   it('throws when the directory is missing', () => {
-    expect(() => parseArgs(['--database-url', 'file:g.db', ...REPO_FLAGS])).toThrow(/Usage/);
+    expect(() => parseArgs(['--database-url', 'file:g.db', ...REQUIRED_FLAGS])).toThrow(/Usage/);
   });
 
   it('throws when no database URL is given', () => {
-    expect(() => parseArgs(['./repo', ...REPO_FLAGS])).toThrow(/database URL is required/);
+    expect(() => parseArgs(['./repo', ...REQUIRED_FLAGS])).toThrow(/database URL is required/);
   });
 
   it('throws when the repo coordinates are missing', () => {
-    expect(() => parseArgs(['./repo', '--database-url', 'file:g.db'])).toThrow(
-      /repo coordinates are required/,
+    expect(() =>
+      parseArgs(['./repo', '--database-url', 'file:g.db', '--workspace-id', 'ws-1']),
+    ).toThrow(/repo coordinates are required/);
+  });
+
+  it('throws when the workspace id is missing (no silent default, ADR-0028)', () => {
+    expect(() => parseArgs(['./repo', '--database-url', 'file:g.db', ...REPO_FLAGS])).toThrow(
+      /workspace id is required/,
     );
   });
 });

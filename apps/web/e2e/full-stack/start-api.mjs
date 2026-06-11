@@ -1,14 +1,18 @@
 /**
- * Boots the e2e Serve API over a freshly seeded, project-scoped graph (ADR-0022).
+ * Boots the e2e Serve API over a freshly migrated, EMPTY database (ADR-0022).
  *
- * Playwright starts its webServers BEFORE globalSetup, and the Nest API connects
- * to the database eagerly at construction — so the seed MUST happen here, before
- * the server starts, not in globalSetup. Steps, all against the ephemeral DB the
- * webServer env points at:
+ * Playwright starts its webServers before the setup project, and the Nest API
+ * connects to the database eagerly at construction — so the schema MUST exist
+ * before the server starts. Steps, against the ephemeral DB the webServer env
+ * points at:
  *   1. wipe + recreate the database directory (deterministic run),
  *   2. migrate explicitly (ADR-0008 — never on boot),
- *   3. worker-ingest the monorepo under the project (resolve-or-create, ADR-0022),
- *   4. start the API, inheriting the same env.
+ *   3. start the API, inheriting the same env.
+ *
+ * The graph is NOT seeded here. Under active-workspace scoping (ADR-0028 §4) the
+ * project must be ingested under the viewer's OWN workspace, which only exists
+ * once the viewer has signed in (the session hook provisions it lazily) — so the
+ * worker ingest moved to `auth.setup.ts`, after that workspace is provisioned.
  */
 import { execSync, spawn } from 'node:child_process';
 import { mkdirSync, rmSync } from 'node:fs';
@@ -23,16 +27,15 @@ if (databaseUrl === undefined || databaseUrl.length === 0) {
 const dbDir = path.dirname(databaseUrl.replace(/^file:/, ''));
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');
 const env = { ...process.env };
-const run = (cmd) => execSync(cmd, { cwd: repoRoot, env, stdio: 'inherit' });
 
 rmSync(dbDir, { recursive: true, force: true });
 mkdirSync(dbDir, { recursive: true });
 
-run('pnpm --filter @toopo/db exec tsx src/bin/migrate.ts');
-run(
-  `pnpm --filter @toopo/worker exec tsx src/cli/bin.ts ingest "${repoRoot}" ` +
-    `--database-url "${databaseUrl}" --repo-host github --repo-owner toopo --repo-name toopo`,
-);
+execSync('pnpm --filter @toopo/db exec tsx src/bin/migrate.ts', {
+  cwd: repoRoot,
+  env,
+  stdio: 'inherit',
+});
 
 const server = spawn('pnpm', ['--filter', '@toopo/api', 'dev'], {
   cwd: repoRoot,

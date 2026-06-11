@@ -36,3 +36,16 @@ export const ProjectListQuerySchema = z
   })
   .strict();
 export type ProjectListQuery = z.infer<typeof ProjectListQuerySchema>;
+
+/**
+ * Body for `PATCH /v1/projects/:projectId/workspace` (ADR-0028, Phase 5): the
+ * target workspace to re-home the project into. The server authorizes the move
+ * (caller owns the source workspace AND is a member of the target); a non-member
+ * or non-existent target is denied, so the body carries only the destination id.
+ */
+export const AssignProjectWorkspaceRequestSchema = z
+  .object({
+    workspaceId: z.string().min(1),
+  })
+  .strict();
+export type AssignProjectWorkspaceRequest = z.infer<typeof AssignProjectWorkspaceRequestSchema>;

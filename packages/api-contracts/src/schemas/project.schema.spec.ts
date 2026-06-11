@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { projectApiPath, projectsApiPath } from '../project-routes.js';
+import { projectApiPath, projectsApiPath, projectWorkspaceApiPath } from '../project-routes.js';
 import {
+  AssignProjectWorkspaceRequestSchema,
   ProjectListQuerySchema,
   ProjectPageSchema,
   ProjectResponseSchema,
@@ -42,10 +43,34 @@ describe('ProjectListQuerySchema', () => {
   });
 });
 
+describe('AssignProjectWorkspaceRequestSchema', () => {
+  it('accepts a target workspace id', () => {
+    expect(AssignProjectWorkspaceRequestSchema.parse({ workspaceId: 'ws-2' }).workspaceId).toBe(
+      'ws-2',
+    );
+  });
+
+  it('rejects an empty or missing workspace id', () => {
+    expect(AssignProjectWorkspaceRequestSchema.safeParse({ workspaceId: '' }).success).toBe(false);
+    expect(AssignProjectWorkspaceRequestSchema.safeParse({}).success).toBe(false);
+  });
+
+  it('rejects unknown keys (strict wire contract)', () => {
+    expect(
+      AssignProjectWorkspaceRequestSchema.safeParse({ workspaceId: 'ws-2', extra: 'x' }).success,
+    ).toBe(false);
+  });
+});
+
 describe('project route paths', () => {
   it('builds the list and single-project paths', () => {
     expect(projectsApiPath()).toBe('/v1/projects');
     expect(projectApiPath('p123')).toBe('/v1/projects/p123');
     expect(projectApiPath('a/b')).toBe('/v1/projects/a%2Fb');
+  });
+
+  it('builds the project-workspace path', () => {
+    expect(projectWorkspaceApiPath('p123')).toBe('/v1/projects/p123/workspace');
+    expect(projectWorkspaceApiPath('a/b')).toBe('/v1/projects/a%2Fb/workspace');
   });
 });

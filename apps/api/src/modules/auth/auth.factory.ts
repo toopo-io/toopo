@@ -11,11 +11,8 @@ import { Env } from '../../env';
 import type { DatabaseService } from '../database/database.module';
 import { createSessionCreateBeforeHook } from './auth.soft-delete-guard';
 import type { AuthEmailService } from './email/email.service';
-import {
-  buildAcceptInvitationUrl,
-  buildResetPasswordUrl,
-  buildVerifyEmailUrl,
-} from './email/url-builders';
+import { createSendInvitationEmail } from './email/invitation-hook';
+import { buildResetPasswordUrl, buildVerifyEmailUrl } from './email/url-builders';
 import { createEnsureActiveWorkspace } from './workspace-provisioning';
 
 export type Auth = ReturnType<typeof createAuth>;
@@ -81,39 +78,14 @@ export function createAuth(logger: Logger, email: AuthEmailService, database: Au
     plugins: [
       buildOrganizationPlugin({
         // Fail-soft invitation email (ADR-0028, Phase 4): mirrors the reset/verify
-        // hooks. The accept URL is ALWAYS logged so a self-host without email
-        // configured can still share the invitation manually; a real send failure
-        // is caught and logged, never thrown, so it can't break the invite write.
-        sendInvitationEmail: async (data, request) => {
-          const locale = negotiateLocale(request?.headers.get('accept-language') ?? null, {
-            override: request?.headers.get('x-toopo-locale') ?? null,
-          });
-          const acceptUrl = buildAcceptInvitationUrl({
-            invitationId: data.id,
-            locale,
-            frontendOrigin: Env.CORS_ORIGIN,
-          });
-          logger.log(
-            {
-              event: 'workspace.invitation.created',
-              invitationId: data.id,
-              to: data.email,
-              acceptUrl,
-            },
-            'workspace: invitation created',
-          );
-          try {
-            await email.sendInvitationEmail({
-              to: data.email,
-              inviterName: data.inviter.user.name,
-              workspaceName: data.organization.name,
-              url: acceptUrl,
-              locale,
-            });
-          } catch (error) {
-            logger.error({ err: error, to: data.email }, 'workspace: invitation send failed');
-          }
-        },
+        // hooks. Extracted to `createSendInvitationEmail` so its fail-soft +
+        // log-discipline contract (the accept URL is logged only when email is
+        // unconfigured) is unit-tested in isolation.
+        sendInvitationEmail: createSendInvitationEmail({
+          email,
+          logger,
+          frontendOrigin: Env.CORS_ORIGIN,
+        }),
       }),
     ],
     ...(googleSocial !== undefined ? { socialProviders: googleSocial } : {}),

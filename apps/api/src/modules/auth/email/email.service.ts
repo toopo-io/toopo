@@ -53,6 +53,16 @@ export class AuthEmailService {
         : null;
   }
 
+  /**
+   * Whether a real email provider is wired (a `RESEND_API_KEY` is set). When
+   * `false`, sends fall back to a logged payload — and capability URLs (e.g. an
+   * invitation accept link) may be logged for manual delivery; when `true` they
+   * must never be, since the email carries them (ADR-0028, Phase 4).
+   */
+  get isConfigured(): boolean {
+    return this.resend !== null;
+  }
+
   async sendVerificationEmail(input: SendVerificationInput): Promise<void> {
     const params: VerifyEmailParams = { name: input.name, url: input.url };
     const template = VERIFY_TEMPLATES[input.locale] ?? VERIFY_TEMPLATES[DEFAULT_LOCALE];

@@ -5,6 +5,7 @@
  * against its contract on the way out (ADR-0006).
  */
 import {
+  AssignProjectWorkspaceRequestSchema,
   ProjectListQuerySchema,
   ProjectPageSchema,
   ProjectResponseSchema,
@@ -14,3 +15,4 @@ import { createZodDto } from 'nestjs-zod';
 export class ProjectListQueryDto extends createZodDto(ProjectListQuerySchema) {}
 export class ProjectResponseDto extends createZodDto(ProjectResponseSchema) {}
 export class ProjectPageDto extends createZodDto(ProjectPageSchema) {}
+export class AssignProjectWorkspaceDto extends createZodDto(AssignProjectWorkspaceRequestSchema) {}

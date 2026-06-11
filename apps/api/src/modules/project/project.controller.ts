@@ -95,17 +95,18 @@ export class ProjectController {
     if (!ownsSource) {
       throw new ForbiddenException('Forbidden');
     }
+    // Idempotent no-op: re-homing to the current workspace changes nothing. Placed
+    // after the ownership gate (Option A — a non-owner never reaches here, even for
+    // a no-op, so triviality is no bypass) and before the target probe, so the
+    // no-op costs no extra query (the owner is, by definition, a member of source).
+    if (body.workspaceId === project.workspaceId) {
+      return toProjectResponse(project);
+    }
     // A non-member or non-existent target → isMember is false → denied. The target
     // is never trusted from the body beyond this membership proof, so no leak.
     const memberOfTarget = await this.memberships.isMember(session.user.id, body.workspaceId);
     if (!memberOfTarget) {
       throw new ForbiddenException('Forbidden');
-    }
-    // Idempotent no-op: re-homing to the current workspace changes nothing. The
-    // ownership gate above still ran (Option A) — a non-owner never reaches here,
-    // even for a no-op, so triviality is no authorization bypass.
-    if (body.workspaceId === project.workspaceId) {
-      return toProjectResponse(project);
     }
     const moved = await this.projects.assignProjectToWorkspace(project.id, body.workspaceId);
     return toProjectResponse(moved);

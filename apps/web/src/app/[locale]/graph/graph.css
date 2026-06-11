@@ -1,27 +1,23 @@
 /*
- * Trust palette for the cartography (ADR-0015 §8). Two unmistakably distinct
- * hues, themed for light and dark: deterministic reads as a confident, cool
- * blue; inferred as a cautious amber. Paired with solid-vs-dashed strokes
- * (see `trust.ts`), the two are never confusable. Defined once here and
- * referenced via CSS custom properties so the whole map restyles in one place.
+ * Trust palette for the cartography (ADR-0015 §8). The two hues are the design's
+ * trust tokens (tooling/tailwind/base.css): deterministic reads as a calm neutral
+ * (--tp-certain), inferred as the one saturated accent (--tp-inferred). Paired with
+ * solid-vs-dashed strokes (see `trust.ts`) the two are never confusable, and which
+ * a given fact gets is chosen from the served `resolution` field — never merged.
  *
- * The app themes on `prefers-color-scheme` (see tooling/tailwind/base.css), so
- * the dark variants and the React Flow chrome overrides below key off the same
- * media query — never a `.dark` class.
+ * Theming is attribute-driven (next-themes `data-theme`): the trust hues are
+ * already light/dark-aware through the design tokens, so only the blast-radius
+ * impact highlight — a distinct hue, never a trust colour — needs a per-theme value.
  */
-:root {
-  --toopo-trust-deterministic: oklch(0.55 0.16 255);
-  --toopo-trust-inferred: oklch(0.68 0.16 70);
-  /* Blast-radius impact highlight — a distinct hue, never a trust colour. */
+:root,
+[data-theme="light"] {
+  --toopo-trust-deterministic: var(--tp-certain);
+  --toopo-trust-inferred: var(--tp-inferred);
   --toopo-impact: oklch(0.58 0.2 310);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --toopo-trust-deterministic: oklch(0.72 0.15 255);
-    --toopo-trust-inferred: oklch(0.8 0.15 75);
-    --toopo-impact: oklch(0.74 0.18 310);
-  }
+[data-theme="dark"] {
+  --toopo-impact: oklch(0.74 0.18 310);
 }
 
 /* The explorer canvas fills its container; the page gives it a fixed viewport. */

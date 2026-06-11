@@ -6,6 +6,8 @@ import { LocaleSwitcher } from '../../components/locale-switcher';
 import { ZodLocaleConfig } from '../../components/zod-locale-config';
 import { routing } from '../../i18n/routing';
 import { QueryProvider } from '../../providers/query-provider';
+import { ThemeProvider } from '../../providers/theme-provider';
+import { jetBrainsMono } from '../fonts';
 import '../globals.css';
 
 interface LocaleLayoutProps {
@@ -25,15 +27,17 @@ export default async function LocaleLayout({
   const messages = await getMessages();
 
   return (
-    <html lang={locale}>
-      <body className="bg-background text-foreground antialiased">
-        <NextIntlClientProvider locale={locale} messages={messages}>
-          <ZodLocaleConfig />
-          <header className="flex justify-end px-6 py-4">
-            <LocaleSwitcher />
-          </header>
-          <QueryProvider>{children}</QueryProvider>
-        </NextIntlClientProvider>
+    <html lang={locale} className={jetBrainsMono.variable} suppressHydrationWarning>
+      <body className="bg-background font-sans text-foreground antialiased">
+        <ThemeProvider>
+          <NextIntlClientProvider locale={locale} messages={messages}>
+            <ZodLocaleConfig />
+            <header className="flex justify-end px-6 py-4">
+              <LocaleSwitcher />
+            </header>
+            <QueryProvider>{children}</QueryProvider>
+          </NextIntlClientProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

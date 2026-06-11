@@ -22,3 +22,7 @@ next-env.d.ts
 test-results/
 playwright-report/
 .dogfood/
+
+# Local-only design reference (the locked Minimal mockup + screenshots). The real
+# explorer becomes the design — the throwaway prototype never ships in the repo.
+.design-ref/

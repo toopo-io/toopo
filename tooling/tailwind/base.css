@@ -4,56 +4,104 @@
 @source "../../packages/ui/src/**/*.{ts,tsx}";
 @source "../../apps/web/src/**/*.{ts,tsx}";
 
+/*
+ * Toopo — Minimal design tokens. Theming is attribute-driven: next-themes writes
+ * `data-theme="light|dark"` on <html> (light by default, persisted), so the whole
+ * UI restyles from the toggle, never from the OS `prefers-color-scheme`.
+ *
+ * The design tokens (--tp-*, --k-*) are the single source of truth. Tailwind's
+ * --color-* tokens map ONTO them, so every utility (bg-background, text-foreground,
+ * border-border, …) — and thus every existing auth/account/connect page — restyles
+ * in one place. The two saturated trust hues are NOT fixed here: certain reads as a
+ * calm neutral (--tp-certain), inferred as the one accent (--tp-inferred); which
+ * one a given fact gets is chosen downstream from the served `resolution` field
+ * (the trust principle — never hardcoded, never merged).
+ */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
 @theme {
-  --color-background: oklch(1 0 0);
-  --color-foreground: oklch(0.145 0 0);
-  --color-card: oklch(1 0 0);
-  --color-card-foreground: oklch(0.145 0 0);
-  --color-popover: oklch(1 0 0);
-  --color-popover-foreground: oklch(0.145 0 0);
-  --color-primary: oklch(0.205 0 0);
-  --color-primary-foreground: oklch(0.985 0 0);
-  --color-secondary: oklch(0.97 0 0);
-  --color-secondary-foreground: oklch(0.205 0 0);
-  --color-muted: oklch(0.97 0 0);
-  --color-muted-foreground: oklch(0.556 0 0);
-  --color-accent: oklch(0.97 0 0);
-  --color-accent-foreground: oklch(0.205 0 0);
-  --color-destructive: oklch(0.577 0.245 27.325);
-  --color-destructive-foreground: oklch(0.985 0 0);
-  --color-border: oklch(0.922 0 0);
-  --color-input: oklch(0.922 0 0);
-  --color-ring: oklch(0.708 0 0);
+  --color-background: var(--tp-bg);
+  --color-foreground: var(--tp-text);
+  --color-card: var(--tp-panel);
+  --color-card-foreground: var(--tp-text);
+  --color-popover: var(--tp-panel);
+  --color-popover-foreground: var(--tp-text);
+  --color-primary: var(--tp-text);
+  --color-primary-foreground: var(--tp-panel);
+  --color-secondary: var(--tp-canvas);
+  --color-secondary-foreground: var(--tp-text);
+  --color-muted: var(--tp-canvas);
+  --color-muted-foreground: var(--tp-muted);
+  --color-accent: var(--tp-hover);
+  --color-accent-foreground: var(--tp-text);
+  --color-destructive: var(--tp-danger);
+  --color-destructive-foreground: #ffffff;
+  --color-border: var(--tp-line);
+  --color-input: var(--tp-line);
+  --color-ring: var(--tp-line-strong);
 
-  --radius-sm: 0.125rem;
+  /* Kind hues — the gentle per-symbol colour (node borders, kind badges). */
+  --color-kind-component: var(--k-component);
+  --color-kind-hook: var(--k-hook);
+  --color-kind-function: var(--k-function);
+  --color-kind-type: var(--k-type);
+  --color-kind-file: var(--k-file);
+  --color-kind-package: var(--k-package);
+
+  --radius-sm: 0.25rem;
   --radius-md: 0.375rem;
-  --radius-lg: 0.5rem;
-  --radius-xl: 0.75rem;
+  --radius-lg: 0.4375rem;
+  --radius-xl: 0.625rem;
 
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: ui-monospace, "SFMono-Regular", "Menlo", monospace;
+  --font-sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: var(--font-jetbrains-mono), "JetBrains Mono", ui-monospace, monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  @theme {
-    --color-background: oklch(0.145 0 0);
-    --color-foreground: oklch(0.985 0 0);
-    --color-card: oklch(0.145 0 0);
-    --color-card-foreground: oklch(0.985 0 0);
-    --color-popover: oklch(0.145 0 0);
-    --color-popover-foreground: oklch(0.985 0 0);
-    --color-primary: oklch(0.985 0 0);
-    --color-primary-foreground: oklch(0.205 0 0);
-    --color-secondary: oklch(0.269 0 0);
-    --color-secondary-foreground: oklch(0.985 0 0);
-    --color-muted: oklch(0.269 0 0);
-    --color-muted-foreground: oklch(0.708 0 0);
-    --color-accent: oklch(0.269 0 0);
-    --color-accent-foreground: oklch(0.985 0 0);
-    --color-destructive: oklch(0.704 0.191 22.216);
-    --color-destructive-foreground: oklch(0.985 0 0);
-    --color-border: oklch(0.269 0 0);
-    --color-input: oklch(0.269 0 0);
-    --color-ring: oklch(0.556 0 0);
-  }
+:root,
+[data-theme="light"] {
+  --tp-bg: #ffffff;
+  --tp-panel: #ffffff;
+  --tp-canvas: #fbfbfa;
+  --tp-text: #191c20;
+  --tp-muted: #646a73;
+  --tp-faint: #9aa0a8;
+  --tp-line: rgba(20, 24, 28, 0.1);
+  --tp-line-strong: rgba(20, 24, 28, 0.2);
+  --tp-hover: rgba(20, 24, 28, 0.045);
+  --tp-node-fill: #ffffff;
+  --tp-danger: oklch(0.577 0.245 27.325);
+
+  --tp-certain: #69707a;
+  --tp-inferred: #e0640f;
+
+  --k-component: #5b7cc4;
+  --k-hook: #8a6fc0;
+  --k-function: #4f9d7a;
+  --k-type: #b5688a;
+  --k-file: #9aa0a8;
+  --k-package: #4a5159;
+}
+
+[data-theme="dark"] {
+  --tp-bg: #16181c;
+  --tp-panel: #191c21;
+  --tp-canvas: #131519;
+  --tp-text: #e9ebef;
+  --tp-muted: #969ca6;
+  --tp-faint: #5f656f;
+  --tp-line: rgba(255, 255, 255, 0.1);
+  --tp-line-strong: rgba(255, 255, 255, 0.2);
+  --tp-hover: rgba(255, 255, 255, 0.05);
+  --tp-node-fill: #1d2026;
+  --tp-danger: oklch(0.704 0.191 22.216);
+
+  --tp-certain: #8b929d;
+  --tp-inferred: #f0883e;
+
+  --k-component: #6f9ae0;
+  --k-hook: #a98fe0;
+  --k-function: #5fb88f;
+  --k-type: #d089a8;
+  --k-file: #6b7280;
+  --k-package: #cfd4db;
 }

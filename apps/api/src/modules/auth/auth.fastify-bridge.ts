@@ -6,7 +6,7 @@
  * thrown here, so this module reproduces the GlobalExceptionFilter envelope
  * locally. See Phase 4.1 bug B2.
  */
-import { HttpStatus } from '@nestjs/common';
+import { HttpStatus, type RawBodyRequest } from '@nestjs/common';
 import { ErrorCode, type ErrorResponse } from '@toopo/api-contracts';
 import { type Locale, negotiateLocale } from '@toopo/i18n';
 import { fromNodeHeaders } from 'better-auth/node';
@@ -82,7 +82,7 @@ export function registerAuthRoute(deps: RegisterAuthRouteDeps): void {
   fastify.route({
     method: ['GET', 'POST'],
     url: '/v1/auth/*',
-    async handler(request: FastifyRequest, reply: FastifyReply) {
+    async handler(request: RawBodyRequest<FastifyRequest>, reply: FastifyReply) {
       try {
         const host = request.headers.host ?? `localhost:${portFallback}`;
         const url = new URL(request.url, `http://${host}`);
@@ -91,7 +91,19 @@ export function registerAuthRoute(deps: RegisterAuthRouteDeps): void {
           method: request.method,
           headers,
         };
-        if (request.body !== undefined && request.body !== null) {
+        // Forward the EXACT bytes the client sent. This route is registered
+        // directly on Fastify (Better Auth ships a Web-Fetch handler, not a Nest
+        // surface), so Nest's body pipeline does not populate `request.body`
+        // here — only the raw-body capture (`rawBody: true`, main.ts) does.
+        // Re-serialising `request.body` would forward `undefined` and Better Auth
+        // would reject every field as missing; the raw buffer is the faithful
+        // source and matches the content-type/length headers copied above. The
+        // `request.body` branch remains a fallback for any in-process `inject()`
+        // caller, where the raw body is not captured but `body` is parsed.
+        const { rawBody } = request;
+        if (rawBody !== undefined && rawBody.length > 0) {
+          init.body = new Uint8Array(rawBody);
+        } else if (request.body !== undefined && request.body !== null) {
           init.body = JSON.stringify(request.body);
         }
         const webRequest = new Request(url.toString(), init);

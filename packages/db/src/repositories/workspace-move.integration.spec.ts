@@ -17,6 +17,7 @@ import { migrateToLatest } from '../migrator.js';
 import type { AuthDatabase } from '../schema/auth-types.js';
 import type { ProjectDatabase } from '../schema/project-types.js';
 import { type BackendHarness, SKIP_POSTGRES, startBackend } from '../test-support/backends.js';
+import { dbBoolean } from '../test-support/column-values.js';
 import { KyselyMembershipRepository } from './membership.repository.kysely.js';
 import { KyselyProjectRepository } from './project.repository.kysely.js';
 import type { ProjectRecord } from './project-records.js';
@@ -51,7 +52,7 @@ for (const { backend, skip } of backends) {
             id: 'user-a',
             name: 'A',
             email: 'a@example.com',
-            emailVerified: backend === 'postgres' ? true : 1,
+            emailVerified: dbBoolean(backend, true),
             image: null,
             createdAt: '2026-01-01T00:00:00.000Z',
             updatedAt: '2026-01-01T00:00:00.000Z',
@@ -61,7 +62,7 @@ for (const { backend, skip } of backends) {
             id: 'user-b',
             name: 'B',
             email: 'b@example.com',
-            emailVerified: backend === 'postgres' ? true : 1,
+            emailVerified: dbBoolean(backend, true),
             image: null,
             createdAt: '2026-01-01T00:00:00.000Z',
             updatedAt: '2026-01-01T00:00:00.000Z',

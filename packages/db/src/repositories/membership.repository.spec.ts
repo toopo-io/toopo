@@ -11,6 +11,7 @@ import { MIGRATIONS_DIR } from '../migrations-dir.js';
 import { migrateToLatest } from '../migrator.js';
 import type { AuthDatabase } from '../schema/auth-types.js';
 import { type BackendHarness, SKIP_POSTGRES, startBackend } from '../test-support/backends.js';
+import { dbBoolean } from '../test-support/column-values.js';
 import { KyselyMembershipRepository } from './membership.repository.kysely.js';
 
 const backends = [
@@ -37,7 +38,7 @@ for (const { backend, skip } of backends) {
           id: 'user-1',
           name: 'Ada',
           email: 'ada@example.com',
-          emailVerified: backend === 'postgres' ? true : 1,
+          emailVerified: dbBoolean(backend, true),
           image: null,
           createdAt: '2026-01-01T00:00:00.000Z',
           updatedAt: '2026-01-01T00:00:00.000Z',
@@ -109,7 +110,7 @@ for (const { backend, skip } of backends) {
       expect(await repository.isMember('nobody', 'ws-old')).toBe(false);
     });
 
-    it('listWorkspaceIds returns the user every workspace, earliest first', async () => {
+    it('listWorkspaceIds returns every workspace the user belongs to, earliest first', async () => {
       expect(await repository.listWorkspaceIds('user-1')).toEqual(['ws-old', 'ws-new']);
       expect(await repository.listWorkspaceIds('nobody')).toEqual([]);
     });

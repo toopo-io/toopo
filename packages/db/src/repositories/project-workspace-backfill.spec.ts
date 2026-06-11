@@ -31,6 +31,7 @@ import {
   personalWorkspaceSlug,
 } from '../schema/personal-workspace.js';
 import { type BackendHarness, SKIP_POSTGRES, startBackend } from '../test-support/backends.js';
+import { dbBoolean } from '../test-support/column-values.js';
 import { KyselyMembershipRepository } from './membership.repository.kysely.js';
 
 const HAS_MEMBER = 'u-has-member';
@@ -75,7 +76,7 @@ for (const { backend, skip } of backends) {
       // 2) Seed legacy data through raw SQL (the project table has no workspace_id
       //    yet, so a typed insert would not compile). Two real users; a third
       //    owner id ('u-ghost') deliberately has no user row.
-      const verified = backend === 'postgres' ? true : 1;
+      const verified = dbBoolean(backend, true);
       await sql`
         insert into "user" ("id", "name", "email", "emailVerified", "image", "createdAt", "updatedAt", "deletedAt")
         values

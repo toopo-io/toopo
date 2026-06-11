@@ -34,13 +34,15 @@ export const allowSession: CanActivate = { canActivate: () => true };
  * Stands in for the SessionGuard but ATTACHES a real session for `userId`, so the
  * downstream REAL ProjectAccessGuard can run its membership check end-to-end (the
  * authz-wiring e2e). Distinct from {@link allowSession}, which sets no session.
+ * `activeOrganizationId` mirrors the Better Auth session pointer the listing scopes
+ * to (ADR-0028 §4); defaults to null (no active workspace).
  */
-export function sessionAs(userId: string): CanActivate {
+export function sessionAs(userId: string, activeOrganizationId: string | null = null): CanActivate {
   return {
     canActivate(context: ExecutionContext): boolean {
       context.switchToHttp().getRequest<RequestWithSession>().betterAuthSession = {
         user: { id: userId, email: `${userId}@e2e.test`, name: userId, emailVerified: true },
-        session: { id: `sess-${userId}`, userId },
+        session: { id: `sess-${userId}`, userId, activeOrganizationId },
       };
       return true;
     },

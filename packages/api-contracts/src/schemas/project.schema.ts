@@ -14,6 +14,8 @@ export const ProjectResponseSchema = z
     id: z.string(),
     /** The connecting user (provenance + future cloud isolation, ADR-0022 §2). */
     ownerUserId: z.string(),
+    /** The owning Workspace (ADR-0028); the listing's scope and the move target. */
+    workspaceId: z.string(),
     repoHost: z.string(),
     repoOwner: z.string(),
     repoName: z.string(),

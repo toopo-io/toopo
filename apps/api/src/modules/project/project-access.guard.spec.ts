@@ -20,7 +20,7 @@ const project: ProjectRecord = {
 
 const session: CurrentSessionData = {
   user: { id: 'u1', email: 'a@b.c', name: 'A', emailVerified: true },
-  session: { id: 's1', userId: 'u1' },
+  session: { id: 's1', userId: 'u1', activeOrganizationId: null },
 };
 
 function fakeProjects(findResult: ProjectRecord | null): ProjectRepository {

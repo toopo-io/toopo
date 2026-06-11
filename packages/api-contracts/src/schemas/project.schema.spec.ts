@@ -10,6 +10,7 @@ import {
 const project = {
   id: 'p1',
   ownerUserId: 'u1',
+  workspaceId: 'ws-1',
   repoHost: 'github',
   repoOwner: 'toopo',
   repoName: 'toopo',
@@ -20,7 +21,14 @@ const project = {
 
 describe('ProjectResponseSchema', () => {
   it('accepts a connected-repo record with a null installation id', () => {
-    expect(ProjectResponseSchema.parse(project).repoName).toBe('toopo');
+    const parsed = ProjectResponseSchema.parse(project);
+    expect(parsed.repoName).toBe('toopo');
+    expect(parsed.workspaceId).toBe('ws-1');
+  });
+
+  it('requires the owning workspace id (ADR-0028)', () => {
+    const { workspaceId: _omit, ...withoutWorkspace } = project;
+    expect(ProjectResponseSchema.safeParse(withoutWorkspace).success).toBe(false);
   });
 
   it('rejects unknown keys (strict wire contract)', () => {

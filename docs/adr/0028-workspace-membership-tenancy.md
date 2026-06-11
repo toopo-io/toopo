@@ -45,8 +45,22 @@ all stand. It extends ADR-0017 and leaves ADR-0015 untouched.
 4. **Access is membership-scoped (Phase 3).** A user reaches a project iff
    `isMember(userId, project.workspace_id)`. The `ProjectAccessGuard` reads
    the workspace from the **persisted** project, never the request, so it
-   cannot be spoofed; `list` returns only the caller's-workspace projects.
-   This is the predicate that supersedes ADR-0022 §2.
+   cannot be spoofed. This is the predicate that supersedes ADR-0022 §2.
+
+   **Amendment (Phase C, 2026-06-11) — `list` is active-workspace scoped.**
+   `GET /v1/projects` returns the projects of the caller's **active**
+   workspace (`session.activeOrganizationId`), not the union of every
+   membership. Better Auth sets the active organization only to one the
+   caller belongs to, so reading it from the **session** (never the request)
+   keeps the listing membership-safe and unspoofable — the same posture as
+   the guard. When the session carries no active workspace (one predating the
+   active-workspace hook, or a fail-soft provisioning miss), the listing falls
+   back to `findFirstWorkspaceId` (the earliest membership, the resolver
+   session creation already uses), so a valid user never sees a blank sidebar;
+   it lists nothing only for a caller in no workspace. This realises two of the
+   noted-not-built seams below — the "no active workspace" signal (handled
+   server-side by the fallback) and the precondition for a workspace-aware
+   cursor — and is a refinement of this section, not a new supersession.
 
 5. **Re-home on revive when the owner lost access (HIGH-2).** On re-connect
    the install flow re-homes a revived project (sets `workspace_id`) **only**
@@ -76,10 +90,11 @@ all stand. It extends ADR-0017 and leaves ADR-0015 untouched.
 - A deliberately-deferred **instance-admin** escape hatch would extend the
   single membership check (`member || session.isInstanceAdmin`) and the
   superseded all-projects listing — noted, **not built**.
-- Three noted seams, **not built**: an observability signal for the
+- Two noted seams remain **not built**: an observability signal for the
   members-less orphan sentinel; a keyset cursor that includes `workspace_id`
-  if cross-workspace listing is ever added; a "no active workspace" client
-  signal for the fail-soft provisioning gap.
+  if cross-workspace listing is ever re-introduced. The "no active workspace"
+  fail-soft gap is now closed server-side by the active-workspace listing
+  fallback (§4 amendment).
 - `@toopo/core` is untouched; this extends ADR-0017 additively.
 
 ## Alternatives considered

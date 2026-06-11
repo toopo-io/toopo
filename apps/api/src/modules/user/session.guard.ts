@@ -19,6 +19,12 @@ export interface CurrentSessionData {
   readonly session: {
     readonly id: string;
     readonly userId: string;
+    /**
+     * The caller's active workspace (ADR-0028 §2), set by the Better Auth
+     * organization plugin. Null until an active organization is set; the project
+     * listing scopes to it (ADR-0028 §4) with an earliest-membership fallback.
+     */
+    readonly activeOrganizationId: string | null;
   };
 }
 

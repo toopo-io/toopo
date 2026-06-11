@@ -39,9 +39,10 @@ async function buildApp(
   graph: GraphRepository,
 ): Promise<NestFastifyApplication> {
   const module = await Test.createTestingModule({ imports: [AppModule] })
-    // SessionGuard → a fixed authenticated user; ProjectAccessGuard is REAL.
+    // SessionGuard → a fixed authenticated user whose active workspace is the
+    // project's iff they are a member; ProjectAccessGuard is REAL.
     .overrideGuard(SessionGuard)
-    .useValue(sessionAs('u1'))
+    .useValue(sessionAs('u1', isMember ? e2eProject.workspaceId : null))
     .overrideProvider(GRAPH_REPOSITORY)
     .useValue(graph)
     .overrideProvider(PROJECT_REPOSITORY)
@@ -110,14 +111,14 @@ describe('Membership authorization is wired through the real ProjectAccessGuard 
     });
   });
 
-  describe('ProjectController.list /v1/projects', () => {
-    it('member → only their workspace projects', async () => {
+  describe('ProjectController.list /v1/projects (active-workspace scoped, ADR-0028 §4)', () => {
+    it('member with the project as active workspace → only that workspace projects', async () => {
       const res = await memberApp.inject({ method: 'GET', url: projectsApiPath() });
       expect(res.statusCode).toBe(200);
       expect(res.json().items.map((p: { id: string }) => p.id)).toEqual([E2E_PROJECT_ID]);
     });
 
-    it('non-member → empty list (a user in no workspace sees nothing, never 403)', async () => {
+    it('no active workspace and no membership → empty list (sees nothing, never 403)', async () => {
       const res = await nonMemberApp.inject({ method: 'GET', url: projectsApiPath() });
       expect(res.statusCode).toBe(200);
       expect(res.json().items).toEqual([]);

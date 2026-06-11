@@ -1,10 +1,10 @@
 /**
- * The project read API (ADR-0022 §5, membership-scoped per ADR-0028 §Phase 3):
- * list the caller's-workspace connected repos and fetch one by id. Read-only —
+ * The project read API (ADR-0022 §5, membership-scoped per ADR-0028 §Phase 3 + §4):
+ * list the active workspace's connected repos and fetch one by id. Read-only —
  * project creation is the install flow's job; public connect is the GitHub-App
  * phase. Access is workspace membership (superseding ADR-0022 §2's instance-tenant
- * line): `list` returns only projects in workspaces the caller belongs to, and
- * `get` runs through the ProjectAccessGuard (member → 200, non-member → 403,
+ * line): `list` returns the projects in the caller's ACTIVE workspace (ADR-0028 §4),
+ * and `get` runs through the ProjectAccessGuard (member → 200, non-member → 403,
  * unknown → 404) — sealing the same cross-workspace leak the graph routes close.
  */
 import {
@@ -50,18 +50,36 @@ export class ProjectController {
   ) {}
 
   @Get()
-  @ApiOperation({ summary: "List the caller's connected projects (keyset-paged)" })
+  @ApiOperation({ summary: "List the active workspace's connected projects (keyset-paged)" })
   @ZodSerializerDto(ProjectPageDto)
   async list(
     @CurrentSession() session: CurrentSessionData,
     @Query() query: ProjectListQueryDto,
   ): Promise<ProjectPage> {
-    const workspaceIds = await this.memberships.listWorkspaceIds(session.user.id);
-    const page = await this.projects.listProjectsInWorkspaces(workspaceIds, {
-      limit: query.limit,
-      cursor: query.cursor,
-    });
+    const workspaceId = await this.resolveActiveWorkspaceId(session);
+    const page = await this.projects.listProjectsInWorkspaces(
+      workspaceId === null ? [] : [workspaceId],
+      { limit: query.limit, cursor: query.cursor },
+    );
     return { items: page.items.map(toProjectResponse), nextCursor: page.nextCursor };
+  }
+
+  /**
+   * The workspace the listing is scoped to (ADR-0028 §4): the session's active
+   * workspace, set by Better Auth only to a workspace the caller is a member of —
+   * so it is membership-safe and unspoofable (read from the session, never the
+   * request). When the session carries no active workspace (one predating the
+   * active-workspace hook, or a fail-soft provisioning miss), fall back to the
+   * caller's earliest membership — the same resolver session creation uses — so a
+   * valid user never sees a blank sidebar. Null only when the caller belongs to no
+   * workspace, which lists nothing.
+   */
+  private async resolveActiveWorkspaceId(session: CurrentSessionData): Promise<string | null> {
+    const active = session.session.activeOrganizationId;
+    if (active !== null) {
+      return active;
+    }
+    return this.memberships.findFirstWorkspaceId(session.user.id);
   }
 
   @Get(`:${GRAPH_PROJECT_ID_PARAM}`)

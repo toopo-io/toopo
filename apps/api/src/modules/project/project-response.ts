@@ -10,6 +10,7 @@ export function toProjectResponse(project: ProjectRecord): ProjectResponse {
   return {
     id: project.id,
     ownerUserId: project.ownerUserId,
+    workspaceId: project.workspaceId,
     repoHost: project.repoHost,
     repoOwner: project.repoOwner,
     repoName: project.repoName,

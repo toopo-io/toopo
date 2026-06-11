@@ -31,8 +31,9 @@ export function fakeProjectRepository(): ProjectRepository {
 
 /**
  * A membership repository fake over explicit sets: the caller is a member of
- * `memberOf` and an owner of `ownerOf` (a subset of `memberOf`). `listWorkspaceIds`
- * returns `memberOf`, so the project listing is scoped exactly to those.
+ * `memberOf` and an owner of `ownerOf` (a subset of `memberOf`). `findFirstWorkspaceId`
+ * returns the earliest (first listed) membership, the active-workspace fallback the
+ * listing uses when the session carries no active workspace (ADR-0028 §4).
  */
 export function fakeMembershipRepository(options: {
   readonly memberOf: readonly string[];
@@ -44,6 +45,7 @@ export function fakeMembershipRepository(options: {
       Promise.resolve(options.memberOf.includes(workspaceId)),
     isWorkspaceOwner: (_userId: string, workspaceId: string) =>
       Promise.resolve(ownerOf.includes(workspaceId)),
+    findFirstWorkspaceId: () => Promise.resolve(options.memberOf[0] ?? null),
     listWorkspaceIds: () => Promise.resolve([...options.memberOf]),
   } as unknown as MembershipRepository;
 }

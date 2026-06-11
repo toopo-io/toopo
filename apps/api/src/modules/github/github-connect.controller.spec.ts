@@ -6,7 +6,7 @@ import type { GithubInstallService } from './github-install.service';
 
 const session = {
   user: { id: 'user-1', email: 'u@e.com', name: 'U', emailVerified: true },
-  session: { id: 's1', userId: 'user-1' },
+  session: { id: 's1', userId: 'user-1', activeOrganizationId: null },
 } satisfies CurrentSessionData;
 
 describe('GithubConnectController', () => {

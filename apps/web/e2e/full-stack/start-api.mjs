@@ -18,6 +18,7 @@ import { execSync, spawn } from 'node:child_process';
 import { mkdirSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { prebuildWorkspacePackages } from './prebuild-packages.mjs';
 
 const databaseUrl = process.env.DATABASE_URL;
 if (databaseUrl === undefined || databaseUrl.length === 0) {
@@ -27,6 +28,10 @@ if (databaseUrl === undefined || databaseUrl.length === 0) {
 const dbDir = path.dirname(databaseUrl.replace(/^file:/, ''));
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');
 const env = { ...process.env };
+
+// Build workspace packages from source before migrating or starting the API, so
+// the API never consumes a stale `./dist` (determinism — see prebuild-packages).
+prebuildWorkspacePackages();
 
 rmSync(dbDir, { recursive: true, force: true });
 mkdirSync(dbDir, { recursive: true });

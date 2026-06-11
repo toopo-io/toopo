@@ -8,9 +8,14 @@
 import { execSync, spawn } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { prebuildWorkspacePackages } from './prebuild-packages.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');
 const env = { ...process.env };
+
+// Build workspace packages from source before the web build, so the production
+// app never bakes in a stale `./dist` (determinism — see prebuild-packages).
+prebuildWorkspacePackages();
 
 execSync('pnpm --filter @toopo/web build', { cwd: repoRoot, env, stdio: 'inherit' });
 

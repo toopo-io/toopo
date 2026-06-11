@@ -13,39 +13,16 @@ import { VersioningType } from '@nestjs/common';
 import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fastify';
 import { Test } from '@nestjs/testing';
 import { projectWorkspaceApiPath } from '@toopo/api-contracts';
-import type { MembershipRepository, ProjectRepository } from '@toopo/db';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../src/app.module';
 import { MEMBERSHIP_REPOSITORY, PROJECT_REPOSITORY } from '../src/modules/database/database.module';
 import { SessionGuard } from '../src/modules/user/session.guard';
+import { fakeMembershipRepository, fakeProjectRepository } from './support/fake-repositories';
 import { E2E_PROJECT_ID, e2eProject, sessionAs } from './support/serving-app';
 
 const UNKNOWN_PROJECT = 'no-such-project';
 const SOURCE_WS = e2eProject.workspaceId; // 'ws-1'
 const TARGET_WS = 'ws-2';
-
-/** The project repository fake: resolves the seeded project and records the move. */
-function fakeProjects(): ProjectRepository {
-  return {
-    findProjectById: (id: string) => Promise.resolve(id === E2E_PROJECT_ID ? e2eProject : null),
-    assignProjectToWorkspace: (id: string, workspaceId: string) =>
-      Promise.resolve({ ...e2eProject, id, workspaceId, updatedAt: new Date() }),
-  } as unknown as ProjectRepository;
-}
-
-/** A membership fake over explicit owner/member sets (the caller is the fixed user). */
-function fakeMemberships(
-  memberOf: readonly string[],
-  ownerOf: readonly string[],
-): MembershipRepository {
-  return {
-    isMember: (_userId: string, workspaceId: string) =>
-      Promise.resolve(memberOf.includes(workspaceId)),
-    isWorkspaceOwner: (_userId: string, workspaceId: string) =>
-      Promise.resolve(ownerOf.includes(workspaceId)),
-    listWorkspaceIds: () => Promise.resolve([...memberOf]),
-  } as unknown as MembershipRepository;
-}
 
 async function buildApp(
   memberOf: readonly string[],
@@ -55,9 +32,9 @@ async function buildApp(
     .overrideGuard(SessionGuard)
     .useValue(sessionAs('u1'))
     .overrideProvider(PROJECT_REPOSITORY)
-    .useValue(fakeProjects())
+    .useValue(fakeProjectRepository())
     .overrideProvider(MEMBERSHIP_REPOSITORY)
-    .useValue(fakeMemberships(memberOf, ownerOf))
+    .useValue(fakeMembershipRepository({ memberOf, ownerOf }))
     .compile();
   const app = module.createNestApplication<NestFastifyApplication>(new FastifyAdapter());
   app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });

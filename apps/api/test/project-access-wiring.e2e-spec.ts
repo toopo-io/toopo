@@ -18,7 +18,7 @@ import {
   projectApiPath,
   projectsApiPath,
 } from '@toopo/api-contracts';
-import type { GraphRepository, MembershipRepository, ProjectRepository } from '@toopo/db';
+import type { GraphRepository } from '@toopo/db';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../src/app.module';
 import {
@@ -27,30 +27,12 @@ import {
   PROJECT_REPOSITORY,
 } from '../src/modules/database/database.module';
 import { SessionGuard } from '../src/modules/user/session.guard';
+import { fakeMembershipRepository, fakeProjectRepository } from './support/fake-repositories';
 import { type SeededGraph, seedGraphDatabase } from './support/graph-backend';
 import { graphFixture } from './support/graph-fixture';
 import { E2E_PROJECT_ID, e2eProject, sessionAs } from './support/serving-app';
 
 const UNKNOWN_PROJECT = 'no-such-project';
-
-function fakeProjects(): ProjectRepository {
-  return {
-    findProjectById: (id: string) => Promise.resolve(id === E2E_PROJECT_ID ? e2eProject : null),
-    listProjectsInWorkspaces: (workspaceIds: readonly string[]) =>
-      Promise.resolve({
-        items: workspaceIds.includes(e2eProject.workspaceId) ? [e2eProject] : [],
-        nextCursor: null,
-      }),
-  } as unknown as ProjectRepository;
-}
-
-function fakeMemberships(isMember: boolean): MembershipRepository {
-  return {
-    isMember: (_userId: string, workspaceId: string) =>
-      Promise.resolve(isMember && workspaceId === e2eProject.workspaceId),
-    listWorkspaceIds: () => Promise.resolve(isMember ? [e2eProject.workspaceId] : []),
-  } as unknown as MembershipRepository;
-}
 
 async function buildApp(
   isMember: boolean,
@@ -63,9 +45,9 @@ async function buildApp(
     .overrideProvider(GRAPH_REPOSITORY)
     .useValue(graph)
     .overrideProvider(PROJECT_REPOSITORY)
-    .useValue(fakeProjects())
+    .useValue(fakeProjectRepository())
     .overrideProvider(MEMBERSHIP_REPOSITORY)
-    .useValue(fakeMemberships(isMember))
+    .useValue(fakeMembershipRepository({ memberOf: isMember ? [e2eProject.workspaceId] : [] }))
     .compile();
   const app = module.createNestApplication<NestFastifyApplication>(new FastifyAdapter());
   app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });

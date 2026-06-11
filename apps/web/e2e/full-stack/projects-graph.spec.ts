@@ -1,26 +1,30 @@
 /**
- * Full-stack positive path (ADR-0022): an authenticated viewer browses the
- * project picker and opens the project-scoped cartography, on the REAL stack
- * (migrated DB → worker-ingested graph → Nest API → Next web → session cookie).
- * The complement to the negative-path 401 e2e in apps/api: this proves the
- * authed render path works end to end through the new gating.
+ * Full-stack positive path (ADR-0022): an authenticated viewer opens a repo's
+ * cartography from the C1 explorer sidebar, on the REAL stack (migrated DB →
+ * worker-ingested graph → Nest API → Next web → session cookie). The complement
+ * to the negative-path 401 e2e in apps/api: this proves the authed render path
+ * works end to end through the gating.
  *
- * Captures `projects-picker.png` and `project-graph.png` as review artifacts.
- * Runs with the persisted session state (see `auth.setup.ts`).
+ * The shell chrome itself (workspace switcher, repo list, both mapped states) is
+ * covered by `c1-shell.spec.ts`; this spec owns the open-a-graph → canvas path.
+ * Captures `project-graph.png` as a review artifact. Runs with the persisted
+ * session state (see `auth.setup.ts`).
  */
 import { expect, test } from '@playwright/test';
 import { LOCALE } from './config';
 
-test('an authenticated viewer browses the picker and opens the project graph', async ({ page }) => {
-  // The gated picker lists the instance's connected project (ADR-0022 §5).
+test('an authenticated viewer opens a repo graph from the sidebar', async ({ page }) => {
+  // The gated shell lists the instance's connected repos in the sidebar (ADR-0022
+  // §5, Phase C1). The mapped repo — the one with a deterministic graph — carries
+  // the exact "mapped" badge; the unmapped one reads "not mapped yet".
   await page.goto(`/${LOCALE}/projects`);
-  await expect(page.getByRole('heading', { name: 'Projects' })).toBeVisible();
-  const projectCard = page.getByRole('link').filter({ hasText: 'toopo/toopo' });
-  await expect(projectCard).toBeVisible();
-  await page.screenshot({ path: 'test-results/projects-picker.png' });
+  const mappedRepo = page
+    .getByRole('link')
+    .filter({ has: page.getByText('mapped', { exact: true }) });
+  await expect(mappedRepo).toBeVisible();
 
   // Opening it lands on the project-scoped graph (path carries the project id).
-  await projectCard.click();
+  await mappedRepo.click();
   await expect(page).toHaveURL(/\/projects\/[^/]+\/graph/, { timeout: 15_000 });
 
   // The cartography renders under auth: header, trust legend, real nodes/edges.

@@ -103,6 +103,21 @@ export class KyselyProjectRepository implements ProjectRepository {
       .execute();
   }
 
+  async assignProjectToWorkspace(id: string, workspaceId: string): Promise<ProjectRecord> {
+    const now = new Date().toISOString();
+    // A single statement: update the placement and return the authoritative row.
+    // `returningAll` is portable across both backends (Postgres and SQLite ≥ 3.35,
+    // which libSQL ships). `OrThrow` makes a vanished row (a concurrent delete after
+    // the API guard resolved it) a loud error, never a silent no-result.
+    const row = await this.db
+      .updateTable('project')
+      .set({ workspace_id: workspaceId, updated_at: now })
+      .where('id', '=', id)
+      .returningAll()
+      .executeTakeFirstOrThrow();
+    return rowToProject(row);
+  }
+
   async listProjectsInWorkspaces(
     workspaceIds: readonly string[],
     options?: PageOptions,

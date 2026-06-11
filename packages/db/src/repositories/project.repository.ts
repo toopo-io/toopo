@@ -81,6 +81,19 @@ export interface ProjectRepository {
   reviveProject(id: string, installationId: string | null, workspaceId?: string): Promise<void>;
 
   /**
+   * Re-home a project to another workspace (ADR-0028, Phase 5): set its
+   * `workspace_id`, returning the fresh stored record (the repository owns
+   * `updated_at`). This is the ONLY mutation of a project's tenancy placement
+   * outside the install flow; it changes the project's access boundary and nothing
+   * else — never any graph data, whose composite key stays `(project_id, …)` with a
+   * stable `project_id` (the locked invariant). The Option B authorization (caller
+   * owns the source workspace AND is a member of the target) lives at the API
+   * boundary, not here. Assigning to the current workspace is a clean idempotent
+   * write (the row is rewritten in place; the placement is unchanged).
+   */
+  assignProjectToWorkspace(id: string, workspaceId: string): Promise<ProjectRecord>;
+
+  /**
    * The caller's ACTIVE projects, keyset-paged by id (ADR-0020 §4 — always
    * bounded): the active projects whose `workspace_id` is one of `workspaceIds`,
    * the caller's workspaces (ADR-0028, Phase 3). Archived projects (ADR-0026 §7)

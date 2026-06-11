@@ -207,5 +207,49 @@ for (const { backend, skip } of backends) {
       const listed = await repository.listProjectsInWorkspaces(['ws-acme']);
       expect(listed.items.map((p) => p.id)).toContain(target.id);
     });
+
+    it('assigns a project to another workspace, changing only its placement (ADR-0028, Phase 5)', async () => {
+      const target = await repository.createProject({
+        ownerUserId: 'user-1',
+        workspaceId: 'ws-source',
+        repoHost: 'github',
+        repoOwner: 'acme',
+        repoName: 'movable-repo',
+        installationId: '42',
+      });
+
+      const moved = await repository.assignProjectToWorkspace(target.id, 'ws-target');
+
+      // The returned record is the fresh, authoritative row (the repository owns
+      // `updated_at`), re-homed to the target and nothing else touched.
+      expect(moved.workspaceId).toBe('ws-target');
+      expect(moved.installationId).toBe('42');
+      expect(moved.ownerUserId).toBe('user-1');
+      expect(moved.repoName).toBe('movable-repo');
+      expect(moved.archivedAt).toBeNull();
+      expect(moved.updatedAt.getTime()).toBeGreaterThanOrEqual(target.updatedAt.getTime());
+      // It persisted: the source no longer lists it, the target does.
+      const source = await repository.listProjectsInWorkspaces(['ws-source']);
+      expect(source.items.map((p) => p.id)).not.toContain(target.id);
+      const dest = await repository.listProjectsInWorkspaces(['ws-target']);
+      expect(dest.items.map((p) => p.id)).toContain(target.id);
+    });
+
+    it('treats assigning to the current workspace as an idempotent no-op (ADR-0028, Phase 5)', async () => {
+      const target = await repository.createProject({
+        ownerUserId: 'user-1',
+        workspaceId: 'ws-stay',
+        repoHost: 'github',
+        repoOwner: 'acme',
+        repoName: 'staying-repo',
+      });
+
+      const same = await repository.assignProjectToWorkspace(target.id, 'ws-stay');
+
+      expect(same.workspaceId).toBe('ws-stay');
+      expect(same.id).toBe(target.id);
+      const listed = await repository.listProjectsInWorkspaces(['ws-stay']);
+      expect(listed.items.map((p) => p.id)).toContain(target.id);
+    });
   });
 }

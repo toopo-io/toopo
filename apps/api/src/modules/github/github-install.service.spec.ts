@@ -72,6 +72,7 @@ function harness(options?: {
     findProjectsByInstallationId: vi.fn(),
     archiveProject: vi.fn(),
     reviveProject: vi.fn(),
+    assignProjectToWorkspace: vi.fn(),
     listProjectsInWorkspaces: vi.fn(),
   };
   const workspaceId = options?.workspaceId === undefined ? WORKSPACE : options.workspaceId;

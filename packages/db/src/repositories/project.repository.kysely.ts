@@ -89,11 +89,16 @@ export class KyselyProjectRepository implements ProjectRepository {
       .execute();
   }
 
-  async reviveProject(id: string, installationId: string | null): Promise<void> {
+  async reviveProject(
+    id: string,
+    installationId: string | null,
+    workspaceId?: string,
+  ): Promise<void> {
     const now = new Date().toISOString();
+    const changes = { archived_at: null, installation_id: installationId, updated_at: now };
     await this.db
       .updateTable('project')
-      .set({ archived_at: null, installation_id: installationId, updated_at: now })
+      .set(workspaceId === undefined ? changes : { ...changes, workspace_id: workspaceId })
       .where('id', '=', id)
       .execute();
   }

@@ -70,8 +70,15 @@ export interface ProjectRepository {
    * refresh the installation id (a re-install may carry a new one). The inverse of
    * {@link archiveProject}, used when {@link findProjectByRepo} resolves an
    * existing (possibly archived) row instead of creating a duplicate.
+   *
+   * `workspaceId` re-homes the project (ADR-0028): when given, the project's
+   * `workspace_id` is updated; when omitted, it is left untouched. The install
+   * flow re-homes only when the re-installing owner has lost access to the current
+   * workspace (orphan sentinel, or a workspace they are not a member of), so a
+   * revived project is never silently inaccessible despite a `linked: true`; a
+   * deliberate placement the owner still belongs to is respected (left as-is).
    */
-  reviveProject(id: string, installationId: string | null): Promise<void>;
+  reviveProject(id: string, installationId: string | null, workspaceId?: string): Promise<void>;
 
   /**
    * The caller's ACTIVE projects, keyset-paged by id (ADR-0020 §4 — always

@@ -179,7 +179,31 @@ for (const { backend, skip } of backends) {
       const revived = await repository.findProjectById(target.id);
       expect(revived?.archivedAt).toBeNull();
       expect(revived?.installationId).toBe('99');
+      // No workspace argument given → the placement is left untouched.
+      expect(revived?.workspaceId).toBe('ws-acme');
 
+      const listed = await repository.listProjectsInWorkspaces(['ws-acme']);
+      expect(listed.items.map((p) => p.id)).toContain(target.id);
+    });
+
+    it('re-homes a revived project to the given workspace (ADR-0028)', async () => {
+      const target = await repository.createProject({
+        ownerUserId: 'user-1',
+        workspaceId: 'orphaned-workspace',
+        repoHost: 'github',
+        repoOwner: 'acme',
+        repoName: 'rehomed-repo',
+        installationId: '42',
+      });
+      await repository.archiveProject(target.id, new Date('2026-06-10T00:00:00Z'));
+
+      await repository.reviveProject(target.id, '99', 'ws-acme');
+
+      const revived = await repository.findProjectById(target.id);
+      expect(revived?.archivedAt).toBeNull();
+      expect(revived?.installationId).toBe('99');
+      // Re-homed: the project now lives in (and is listed under) the new workspace.
+      expect(revived?.workspaceId).toBe('ws-acme');
       const listed = await repository.listProjectsInWorkspaces(['ws-acme']);
       expect(listed.items.map((p) => p.id)).toContain(target.id);
     });

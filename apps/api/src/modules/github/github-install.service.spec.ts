@@ -37,7 +37,10 @@ interface Harness {
   service: GithubInstallService;
   auth: GithubAppAuth;
   projects: { [K in keyof ProjectRepository]: ReturnType<typeof vi.fn> };
-  memberships: { findFirstWorkspaceId: ReturnType<typeof vi.fn> };
+  memberships: {
+    findFirstWorkspaceId: ReturnType<typeof vi.fn>;
+    isMember: ReturnType<typeof vi.fn>;
+  };
   installations: {
     upsertInstallation: ReturnType<typeof vi.fn>;
     findInstallation: ReturnType<typeof vi.fn>;
@@ -52,6 +55,7 @@ function harness(options?: {
   repos?: readonly InstallationRepo[];
   findProjectByRepo?: (owner: string, name: string) => ProjectRecord | null;
   workspaceId?: string | null;
+  isMember?: boolean;
 }): Harness {
   const repos = options?.repos ?? [{ owner: 'acme', name: 'web' }];
   const auth: GithubAppAuth = {
@@ -71,7 +75,10 @@ function harness(options?: {
     listProjectsInWorkspaces: vi.fn(),
   };
   const workspaceId = options?.workspaceId === undefined ? WORKSPACE : options.workspaceId;
-  const memberships = { findFirstWorkspaceId: vi.fn(async () => workspaceId) };
+  const memberships = {
+    findFirstWorkspaceId: vi.fn(async () => workspaceId),
+    isMember: vi.fn(async () => options?.isMember ?? true),
+  };
   const installations = {
     upsertInstallation: vi.fn(async () => ({})),
     findInstallation: vi.fn(),
@@ -165,12 +172,57 @@ describe('GithubInstallService.completeInstall', () => {
       sessionUserId: USER,
     });
 
-    expect(projects.reviveProject).toHaveBeenCalledWith('p-existing', '55');
+    // Owner is a member of the project's current workspace → no re-home (undefined).
+    expect(projects.reviveProject).toHaveBeenCalledWith('p-existing', '55', undefined);
     expect(projects.createProject).not.toHaveBeenCalled();
     expect(queue.enqueue).toHaveBeenCalledWith(
       expect.objectContaining({ projectId: 'p-existing' }),
       { dedupeKey: 'p-existing:sha-head' },
     );
+  });
+
+  it('re-homes a revived project the owner cannot reach (orphan → owner reclaims)', async () => {
+    const { service, projects, memberships } = harness({
+      repos: [{ owner: 'acme', name: 'api' }],
+      findProjectByRepo: () =>
+        projectRecord({
+          id: 'p-orphan',
+          workspaceId: 'orphaned-workspace',
+          archivedAt: new Date(),
+        }),
+      isMember: false,
+    });
+
+    await service.completeInstall({
+      installationId: '55',
+      setupAction: 'install',
+      state: validState,
+      sessionUserId: USER,
+    });
+
+    // Membership is checked against the PERSISTED workspace, then re-homed to the
+    // owner's resolved workspace so the project is reachable post-install.
+    expect(memberships.isMember).toHaveBeenCalledWith(USER, 'orphaned-workspace');
+    expect(projects.reviveProject).toHaveBeenCalledWith('p-orphan', '55', WORKSPACE);
+  });
+
+  it('leaves a revived project where it is when the owner already belongs there', async () => {
+    const { service, projects } = harness({
+      repos: [{ owner: 'acme', name: 'api' }],
+      findProjectByRepo: () =>
+        projectRecord({ id: 'p-team', workspaceId: 'ws-team', archivedAt: new Date() }),
+      isMember: true,
+    });
+
+    await service.completeInstall({
+      installationId: '55',
+      setupAction: 'install',
+      state: validState,
+      sessionUserId: USER,
+    });
+
+    // Deliberate placement in a workspace the owner belongs to → never re-homed.
+    expect(projects.reviveProject).toHaveBeenCalledWith('p-team', '55', undefined);
   });
 
   it('attributes the created project to the owner resolved workspace', async () => {

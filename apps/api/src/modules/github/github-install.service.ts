@@ -180,7 +180,17 @@ export class GithubInstallService {
       });
       projectId = created.id;
     } else {
-      await this.projects.reviveProject(existing.id, installationIdText);
+      // Re-home on revive (ADR-0028): a re-installed project must be reachable by
+      // the installing owner. If they are NOT a member of its current workspace
+      // (an orphan sentinel, or a workspace they were removed from), re-home it to
+      // their resolved workspace; if they ARE a member, leave it — a deliberate
+      // placement (e.g. a team workspace via the Phase 5 assign-repo) is respected.
+      const member = await this.memberships.isMember(ownerUserId, existing.workspaceId);
+      await this.projects.reviveProject(
+        existing.id,
+        installationIdText,
+        member ? undefined : workspaceId,
+      );
       projectId = existing.id;
     }
 

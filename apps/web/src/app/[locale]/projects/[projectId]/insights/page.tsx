@@ -15,8 +15,8 @@ interface ProjectInsightsPageProps {
 
 /**
  * The deterministic global derived views for a project (ADR-0029): name
- * collisions, and — as later slices land — unused symbols and recursive cycles.
- * Gated behind a session (defense-in-depth + the return path, ADR-0022 §5); the
+ * collisions, unused symbols, and recursive cycles. Gated behind a session
+ * (defense-in-depth + the return path, ADR-0022 §5); the
  * shell (workspace/repo sidebar, view tabs) comes from the projects layout.
  */
 export default async function ProjectInsightsPage({

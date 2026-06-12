@@ -20,11 +20,7 @@ function groupByName(items: readonly CollisionNode[]): Map<string, CollisionNode
   for (const node of items) {
     const key = node.kind === 'symbol' ? (node.name ?? '') : '';
     const bucket = groups.get(key);
-    if (bucket === undefined) {
-      groups.set(key, [node]);
-    } else {
-      bucket.push(node);
-    }
+    groups.set(key, bucket === undefined ? [node] : [...bucket, node]);
   }
   return groups;
 }
@@ -41,7 +37,7 @@ export function NameCollisionsSection({ locale }: { locale: string }): JSX.Eleme
         </h2>
         <p className="text-muted-foreground text-sm">{t('collisions.description')}</p>
       </header>
-      <Body locale={locale} query={query} t={t} />
+      <Body query={query} t={t} />
     </section>
   );
 }
@@ -50,7 +46,6 @@ function Body({
   query,
   t,
 }: {
-  locale: string;
   query: ReturnType<typeof useGraphNameCollisions>;
   t: ReturnType<typeof useTranslations<'Insights'>>;
 }): JSX.Element {

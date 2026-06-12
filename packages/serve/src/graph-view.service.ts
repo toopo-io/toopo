@@ -46,6 +46,9 @@ function clampCycleLimit(limit: number | undefined): number {
   return limit === undefined ? CYCLE_LIMIT_DEFAULT : Math.max(1, Math.min(limit, CYCLE_LIMIT_MAX));
 }
 
+/** Runaway backstop for the cycle-edge drain (~5M edges at the max page size). */
+const MAX_CYCLE_DRAIN_PAGES = 100_000;
+
 /** Copy a repository page into the (mutable-array) contract envelope. */
 function toNodePage(page: Page<Node>): NodePage {
   return { items: [...page.items], nextCursor: page.nextCursor, ...withTotal(page.total) };
@@ -294,10 +297,12 @@ export class GraphViewService {
   private async drainCyclicEdges(scope: GraphScope): Promise<DependencyEdge[]> {
     const edges: DependencyEdge[] = [];
     let cursor: string | undefined;
-    for (let guard = 0; guard < 100_000; guard += 1) {
+    for (let guard = 0; guard < MAX_CYCLE_DRAIN_PAGES; guard += 1) {
       const page = await this.repository.cyclicDependencyEdges(scope, { cursor });
       edges.push(...page.items);
-      if (page.nextCursor === null) {
+      // Terminate on the last page OR an empty page (a defensive valve mirroring
+      // the call-binding drain: a non-null cursor on an empty page never spins).
+      if (page.nextCursor === null || page.items.length === 0) {
         return edges;
       }
       cursor = page.nextCursor;

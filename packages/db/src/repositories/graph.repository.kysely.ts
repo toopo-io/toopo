@@ -836,7 +836,12 @@ export class KyselyGraphRepository implements GraphRepository {
  * unreachable; it keeps the cursor key type-safe over the full Node union.
  */
 function collisionName(node: Node): string {
-  return (node.kind === 'symbol' ? node.name : undefined) ?? '';
+  if (node.kind === 'symbol' && node.name !== null) {
+    return node.name;
+  }
+  // nameCollisions yields only named top-level symbols; a miss is a broken
+  // invariant — fail loud rather than emit a silently wrong keyset cursor.
+  throw new Error(`nameCollisions cursor: expected a named symbol, got "${node.kind}"`);
 }
 
 /**

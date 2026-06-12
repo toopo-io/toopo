@@ -9,7 +9,13 @@
  * stored-once idempotency, full-replace semantics (incl. clearing), determinism,
  * and project scoping.
  */
-import { FORMAT_VERSION, type GraphDocument, type UnresolvedReference } from '@toopo/core';
+import {
+  FORMAT_VERSION,
+  type GraphDocument,
+  IMPORT_REFERENCE_CODES,
+  type UnresolvedReference,
+  USAGE_REFERENCE_CODES,
+} from '@toopo/core';
 import type { Kysely } from 'kysely';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { MIGRATIONS_DIR } from '../migrations-dir.js';
@@ -173,6 +179,52 @@ for (const { backend, skip } of backends) {
         repository.unresolvedReferences(scope, { targetFileId: 'fileB', cursor: c }),
       );
       expect(toB).toEqual([memberGapToB]);
+    });
+
+    it('filters by code-family (ADR-0016 seam): usage vs import gaps from one tail', async () => {
+      const scope = { projectId: 'proj-unresolved-family' };
+      const importGap: UnresolvedReference = {
+        code: 'unresolved-export',
+        importerFileId: 'fileA',
+        specifier: './b',
+        targetFileId: 'fileB',
+        name: 'Ghost',
+        message: 'no export Ghost in ./b',
+      };
+      const usageGap: UnresolvedReference = {
+        code: 'unresolved-member',
+        importerFileId: 'fileA',
+        specifier: 'Form.Item',
+        targetFileId: 'fileB',
+        name: 'Item',
+        message: 'Unresolved member "Item" on "Form.Item"',
+      };
+      await repository.replaceProjectGraph(scope, EMPTY, [importGap, usageGap]);
+
+      // The usage family alone — the exact filter the unused/cycle view applies.
+      const usage = await drain((c) =>
+        repository.unresolvedReferences(scope, { codes: USAGE_REFERENCE_CODES, cursor: c }),
+      );
+      expect(usage).toEqual([usageGap]);
+
+      // The import family alone — the metric's denominator, never the unused view's.
+      const imports = await drain((c) =>
+        repository.unresolvedReferences(scope, { codes: IMPORT_REFERENCE_CODES, cursor: c }),
+      );
+      expect(imports).toEqual([importGap]);
+
+      // The family filter composes with the targetFileId honesty filter.
+      const usageToB = await repository.unresolvedReferences(scope, {
+        codes: USAGE_REFERENCE_CODES,
+        targetFileId: 'fileB',
+      });
+      expect(usageToB.items).toEqual([usageGap]);
+
+      // An empty family matches nothing (no invalid `in ()`), total 0 on the first page.
+      const none = await repository.unresolvedReferences(scope, { codes: [] });
+      expect(none.items).toEqual([]);
+      expect(none.nextCursor).toBeNull();
+      expect(none.total).toBe(0);
     });
 
     it('is stored-once for collapsed usage identity (same file/code/callee/member)', async () => {

@@ -15,6 +15,7 @@ import type {
   RESOLUTIONS,
   SymbolId,
   UnresolvedReference,
+  UnresolvedReferenceCode,
 } from '@toopo/core';
 import type { Page, PageOptions } from './graph-page.js';
 import type { GraphScope } from './graph-scope.js';
@@ -103,6 +104,14 @@ export interface UnresolvedReferenceOptions extends PageOptions {
    * inbound usage?" — omit to page the project's whole unresolved tail.
    */
   readonly targetFileId?: SymbolId | undefined;
+  /**
+   * Restrict to these reference codes — the code-family filter (ADR-0016 Phase-D
+   * seam, ADR-0029). The tail holds BOTH import gaps (`IMPORT_REFERENCE_CODES`)
+   * and usage gaps (`USAGE_REFERENCE_CODES`); a consumer wanting one family (the
+   * unused/cycle view wants usage gaps) passes that family here. Omit for all
+   * codes; an empty array matches none.
+   */
+  readonly codes?: readonly UnresolvedReferenceCode[] | undefined;
 }
 
 /** Inputs for {@link GraphRepository.search}: scoped, bounded node lookup. */

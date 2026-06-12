@@ -542,9 +542,17 @@ export class KyselyGraphRepository implements GraphRepository {
     options?: UnresolvedReferenceOptions,
   ): Promise<Page<UnresolvedReference>> {
     const limit = clampLimit(options?.limit);
+    // An empty code-family filter matches nothing — short-circuit (and avoid an
+    // empty `in ()`, which is not portable SQL). First page carries total 0.
+    if (options?.codes !== undefined && options.codes.length === 0) {
+      return { items: [], nextCursor: null, ...(options.cursor === undefined ? { total: 0 } : {}) };
+    }
     let base = this.db.selectFrom('unresolved_reference').where('project_id', '=', scope.projectId);
     if (options?.targetFileId !== undefined) {
       base = base.where('target_file_id', '=', options.targetFileId);
+    }
+    if (options?.codes !== undefined) {
+      base = base.where('code', 'in', options.codes);
     }
     const total = await firstPageTotal(options?.cursor, () => this.countAll(base));
     let page = base.selectAll();

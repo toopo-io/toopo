@@ -24,12 +24,14 @@ test-results
 playwright-report
 .dogfood
 
-# Secrets and local env — never bake into an image
+# Secrets and local env — never bake into an image. Exclude every .env variant
+# (including a future .env.production), but keep the committed template.
 .env
-.env.local
-.env.*.local
+.env.*
 **/.env
-**/.env.local
+**/.env.*
+!.env.example
+!**/.env.example
 
 # VCS, editor, OS, docs-only
 .git

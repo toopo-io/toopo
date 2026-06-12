@@ -62,9 +62,15 @@ instance.
 docker compose -f docker-compose.yml -f docker-compose.postgres.yml up --build
 ```
 
-It adds a `postgres:16` service and repoints the stack at it
-(`postgres://toopo:toopo@db:5432/toopo` by default — change the `POSTGRES_*`
-values in `.env` for anything exposed). The SQLite volume is simply unused.
+It adds a `postgres:16` service and repoints the stack at it. **Set
+`POSTGRES_PASSWORD` in `.env` first** — it has no default, so the db container
+refuses to start without it, and it propagates to both the db service and the
+connection URL. Adjust `POSTGRES_USER`/`POSTGRES_DB` as needed. The SQLite volume
+is simply unused in this mode.
+
+> Always pass **both** compose files together for Postgres. Running the base
+> `docker compose up` alone while pointing `DATABASE_URL` at Postgres leaves no
+> `db` service to connect to — the overlay is what brings one up.
 
 ## Deploying to a real URL
 

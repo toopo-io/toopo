@@ -12,7 +12,8 @@ services:
     image: postgres:16
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-toopo}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-toopo}
+      # No default — an unset password fails the db init visibly (see .env.example).
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB:-toopo}
     volumes:
       - toopo-pgdata:/var/lib/postgresql/data
@@ -26,14 +27,14 @@ services:
 
   migrate:
     environment:
-      DATABASE_URL: ${DATABASE_URL:-postgres://toopo:toopo@db:5432/toopo}
+      DATABASE_URL: ${DATABASE_URL:-postgres://${POSTGRES_USER:-toopo}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-toopo}}
     depends_on:
       db:
         condition: service_healthy
 
   api:
     environment:
-      DATABASE_URL: ${DATABASE_URL:-postgres://toopo:toopo@db:5432/toopo}
+      DATABASE_URL: ${DATABASE_URL:-postgres://${POSTGRES_USER:-toopo}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-toopo}}
     depends_on:
       db:
         condition: service_healthy
@@ -42,7 +43,7 @@ services:
 
   worker:
     environment:
-      DATABASE_URL: ${DATABASE_URL:-postgres://toopo:toopo@db:5432/toopo}
+      DATABASE_URL: ${DATABASE_URL:-postgres://${POSTGRES_USER:-toopo}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-toopo}}
     depends_on:
       db:
         condition: service_healthy

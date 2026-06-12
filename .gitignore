@@ -11,8 +11,8 @@ coverage/
 next-env.d.ts
 .DS_Store
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
 .idea/
 .vscode/*
 !.vscode/settings.json

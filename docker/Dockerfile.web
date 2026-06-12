@@ -17,7 +17,10 @@ WORKDIR /app
 # --- prune: isolate the @toopo/web workspace subgraph + a pruned lockfile ---
 FROM base AS prune
 COPY . .
-RUN pnpm dlx turbo@2.9.14 prune @toopo/web --docker
+# Install just the root dev tooling (turbo, pinned by the lockfile) so prune runs
+# the workspace's own turbo — no build-time registry pull.
+RUN pnpm install --frozen-lockfile --ignore-scripts --filter=toopo
+RUN pnpm exec turbo prune @toopo/web --docker
 
 # --- install: only the pruned dependency set ---
 FROM base AS install

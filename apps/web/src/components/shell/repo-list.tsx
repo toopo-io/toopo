@@ -54,9 +54,14 @@ export function RepoList({ repos, locale }: RepoListProps): JSX.Element {
                     </span>
                   ) : null}
                 </span>
-                <span className="mt-0.5 block truncate font-mono text-[10.5px] text-faint">
-                  {repo.mapped ? repo.repoOwner : t('repo.notMapped')}
-                </span>
+                {repo.mapped && repo.repoOwner === repo.repoName ? null : (
+                  // The owner sub-line disambiguates the repo; when it merely
+                  // repeats the name (a single-owner seed), drop it rather than
+                  // echo the name twice.
+                  <span className="mt-0.5 block truncate font-mono text-[10.5px] text-faint">
+                    {repo.mapped ? repo.repoOwner : t('repo.notMapped')}
+                  </span>
+                )}
               </span>
             </Link>
           </li>

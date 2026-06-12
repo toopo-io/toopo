@@ -76,6 +76,8 @@ export function MapCanvas({
       maxZoom={2}
       nodesDraggable={false}
       nodesConnectable={false}
+      // Cull off-screen nodes/edges so a dense map only paints what is in view.
+      onlyRenderVisibleElements
     >
       <Background />
       <Controls showInteractive={false} />

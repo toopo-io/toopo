@@ -9,15 +9,20 @@
  * incoming, right = outgoing), visually muted because the focus is the containers
  * and their trust-split edges, not the ports.
  */
-import { Handle, type NodeProps, Position } from '@xyflow/react';
+import { Handle, type NodeProps, Position, useStore } from '@xyflow/react';
 import { useTranslations } from 'next-intl';
 import type { CSSProperties, JSX } from 'react';
+import { lodShowsDetail } from '../../../lib/graph/canvas-lod';
 import { kindHueVar } from '../../../lib/graph/kind-hue';
 import { MAP_NODE_SIZE, type MapFlowNode } from '../../../lib/graph/map-adapter';
 
 export function MapContainerNode({ data, selected }: NodeProps<MapFlowNode>): JSX.Element {
   const t = useTranslations('Graph');
   const hue = kindHueVar(data.kind, data.subKind);
+  // Level-of-detail: below the zoom threshold the kind badge and child-count fade
+  // out, leaving just the name. The selector returns a STABLE boolean, so the node
+  // re-renders only when the threshold is crossed — keeping a dense map smooth.
+  const showDetail = useStore((store) => lodShowsDetail(store.transform[2]));
 
   // Blast-radius impact outline (ADR-0021): the impact colour is constant; the
   // STROKE carries trust — a SOLID outline is certainly impacted (a proven chain
@@ -49,16 +54,20 @@ export function MapContainerNode({ data, selected }: NodeProps<MapFlowNode>): JS
         <span className="truncate font-medium text-sm" title={data.label}>
           {data.label}
         </span>
-        <span
-          className="shrink-0 rounded-full border bg-card px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide"
-          style={{ color: hue, borderColor: hue }}
-        >
-          {data.subKind ?? data.kind}
-        </span>
+        {showDetail ? (
+          <span
+            className="shrink-0 rounded-full border bg-card px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide"
+            style={{ color: hue, borderColor: hue }}
+          >
+            {data.subKind ?? data.kind}
+          </span>
+        ) : null}
       </div>
-      <span className="text-muted-foreground text-xs">
-        {t('node.children', { count: data.childCount })}
-      </span>
+      {showDetail ? (
+        <span className="text-muted-foreground text-xs">
+          {t('node.children', { count: data.childCount })}
+        </span>
+      ) : null}
       <Handle type="source" position={Position.Right} className="!bg-muted-foreground/40" />
     </div>
   );

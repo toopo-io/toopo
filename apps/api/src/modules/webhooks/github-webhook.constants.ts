@@ -1,6 +1,7 @@
 /**
  * Shared constants for the GitHub push-webhook receiver (ADR-0024).
  */
+import { CANONICAL_REPO_HOST } from '@toopo/queue';
 
 /** The route the GitHub App posts to. Versioned under `/v1` like every API route. */
 export const GITHUB_WEBHOOK_ROUTE = 'webhooks/github';
@@ -9,9 +10,10 @@ export const GITHUB_WEBHOOK_ROUTE = 'webhooks/github';
  * The canonical repo host for GitHub.com (ADR-0024 §7). B3 resolves and stamps
  * the job reference with this literal; B5 (connect) MUST store the same string,
  * since `findProjectByRepo` is an exact match. This is the binding host
- * normalization across slices.
+ * normalization across slices — the queue schema pins the same constant, so a
+ * reference naming any other host cannot even be enqueued (ADR-0025 §7).
  */
-export const GITHUB_WEBHOOK_HOST = 'github.com';
+export const GITHUB_WEBHOOK_HOST = CANONICAL_REPO_HOST;
 
 /**
  * The maximum payload the JSON body parser accepts before the signature gate

@@ -5,7 +5,7 @@
  * the dependency stay one-way (`queue → db`): db never learns the domain shape.
  */
 import type { NewJobInput, QueuedJob } from '@toopo/db';
-import type { JobReference } from './job-reference.js';
+import { type JobReference, parseJobReference } from './job-reference.js';
 
 /** What a consumer handler receives: the reference plus the delivery envelope. */
 export interface ClaimedJob {
@@ -18,15 +18,20 @@ export interface ClaimedJob {
   readonly dedupeKey: string | null;
 }
 
-/** Project a stored `QueuedJob` into the nested domain `ClaimedJob`. */
+/**
+ * Project a stored `QueuedJob` into the nested domain `ClaimedJob`. The reference
+ * is re-parsed through the SAME schema that guarded the enqueue (ADR-0006): the
+ * claim boundary is as strict as the enqueue boundary, so a row tampered with
+ * between the two (host, sha shape) never reaches a consumer.
+ */
 export function toClaimedJob(job: QueuedJob): ClaimedJob {
   return {
     id: job.id,
-    reference: {
+    reference: parseJobReference({
       projectId: job.projectId,
       repo: { host: job.repoHost, owner: job.repoOwner, name: job.repoName },
       commitSha: job.commitSha,
-    },
+    }),
     attempts: job.attempts,
     dedupeKey: job.dedupeKey,
   };

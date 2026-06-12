@@ -18,7 +18,7 @@ import {
   type ParseFragmentCache,
 } from '@toopo/ingest';
 import { createReactPlugins, createReactResolver } from '@toopo/lang-react';
-import type { ClaimedJob } from '@toopo/queue';
+import { CANONICAL_REPO_HOST, type ClaimedJob } from '@toopo/queue';
 import type { CloneCredentials } from '../clone/git-askpass.js';
 import type { RepoCloner } from '../clone/repo-cloner.js';
 import { withSandbox } from '../clone/sandbox.js';
@@ -66,6 +66,12 @@ export function createIngestJobHandler(
 ): (job: ClaimedJob) => Promise<void> {
   return async (job: ClaimedJob): Promise<void> => {
     const { projectId, repo, commitSha } = job.reference;
+    if (repo.host !== CANONICAL_REPO_HOST) {
+      // Defense-in-depth (ADR-0025 §7): the schema pins the host at enqueue AND
+      // claim; even a row that somehow bypassed both must never receive an
+      // installation token or drive a clone.
+      throw new Error(`refusing to clone from non-canonical host: ${repo.host}`);
+    }
     const scope = { projectId };
 
     await withSandbox(async (directory) => {

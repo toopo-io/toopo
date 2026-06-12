@@ -35,7 +35,7 @@ import { createIngestJobHandler } from './ingest-job-handler.js';
 
 const PROJECT = 'proj-e2e';
 const SCOPE = { projectId: PROJECT };
-const REPO = { host: 'github.com', owner: 'toopo', name: 'fixture' };
+const REPO = { host: 'github.com', owner: 'toopo', name: 'fixture' } as const;
 const KEEP = 'export const keep = 0;\n';
 const A_V2 = 'export const a = 99;\n';
 const C_NEW = 'export const c = 3;\n';

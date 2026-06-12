@@ -12,7 +12,11 @@ import type { CloneCredentials } from './git-askpass.js';
 export interface CloneRequest {
   /** The repo to clone (host/owner/name — the canonical coordinates, ADR-0024 §7). */
   readonly repo: RepoCoordinates;
-  /** The exact commit to materialise — a full hex SHA (already validated by B3). */
+  /**
+   * The exact commit to materialise — a full hex SHA. Validated at the enqueue
+   * and claim boundaries; {@link GitCloner} re-asserts the shape before the sha
+   * is placed in `git` argv, so it can provably never be parsed as a flag.
+   */
   readonly commitSha: string;
   /** An existing, empty directory to populate with the tree at `commitSha`. */
   readonly destination: string;

@@ -21,7 +21,7 @@ if (SKIP_GIT) {
   process.stderr.write('[worker tests] GitCloner suite skipped — git is not on PATH.\n');
 }
 
-const REPO = { host: 'github.com', owner: 'toopo', name: 'fixture' };
+const REPO = { host: 'github.com', owner: 'toopo', name: 'fixture' } as const;
 
 describe.skipIf(SKIP_GIT)('GitCloner', () => {
   let fixture: FixtureRepo;
@@ -83,6 +83,14 @@ describe.skipIf(SKIP_GIT)('GitCloner', () => {
       await expect(
         broken.clone({ repo: REPO, commitSha: firstSha, destination: dir }),
       ).rejects.toThrow(/failed to start/);
+    });
+  });
+
+  it('REJECTS a flag-shaped sha before it can reach git argv (never spawns)', async () => {
+    await withSandbox(async (dir) => {
+      await expect(
+        cloner.clone({ repo: REPO, commitSha: '--upload-pack=/bin/sh', destination: dir }),
+      ).rejects.toThrow(/commitSha/);
     });
   });
 });

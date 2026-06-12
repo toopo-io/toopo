@@ -13,7 +13,7 @@
  */
 import { spawn } from 'node:child_process';
 import path from 'node:path';
-import type { RepoCoordinates } from '@toopo/queue';
+import { COMMIT_SHA_PATTERN, type RepoCoordinates } from '@toopo/queue';
 import { prepareAskpass } from './git-askpass.js';
 import type { CloneRequest, RepoCloner } from './repo-cloner.js';
 
@@ -122,6 +122,11 @@ export class GitCloner implements RepoCloner {
   }
 
   async clone(request: CloneRequest): Promise<void> {
+    if (!COMMIT_SHA_PATTERN.test(request.commitSha)) {
+      // Re-asserted at the port (belt and suspenders to the enqueue/claim Zod
+      // boundaries): a hex-only sha can never be parsed as a `git` flag below.
+      throw new Error('commitSha must be a full lowercase hex SHA-1 (40) or SHA-256 (64)');
+    }
     const url = this.remoteUrl(request.repo);
     const dir = request.destination;
     // For a private repo, the installation token is fed through GIT_ASKPASS (env

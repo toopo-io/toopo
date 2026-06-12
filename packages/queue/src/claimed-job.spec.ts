@@ -37,6 +37,16 @@ describe('toClaimedJob', () => {
       dedupeKey: 'proj-1:sha',
     });
   });
+
+  it('REJECTS a stored row tampered to a non-canonical host (claim boundary)', () => {
+    expect(() => toClaimedJob({ ...QUEUED, repoHost: 'evil.example' })).toThrow(/repo\.host/);
+  });
+
+  it('REJECTS a stored row whose sha was tampered into a flag shape', () => {
+    expect(() => toClaimedJob({ ...QUEUED, commitSha: '--upload-pack=/bin/sh' })).toThrow(
+      /commitSha/,
+    );
+  });
 });
 
 describe('toNewJobInput', () => {

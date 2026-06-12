@@ -15,17 +15,32 @@
  */
 import { z } from 'zod';
 
+/**
+ * The ONLY host the pipeline clones from (ADR-0024 §7, ADR-0025 §7). Pinned in
+ * the schema below so the invariant is enforced, not conventional: a job row that
+ * names any other host is rejected at both the enqueue and the claim boundary,
+ * and an installation token can therefore never be sent off-GitHub.
+ */
+export const CANONICAL_REPO_HOST = 'github.com';
+
+/** Full git object id: SHA-1 (40) or SHA-256 (64), lowercase hex — never a flag. */
+export const COMMIT_SHA_PATTERN = /^[0-9a-f]{40}$|^[0-9a-f]{64}$/;
+
 /** A git object id: full SHA-1 (40) or SHA-256 (64), lowercase hex. */
-const CommitShaSchema = z
-  .string()
-  .trim()
-  .regex(/^[0-9a-f]{40}$|^[0-9a-f]{64}$/, {
-    message: 'commitSha must be a full lowercase hex SHA-1 (40) or SHA-256 (64)',
-  });
+const CommitShaSchema = z.string().trim().regex(COMMIT_SHA_PATTERN, {
+  message: 'commitSha must be a full lowercase hex SHA-1 (40) or SHA-256 (64)',
+});
 
 const RepoCoordinatesSchema = z
   .object({
-    host: z.string().trim().min(1, { message: 'repo.host must not be empty' }),
+    host: z
+      .string()
+      .trim()
+      .pipe(
+        z.literal(CANONICAL_REPO_HOST, {
+          message: `repo.host must be the canonical '${CANONICAL_REPO_HOST}'`,
+        }),
+      ),
     owner: z.string().trim().min(1, { message: 'repo.owner must not be empty' }),
     name: z.string().trim().min(1, { message: 'repo.name must not be empty' }),
   })

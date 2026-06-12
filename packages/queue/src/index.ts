@@ -18,6 +18,8 @@ export {
 export { errorMessage } from './error-message.js';
 export { InMemoryJobStore } from './in-memory-job-store.js';
 export {
+  CANONICAL_REPO_HOST,
+  COMMIT_SHA_PATTERN,
   type JobReference,
   JobReferenceSchema,
   parseJobReference,

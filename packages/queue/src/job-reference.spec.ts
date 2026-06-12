@@ -45,6 +45,12 @@ describe('parseJobReference', () => {
     ).toThrow(/repo\.host/);
   });
 
+  it('REJECTS a non-canonical repo host (a token must never travel off-GitHub)', () => {
+    expect(() =>
+      parseJobReference({ ...VALID, repo: { ...VALID.repo, host: 'gitlab.com' } }),
+    ).toThrow(/repo\.host/);
+  });
+
   it('REJECTS a smuggled code-bearing field (reference-only, security baseline)', () => {
     const smuggled = { ...VALID, code: 'rm -rf /', patch: 'diff', content: '...' };
     expect(() => parseJobReference(smuggled)).toThrow();

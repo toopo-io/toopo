@@ -25,7 +25,7 @@ import { createIngestJobHandler, type InstallationTokenMinter } from './ingest-j
 
 const PROJECT = 'proj-1';
 const SCOPE = { projectId: PROJECT };
-const REPO = { host: 'github.com', owner: 'toopo', name: 'fixture' };
+const REPO = { host: 'github.com', owner: 'toopo', name: 'fixture' } as const;
 const SHA = 'a'.repeat(40);
 
 function job(commitSha: string): ClaimedJob {
@@ -144,6 +144,30 @@ describe('createIngestJobHandler', () => {
 
     expect(tokenMinter.mintInstallationToken).toHaveBeenCalledWith(55);
     expect(received?.credentials).toEqual({ username: 'x-access-token', password: 'ghs_minted' });
+  });
+
+  it('REFUSES a non-canonical host before any token mint or clone (ADR-0025 §7)', async () => {
+    const clone = vi.fn();
+    const tokenMinter: InstallationTokenMinter = { mintInstallationToken: vi.fn() };
+    const tampered = {
+      ...job(SHA),
+      reference: {
+        projectId: PROJECT,
+        repo: { ...REPO, host: 'evil.example' },
+        commitSha: SHA,
+      },
+    } as unknown as ClaimedJob;
+
+    await expect(
+      createIngestJobHandler({
+        cloner: { clone },
+        graph: graphHandle.graphRepository,
+        cache: cacheHandle.parseFragmentStore,
+        tokenMinter,
+      })(tampered),
+    ).rejects.toThrow(/non-canonical host/);
+    expect(tokenMinter.mintInstallationToken).not.toHaveBeenCalled();
+    expect(clone).not.toHaveBeenCalled();
   });
 
   it('clones publicly (no credentials) when the project has no installation id', async () => {

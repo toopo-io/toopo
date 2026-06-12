@@ -20,7 +20,7 @@ import type { RepoCloner } from '../clone/repo-cloner.js';
 import { type ConsumeHandle, startConsume } from './consume.js';
 
 const PROJECT = 'proj-consume';
-const REPO = { host: 'github.com', owner: 'toopo', name: 'fixture' };
+const REPO = { host: 'github.com', owner: 'toopo', name: 'fixture' } as const;
 const SHA = 'c'.repeat(40);
 
 async function waitFor(check: () => Promise<boolean>, timeoutMs = 8_000): Promise<void> {

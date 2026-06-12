@@ -14,7 +14,10 @@ services:
   # complete successfully (migrations are never run on boot — ADR-0008).
   migrate:
     image: toopo-api
-    command: ['pnpm', '--filter', '@toopo/db', 'migrate']
+    # Run the compiled migrator with node directly (like the api/worker CMDs) —
+    # invoking pnpm here would trigger corepack to provision a package manager in
+    # a non-writable cache as the non-root user. Reads DATABASE_URL from the env.
+    command: ['node', 'packages/db/dist/bin/migrate.js']
     env_file: .env
     environment:
       DATABASE_URL: ${DATABASE_URL:-file:/data/toopo.db}

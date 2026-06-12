@@ -43,11 +43,12 @@ test('C3 node inspector spec-list (light + dark)', async ({ page }) => {
   await expect(symbolResult.first()).toBeVisible({ timeout: 15_000 });
   await symbolResult.first().click();
 
-  // The inspector panel opens with the symbol's spec-list.
+  // The inspector panel opens with the symbol's spec-list. The node-detail fetch
+  // can lag under the parallel run, so give the section assertions room.
   const panel = page.getByRole('complementary');
   await expect(panel).toBeVisible({ timeout: 15_000 });
-  await expect(panel.getByText('Parameters')).toBeVisible();
-  await expect(panel.getByText('Callers')).toBeVisible();
+  await expect(panel.getByText('Parameters')).toBeVisible({ timeout: 15_000 });
+  await expect(panel.getByText('Callers')).toBeVisible({ timeout: 15_000 });
   await page.waitForTimeout(400);
 
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');

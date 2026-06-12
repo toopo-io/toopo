@@ -140,6 +140,16 @@
       "exported": "exported",
       "residual": "Blind spot: a declaration used only via an unresolved bare call — not a member access — cannot be seen here.",
       "more": "More results exist beyond the first page."
+    },
+    "cycles": {
+      "title": "Recursive cycles",
+      "description": "Groups of declarations that depend on each other in a loop (a strongly-connected component). Certain when every edge in the loop is proven; marked uncertain when any rests on an inferred edge.",
+      "empty": "No recursive cycles — the dependency graph is acyclic.",
+      "certain": "Certain cycle",
+      "candidate": "Rests on an inferred edge",
+      "members": "{count, plural, one {# member} other {# members}}",
+      "truncated": "Showing the first members of a larger cycle.",
+      "more": "More cycles exist beyond the first page."
     }
   },
   "LocaleSwitcher": {

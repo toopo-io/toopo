@@ -367,6 +367,28 @@ export interface GraphRepository {
    * assert "dead". The bare-identifier residual (ADR-0016) is disclosed in the UI.
    */
   unusedSymbols(scope: GraphScope, options?: PageOptions): Promise<Page<UnusedSymbol>>;
+
+  /**
+   * D7 (ADR-0029) — the dependency edges of the induced cycle-candidate subgraph,
+   * keyset-paged by edge identity. A SQL in/out-degree pre-filter keeps only edges
+   * whose source has an incoming and whose target has an outgoing dependency edge
+   * (a necessary condition for cycle membership, never dropping a real cyclic
+   * edge); the Serve layer drains the stream and runs Tarjan for the SCC grouping
+   * SQL cannot express. Edge kinds are {@link DEFAULT_BLAST_RADIUS_KINDS}.
+   */
+  cyclicDependencyEdges(scope: GraphScope, options?: PageOptions): Promise<Page<DependencyEdge>>;
+}
+
+/**
+ * A dependency edge of the cycle-candidate subgraph (ADR-0029 D7): its stable
+ * `key` (the keyset token), endpoints, and trust. The Serve layer runs Tarjan
+ * over a drained set of these to group SCCs and mark each cycle's trust.
+ */
+export interface DependencyEdge {
+  readonly key: string;
+  readonly sourceId: SymbolId;
+  readonly targetId: SymbolId;
+  readonly resolution: Edge['resolution'];
 }
 
 /**

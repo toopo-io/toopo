@@ -52,6 +52,7 @@ export {
   type BlastRadiusPageOptions,
   DEFAULT_BLAST_RADIUS_KINDS,
   DEFAULT_BLAST_RADIUS_MAX_DEPTH,
+  type DependencyEdge,
   type GraphRepository,
   type MapEdge,
   type MapLevel,
@@ -64,6 +65,7 @@ export {
   type PersistGraphResult,
   type SearchOptions,
   type UnresolvedReferenceOptions,
+  type UnusedSymbol,
 } from './repositories/graph.repository.js';
 export { KyselyGraphRepository } from './repositories/graph.repository.kysely.js';
 export {

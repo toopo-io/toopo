@@ -55,6 +55,8 @@ export const GRAPH_SEGMENTS = {
   NAME_COLLISIONS: 'name-collisions',
   /** D6 (Insights) — top-level symbols with no incoming usage (ADR-0029). */
   UNUSED_SYMBOLS: 'unused-symbols',
+  /** D7 (Insights) — recursive cycles (SCCs) of the dependency graph (ADR-0029). */
+  CYCLES: 'cycles',
 } as const;
 
 export type GraphSegment = (typeof GRAPH_SEGMENTS)[keyof typeof GRAPH_SEGMENTS];

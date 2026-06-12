@@ -8,6 +8,7 @@
  */
 import type { JSX } from 'react';
 import { ProjectIdProvider } from '../../../lib/projects/project-context';
+import { CyclesSection } from './cycles-section';
 import { NameCollisionsSection } from './name-collisions-section';
 import { UnusedSymbolsSection } from './unused-symbols-section';
 
@@ -22,6 +23,7 @@ export function InsightsView({ projectId, locale }: InsightsViewProps): JSX.Elem
       <div className="flex flex-col gap-4">
         <NameCollisionsSection locale={locale} />
         <UnusedSymbolsSection locale={locale} />
+        <CyclesSection locale={locale} />
       </div>
     </ProjectIdProvider>
   );

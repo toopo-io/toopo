@@ -10,6 +10,7 @@ describe('ROUTE_SEGMENTS', () => {
         'CONNECT',
         'FORGOT_PASSWORD',
         'GRAPH',
+        'INSIGHTS',
         'PROJECTS',
         'RESET_PASSWORD',
         'SIGNIN',

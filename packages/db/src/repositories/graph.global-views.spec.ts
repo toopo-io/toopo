@@ -87,6 +87,37 @@ const document: GraphDocument = {
 const EMPTY: GraphDocument = { formatVersion: FORMAT_VERSION, nodes: [], edges: [] };
 const SCOPE = { projectId: 'proj-global' };
 
+// ── D7 fixture: a 2-cycle (sa↔sb), a self-loop (se→se), and a plain chain
+// (sc→sd). The in/out-degree pre-filter must keep the cycle and self-loop edges
+// and drop the chain (sc has no incoming dependency edge).
+const fileG = file('fileG', 'g.ts');
+const D7_DOC: GraphDocument = {
+  formatVersion: FORMAT_VERSION,
+  nodes: [
+    repo,
+    pkg,
+    fileG,
+    symbol('sa', 'a'),
+    symbol('sb', 'b'),
+    symbol('sc', 'c'),
+    symbol('sd', 'd'),
+    symbol('se', 'e'),
+  ],
+  edges: [
+    edge('contains', 'repo', 'pkg'),
+    edge('contains', 'pkg', 'fileG'),
+    edge('contains', 'fileG', 'sa'),
+    edge('contains', 'fileG', 'sb'),
+    edge('contains', 'fileG', 'sc'),
+    edge('contains', 'fileG', 'sd'),
+    edge('contains', 'fileG', 'se'),
+    edge('calls', 'sa', 'sb'),
+    edge('calls', 'sb', 'sa'),
+    edge('calls', 'sc', 'sd'), // a chain — neither endpoint closes a loop
+    edge('calls', 'se', 'se'), // direct recursion
+  ],
+};
+
 // ── D6 fixture: one file of top-level symbols exercising every unused/candidate
 // branch. `used` and `base` have incoming usage (a call, an extends) so they are
 // excluded; the rest are unused, classified by the tail and the exports edge.
@@ -262,6 +293,32 @@ for (const { backend, skip } of backends) {
         const a = await drain((c) => repository.unusedSymbols(d6, { limit: 2, cursor: c }));
         const b = await drain((c) => repository.unusedSymbols(d6, { limit: 2, cursor: c }));
         expect(JSON.stringify(b)).toBe(JSON.stringify(a));
+      });
+    });
+
+    describe('cyclicDependencyEdges (D7)', () => {
+      const d7 = { projectId: 'proj-cycles' };
+
+      beforeAll(async () => {
+        await repository.replaceProjectGraph(d7, D7_DOC);
+      });
+
+      it('keeps the cycle and self-loop edges, dropping the acyclic chain', async () => {
+        const all = await drain((c) =>
+          repository.cyclicDependencyEdges(d7, { limit: 2, cursor: c }),
+        );
+        const pairs = all.map((e) => `${e.sourceId}->${e.targetId}`).sort();
+        // sa↔sb close a loop; se→se is direct recursion; sc→sd is dropped (sc has
+        // no incoming dependency edge — the in/out-degree pre-filter, ADR-0029).
+        expect(pairs).toEqual(['sa->sb', 'sb->sa', 'se->se']);
+        expect(all.every((e) => e.resolution === 'deterministic')).toBe(true);
+      });
+
+      it('carries a stable key and is byte-identical on a re-walk', async () => {
+        const a = await drain((c) => repository.cyclicDependencyEdges(d7, { limit: 2, cursor: c }));
+        const b = await drain((c) => repository.cyclicDependencyEdges(d7, { limit: 2, cursor: c }));
+        expect(JSON.stringify(b)).toBe(JSON.stringify(a));
+        expect(a.every((e) => e.key.length > 0)).toBe(true);
       });
     });
   });

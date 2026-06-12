@@ -10,6 +10,7 @@ import {
   BlastRadiusPageSchema,
   BlastRadiusQuerySchema,
   CallBindingsSchema,
+  CyclePageSchema,
   GlobalListQuerySchema,
   MapQuerySchema,
   MapViewSchema,
@@ -41,3 +42,4 @@ export class NeighborPageDto extends createZodDto(NeighborPageSchema) {}
 export class BlastRadiusPageDto extends createZodDto(BlastRadiusPageSchema) {}
 export class NodePageDto extends createZodDto(NodePageSchema) {}
 export class UnusedSymbolPageDto extends createZodDto(UnusedSymbolPageSchema) {}
+export class CyclePageDto extends createZodDto(CyclePageSchema) {}

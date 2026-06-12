@@ -16,6 +16,7 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
   type BlastRadiusPage,
   type CallBindings,
+  type CyclePage,
   GRAPH_API_VERSION,
   GRAPH_CONTROLLER_ROUTE,
   GRAPH_SEGMENTS,
@@ -35,6 +36,7 @@ import {
   BlastRadiusPageDto,
   BlastRadiusQueryDto,
   CallBindingsDto,
+  CyclePageDto,
   GlobalListQueryDto,
   MapQueryDto,
   MapViewDto,
@@ -174,5 +176,15 @@ export class GraphController {
     @Query() query: GlobalListQueryDto,
   ): Promise<UnusedSymbolPage> {
     return this.views.unusedSymbols(scopeOf(project), query);
+  }
+
+  @Get(GRAPH_SEGMENTS.CYCLES)
+  @ApiOperation({ summary: 'Recursive cycles (SCCs) of the dependency graph (Insights, D7)' })
+  @ZodSerializerDto(CyclePageDto)
+  cycles(
+    @CurrentProject() project: ProjectRecord,
+    @Query() query: GlobalListQueryDto,
+  ): Promise<CyclePage> {
+    return this.views.cycles(scopeOf(project), query);
   }
 }

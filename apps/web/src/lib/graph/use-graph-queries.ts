@@ -11,6 +11,7 @@ import { type UseQueryResult, useQuery } from '@tanstack/react-query';
 import type {
   BlastRadiusPage,
   CallBindings,
+  CyclePage,
   MapQuery,
   MapView,
   NodeDetail,
@@ -43,6 +44,7 @@ export const graphQueryKeys = {
     ['graph', projectId, 'nameCollisions', locale] as const,
   unusedSymbols: (projectId: string, locale: string) =>
     ['graph', projectId, 'unusedSymbols', locale] as const,
+  cycles: (projectId: string, locale: string) => ['graph', projectId, 'cycles', locale] as const,
 };
 
 export function useGraphMap(
@@ -133,5 +135,14 @@ export function useGraphUnusedSymbols(locale: string): UseQueryResult<UnusedSymb
   return useQuery({
     queryKey: graphQueryKeys.unusedSymbols(projectId, locale),
     queryFn: () => graphApi.unusedSymbols(projectId, {}, locale),
+  });
+}
+
+/** D7 (Insights) — recursive cycles (SCCs) of the dependency graph (ADR-0029); first page. */
+export function useGraphCycles(locale: string): UseQueryResult<CyclePage> {
+  const projectId = useProjectId();
+  return useQuery({
+    queryKey: graphQueryKeys.cycles(projectId, locale),
+    queryFn: () => graphApi.cycles(projectId, {}, locale),
   });
 }

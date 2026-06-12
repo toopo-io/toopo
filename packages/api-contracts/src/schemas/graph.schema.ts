@@ -144,6 +144,26 @@ export type UnusedSymbol = z.infer<typeof UnusedSymbolSchema>;
 export const UnusedSymbolPageSchema = paginated(UnusedSymbolSchema);
 export type UnusedSymbolPage = z.infer<typeof UnusedSymbolPageSchema>;
 
+/**
+ * D7 (ADR-0029) — a recursive cycle (an SCC) of the dependency graph. `id` is the
+ * smallest member id (deterministic); `members` are the member ids (sorted,
+ * capped — `truncated` flags the cap); `candidate` is true iff any edge internal
+ * to the SCC is inferred (the cycle rests on a guess — never asserted certain).
+ */
+export const CycleSchema = z
+  .object({
+    id: z.string().min(1),
+    members: z.array(z.string().min(1)),
+    length: z.number().int().positive(),
+    candidate: z.boolean(),
+    truncated: z.boolean(),
+  })
+  .strict();
+export type Cycle = z.infer<typeof CycleSchema>;
+
+export const CyclePageSchema = paginated(CycleSchema);
+export type CyclePage = z.infer<typeof CyclePageSchema>;
+
 export const NeighborPageSchema = paginated(GraphNeighborSchema);
 export type NeighborPage = z.infer<typeof NeighborPageSchema>;
 

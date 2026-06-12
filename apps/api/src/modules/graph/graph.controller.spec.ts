@@ -61,6 +61,16 @@ describe('GraphController scope threading', () => {
 
     expect(unusedSymbols).toHaveBeenCalledWith({ projectId: 'proj-123' }, query);
   });
+
+  it('scopes the cycles view by the resolved project id (D7)', async () => {
+    const cycles = vi.fn(() => Promise.resolve({ items: [], nextCursor: null }));
+    const controller = new GraphController({ cycles } as unknown as GraphViewService);
+
+    const query = { limit: 25 } as GlobalListQueryDto;
+    await controller.cycles(project, query);
+
+    expect(cycles).toHaveBeenCalledWith({ projectId: 'proj-123' }, query);
+  });
 });
 
 describe('GraphController guards (Fork 5 closure)', () => {

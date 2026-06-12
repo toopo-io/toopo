@@ -16,6 +16,7 @@ import type {
   BlastRadiusQuery,
   CallBinding,
   CallBindings,
+  CyclePage,
   GlobalListQuery,
   GraphNeighbor,
   MapQuery,
@@ -30,11 +31,19 @@ import type {
   UnusedSymbolPage,
 } from '@toopo/api-contracts';
 import type { Edge, Node } from '@toopo/core';
-import type { GraphRepository, GraphScope, Neighbor, Page } from '@toopo/db';
+import type { DependencyEdge, GraphRepository, GraphScope, Neighbor, Page } from '@toopo/db';
+import { findCycles } from './cycles.js';
 
 /** Carry the optional page `total` into the contract envelope only when present (D9). */
 function withTotal(total: number | undefined): { total?: number } {
   return total === undefined ? {} : { total };
+}
+
+/** Per-page bounds for the in-memory cycle list, mirroring the db keyset clamp. */
+const CYCLE_LIMIT_DEFAULT = 50;
+const CYCLE_LIMIT_MAX = 200;
+function clampCycleLimit(limit: number | undefined): number {
+  return limit === undefined ? CYCLE_LIMIT_DEFAULT : Math.max(1, Math.min(limit, CYCLE_LIMIT_MAX));
 }
 
 /** Copy a repository page into the (mutable-array) contract envelope. */
@@ -252,5 +261,47 @@ export class GraphViewService {
       exported: unused.exported,
     }));
     return { items, nextCursor: page.nextCursor, ...withTotal(page.total) };
+  }
+
+  /**
+   * D7 (ADR-0029) — recursive cycles (SCCs) of the dependency graph. The db
+   * streams the induced cycle-candidate subgraph; we drain it (bounded by one
+   * repository's graph — the noted scaling seam) and run Tarjan for the grouping
+   * SQL cannot express. A cycle is `candidate` iff any internal edge is inferred.
+   * The computed list is paged in-memory by the cycle id keyset.
+   */
+  async cycles(scope: GraphScope, query: GlobalListQuery): Promise<CyclePage> {
+    const all = findCycles(await this.drainCyclicEdges(scope));
+    const limit = clampCycleLimit(query.limit);
+    const cursor = query.cursor;
+    const after = cursor === undefined ? all : all.filter((cycle) => cycle.id > cursor);
+    const items = after.slice(0, limit).map((cycle) => ({
+      id: cycle.id,
+      members: [...cycle.members],
+      length: cycle.length,
+      candidate: cycle.candidate,
+      truncated: cycle.truncated,
+    }));
+    const nextCursor = after.length > limit ? (items[items.length - 1]?.id ?? null) : null;
+    return { items, nextCursor, ...withTotal(cursor === undefined ? all.length : undefined) };
+  }
+
+  /**
+   * Drain the whole cycle-candidate edge stream — Tarjan needs the full induced
+   * subgraph at once (ADR-0029); the db pre-filter keeps it bounded to edges that
+   * could be on a cycle. The guard is a runaway backstop, never reached in practice.
+   */
+  private async drainCyclicEdges(scope: GraphScope): Promise<DependencyEdge[]> {
+    const edges: DependencyEdge[] = [];
+    let cursor: string | undefined;
+    for (let guard = 0; guard < 100_000; guard += 1) {
+      const page = await this.repository.cyclicDependencyEdges(scope, { cursor });
+      edges.push(...page.items);
+      if (page.nextCursor === null) {
+        return edges;
+      }
+      cursor = page.nextCursor;
+    }
+    throw new Error('cyclicDependencyEdges drain did not terminate');
   }
 }

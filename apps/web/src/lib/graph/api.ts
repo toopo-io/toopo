@@ -12,6 +12,8 @@ import {
   type BlastRadiusQuery,
   type CallBindings,
   CallBindingsSchema,
+  type CyclePage,
+  CyclePageSchema,
   type GlobalListQuery,
   GRAPH_SEGMENTS,
   graphApiPath,
@@ -137,6 +139,14 @@ export const graphApi = {
     requestJson(
       `${graphApiPath(projectId, GRAPH_SEGMENTS.UNUSED_SYMBOLS)}${buildQueryString({ ...query })}`,
       UnusedSymbolPageSchema,
+      locale,
+    ),
+
+  // D7 (Insights) — recursive cycles (SCCs) of the dependency graph (ADR-0029).
+  cycles: (projectId: string, query: GlobalListQuery, locale?: string): Promise<CyclePage> =>
+    requestJson(
+      `${graphApiPath(projectId, GRAPH_SEGMENTS.CYCLES)}${buildQueryString({ ...query })}`,
+      CyclePageSchema,
       locale,
     ),
 };

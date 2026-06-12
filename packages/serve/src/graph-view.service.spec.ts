@@ -10,6 +10,7 @@ import type {
   BlastRadiusOptions,
   BlastRadiusPage,
   BlastRadiusPageOptions,
+  DependencyEdge,
   EdgeKind,
   GraphRepository,
   GraphScope,
@@ -111,6 +112,12 @@ function fakeRepository(overrides: Partial<GraphRepository>): GraphRepository {
       return Promise.resolve({ items: [], nextCursor: null });
     },
     unusedSymbols(_scope: GraphScope, _options?: PageOptions): Promise<Page<UnusedSymbol>> {
+      return Promise.resolve({ items: [], nextCursor: null });
+    },
+    cyclicDependencyEdges(
+      _scope: GraphScope,
+      _options?: PageOptions,
+    ): Promise<Page<DependencyEdge>> {
       return Promise.resolve({ items: [], nextCursor: null });
     },
   };
@@ -419,6 +426,57 @@ describe('GraphViewService.nameCollisions (D5)', () => {
 
     expect(nameCollisions).toHaveBeenCalledWith(SCOPE, { limit: 10, cursor: 'c0' });
     expect(page).toEqual({ items: [btnA, btnB], nextCursor: 'next', total: 2 });
+  });
+});
+
+describe('GraphViewService.cycles (D7)', () => {
+  const depEdge = (
+    key: string,
+    sourceId: string,
+    targetId: string,
+    inferred = false,
+  ): DependencyEdge => ({
+    key,
+    sourceId,
+    targetId,
+    resolution: inferred ? 'inferred' : 'deterministic',
+  });
+
+  it('drains the candidate edges, groups SCCs, and marks trust', async () => {
+    // A→B→A (all deterministic = certain) and C→D→C with one inferred = candidate.
+    const pages: Array<Page<DependencyEdge>> = [
+      {
+        items: [depEdge('k1', 'A', 'B'), depEdge('k2', 'B', 'A')],
+        nextCursor: 'c1',
+      },
+      {
+        items: [depEdge('k3', 'C', 'D'), depEdge('k4', 'D', 'C', true)],
+        nextCursor: null,
+      },
+    ];
+    const cyclicDependencyEdges = vi.fn((_scope: GraphScope, options?: PageOptions) =>
+      Promise.resolve(options?.cursor === undefined ? pages[0] : pages[1]),
+    );
+    const service = new GraphViewService(fakeRepository({ cyclicDependencyEdges }));
+
+    const page = await service.cycles(SCOPE, {});
+
+    expect(cyclicDependencyEdges).toHaveBeenCalledTimes(2);
+    expect(page.items.map((c) => c.id)).toEqual(['A', 'C']);
+    expect(page.items.map((c) => c.candidate)).toEqual([false, true]);
+    expect(page.items[0]?.members).toEqual(['A', 'B']);
+    expect(page.total).toBe(2);
+  });
+
+  it('omits non-cycles (a plain chain yields no SCC of size > 1)', async () => {
+    const cyclicDependencyEdges = vi.fn(() =>
+      Promise.resolve<Page<DependencyEdge>>({
+        items: [depEdge('k1', 'A', 'B')],
+        nextCursor: null,
+      }),
+    );
+    const service = new GraphViewService(fakeRepository({ cyclicDependencyEdges }));
+    expect((await service.cycles(SCOPE, {})).items).toEqual([]);
   });
 });
 

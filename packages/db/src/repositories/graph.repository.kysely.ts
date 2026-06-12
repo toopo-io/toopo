@@ -45,6 +45,7 @@ import {
   type BlastRadiusPageOptions,
   DEFAULT_BLAST_RADIUS_KINDS,
   DEFAULT_BLAST_RADIUS_MAX_DEPTH,
+  type DependencyEdge,
   type GraphRepository,
   type MapView,
   type MapViewOptions,
@@ -673,6 +674,60 @@ export class KyselyGraphRepository implements GraphRepository {
     );
   }
 
+  async cyclicDependencyEdges(
+    scope: GraphScope,
+    options?: PageOptions,
+  ): Promise<Page<DependencyEdge>> {
+    const limit = clampLimit(options?.limit);
+    const projectId = scope.projectId;
+    // The induced cycle-candidate subgraph: a dependency edge survives only if its
+    // source has an incoming and its target an outgoing dependency edge (necessary
+    // for cycle membership; never drops a real cyclic edge). Serve runs Tarjan.
+    let page = this.db
+      .selectFrom('edge as e')
+      .where('e.project_id', '=', projectId)
+      .where('e.kind', 'in', DEFAULT_BLAST_RADIUS_KINDS)
+      .where((eb) =>
+        eb.exists(
+          eb
+            .selectFrom('edge as ie')
+            .select(sql.lit(1).as('one'))
+            .where('ie.project_id', '=', projectId)
+            .where('ie.kind', 'in', DEFAULT_BLAST_RADIUS_KINDS)
+            .whereRef('ie.target_id', '=', 'e.source_id'),
+        ),
+      )
+      .where((eb) =>
+        eb.exists(
+          eb
+            .selectFrom('edge as oe')
+            .select(sql.lit(1).as('one'))
+            .where('oe.project_id', '=', projectId)
+            .where('oe.kind', 'in', DEFAULT_BLAST_RADIUS_KINDS)
+            .whereRef('oe.source_id', '=', 'e.target_id'),
+        ),
+      )
+      .select([
+        'e.edge_key as key',
+        'e.source_id as sourceId',
+        'e.target_id as targetId',
+        'e.resolution',
+      ]);
+    if (options?.cursor !== undefined) {
+      page = page.where('e.edge_key', '>', String(decodeCursorTuple(options.cursor, 1)[0]));
+    }
+    const rows = await page
+      .orderBy('e.edge_key')
+      .limit(limit + 1)
+      .execute();
+    return buildPage(
+      rows.map(rowToDependencyEdge),
+      limit,
+      (edge) => encodeCursor([edge.key]),
+      undefined,
+    );
+  }
+
   async blastRadiusPage(
     scope: GraphScope,
     id: SymbolId,
@@ -826,6 +881,23 @@ function rowToUnusedSymbol(
     node: rowToNode(row),
     candidate: Number(row.candidate_flag) !== 0,
     exported: Number(row.exported_flag) !== 0,
+  };
+}
+
+/** Map a D7 cycle-candidate edge row to a {@link DependencyEdge}; `resolution` is
+ *  text in storage, narrowed to its trust literal (anything but `inferred` is
+ *  proven, matching the edge model's closed set). */
+function rowToDependencyEdge(row: {
+  key: string;
+  sourceId: string;
+  targetId: string;
+  resolution: string;
+}): DependencyEdge {
+  return {
+    key: row.key,
+    sourceId: row.sourceId,
+    targetId: row.targetId,
+    resolution: row.resolution === 'inferred' ? 'inferred' : 'deterministic',
   };
 }
 

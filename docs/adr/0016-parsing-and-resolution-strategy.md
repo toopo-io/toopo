@@ -274,6 +274,16 @@ ADR-0027 (local-symbol identity) is untouched. This closes the C11 boundary and 
 "Hard prerequisite for Phase D" — the gaps are now persisted, so the "unused"/"cycle" view
 may ship once it applies the consumption rule above.
 
+**Amendment — 2026-06-12 (Phase D): the code-family seam is built.** The
+"design-only seam" above is now implemented (ADR-0029). The `unresolvedReferences`
+read gains an additive `codes` option (filter by `UnresolvedReferenceCode`, hence by
+`IMPORT_REFERENCE_CODES` vs `USAGE_REFERENCE_CODES`) — no migration. D6 (unused
+symbols) consumes the tail exactly per the consumption rule: a top-level symbol is
+certain-unused only when no `unresolved-member` anchored to its file+name and no
+`unbound-callee` by name could reach it; otherwise it is a candidate. The
+bare-identifier residual documented above is disclosed in the UI, never silently
+dropped. The seam is **closed**.
+
 ## Related ADRs
 
 - ADR-0015 (universal code-graph model — node/edge taxonomy, stable

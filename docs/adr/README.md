@@ -48,3 +48,4 @@ a new ADR that supersedes the old one.
 | [0026](0026-github-app-connect-and-installation-auth.md) | GitHub-App connect — install→project flow, installation tokens, private clone | Accepted |
 | [0027](0027-local-symbol-identity.md) | Local-symbol identity — the `local` descriptor suffix | Accepted |
 | [0028](0028-workspace-membership-tenancy.md) | Workspace & membership tenancy — User → Workspace → Project → Graph, membership-scoped access | Accepted |
+| [0029](0029-deterministic-global-derived-views.md) | Deterministic global derived views — name collisions, unused symbols, recursive cycles + trust rules | Accepted |

@@ -23,7 +23,8 @@ RUN pnpm dlx turbo@2.9.14 prune @toopo/web --docker
 FROM base AS install
 COPY --from=prune /app/out/json/ ./
 COPY --from=prune /app/out/pnpm-lock.yaml ./pnpm-lock.yaml
-RUN pnpm install --frozen-lockfile
+# See Dockerfile.api: skip lifecycle scripts (no git/.git; turbo builds the app).
+RUN pnpm install --frozen-lockfile --ignore-scripts
 
 # --- build: bake the public origins, then compile to standalone output ---
 FROM install AS build

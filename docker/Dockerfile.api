@@ -22,7 +22,10 @@ RUN pnpm dlx turbo@2.9.14 prune @toopo/api --docker
 FROM base AS install
 COPY --from=prune /app/out/json/ ./
 COPY --from=prune /app/out/pnpm-lock.yaml ./pnpm-lock.yaml
-RUN pnpm install --frozen-lockfile
+# --ignore-scripts: skip dependency lifecycle scripts and the repo's root
+# `prepare` (lefthook install) — there is no git/.git in the image, and the app
+# build runs separately via turbo. Our deps ship prebuilt binaries/wasm.
+RUN pnpm install --frozen-lockfile --ignore-scripts
 
 # --- build: compile the api and the workspace packages it depends on ---
 FROM install AS build

@@ -242,7 +242,7 @@ function GraphExplorerInner({
       <div className="absolute top-3 left-3 z-10 flex max-w-[70%] flex-col gap-2">
         <Breadcrumb crumbs={crumbs} onNavigate={setState} ariaLabel={t('breadcrumb.aria')} />
         <div className="flex flex-wrap items-center gap-2">
-          <LevelSwitcher level={level} canSymbol={level === 'symbol'} onSelect={onSelectLevel} />
+          <LevelSwitcher level={level} canSymbol={scope !== undefined} onSelect={onSelectLevel} />
           <IsolateToggle
             active={isolateInferred}
             onToggle={() => setIsolateInferred((on) => !on)}

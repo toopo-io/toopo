@@ -50,4 +50,15 @@ describe('parseJsdoc', () => {
   it('parses a single-line comment', () => {
     expect(parseJsdoc('/** A one-liner. */')?.description).toBe('A one-liner.');
   });
+
+  it('strips {@link} decoration to the bare name (description and tags)', () => {
+    expect(parseJsdoc('/** See {@link GraphExplorer} for details. */')?.description).toBe(
+      'See GraphExplorer for details.',
+    );
+    const parsed = parseJsdoc(
+      '/**\n * Wraps {@link Inner|the inner view}.\n * @returns {@link JSX.Element}\n */',
+    );
+    expect(parsed?.description).toBe('Wraps Inner.');
+    expect(parsed?.tags).toEqual([{ tag: 'returns', text: 'JSX.Element' }]);
+  });
 });

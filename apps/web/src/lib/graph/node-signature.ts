@@ -79,5 +79,17 @@ export function parseJsdoc(raw: string): ParsedJsdoc | null {
   if (current !== null) {
     tags.push(current);
   }
-  return { description: description.join('\n').trim(), tags };
+  return {
+    description: stripLinks(description.join('\n').trim()),
+    tags: tags.map((tag) => ({ tag: tag.tag, text: stripLinks(tag.text) })),
+  };
+}
+
+/**
+ * Render an inline `{@link Target}` (or `{@link Target|label}` / `{@link Target
+ * label}`) as the bare referenced name. Cosmetic only — the brace decoration goes,
+ * the name stays; no semantic re-attribution, no link resolution.
+ */
+function stripLinks(text: string): string {
+  return text.replace(/\{@link\s+([^}|\s]+)(?:[\s|][^}]*)?\}/g, '$1');
 }

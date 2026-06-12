@@ -1,0 +1,46 @@
+# Keep the build context small and platform-clean. Excluding node_modules is
+# load-bearing: the host install carries platform-native binaries (e.g.
+# @libsql/win32-x64-msvc) that must never leak into a Linux image — each image
+# installs its own deps from the pruned lockfile (ADR-0030 §2).
+node_modules
+**/node_modules
+
+# Build outputs (each image rebuilds them)
+dist
+**/dist
+.next
+**/.next
+.turbo
+**/.turbo
+out
+*.tsbuildinfo
+**/*.tsbuildinfo
+next-env.d.ts
+
+# Tests / coverage / artifacts
+coverage
+**/coverage
+test-results
+playwright-report
+.dogfood
+
+# Secrets and local env — never bake into an image
+.env
+.env.local
+.env.*.local
+**/.env
+**/.env.local
+
+# VCS, editor, OS, docs-only
+.git
+.gitignore
+.idea
+.vscode
+.DS_Store
+.design-ref
+
+# Docker assets themselves
+docker-compose*.yml
+docker/
+**/Dockerfile*
+.dockerignore

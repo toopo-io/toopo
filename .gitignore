@@ -3,6 +3,7 @@ dist/
 build/
 .next/
 .turbo/
+out/
 coverage/
 *.log
 .tmp-*

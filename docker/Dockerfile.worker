@@ -1,0 +1,46 @@
+# syntax=docker/dockerfile:1
+#
+# Toopo worker — the queue consume-mode drainer (ADR-0023/0025/0026). Multi-stage
+# build over the pnpm + Turborepo monorepo. Two runtime prerequisites beyond the
+# other images (ADR-0030 §2):
+#   - native `git` for the shallow clone-at-commit (ADR-0025);
+#   - the tree-sitter `.wasm` grammars (shipped inside @toopo/lang-react), copied
+#     in with the rest of /app.
+# Private-repo clones feed the installation token only through GIT_ASKPASS, in an
+# in-sandbox temp dir (ADR-0026) — no extra image wiring required.
+
+FROM node:22-slim AS base
+ENV PNPM_HOME=/pnpm
+ENV PATH="$PNPM_HOME:$PATH"
+RUN corepack enable
+WORKDIR /app
+
+# --- prune: isolate the @toopo/worker workspace subgraph + a pruned lockfile ---
+FROM base AS prune
+COPY . .
+RUN pnpm dlx turbo@2.9.14 prune @toopo/worker --docker
+
+# --- install: only the pruned dependency set ---
+FROM base AS install
+COPY --from=prune /app/out/json/ ./
+COPY --from=prune /app/out/pnpm-lock.yaml ./pnpm-lock.yaml
+RUN pnpm install --frozen-lockfile
+
+# --- build: compile the worker and the workspace packages it depends on ---
+FROM install AS build
+COPY --from=prune /app/out/full/ ./
+RUN pnpm exec turbo run build --filter=@toopo/worker
+
+# --- runner: non-root, with git + CA certs for HTTPS clones ---
+FROM base AS runner
+ENV NODE_ENV=production
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends git ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+RUN groupadd --system --gid 1001 nodejs \
+  && useradd --system --uid 1001 --gid nodejs toopo
+COPY --from=build --chown=toopo:nodejs /app ./
+USER toopo
+# Long-running drainer; one job per process (ADR-0025). Handles SIGTERM/SIGINT
+# to drain the in-flight job before exit. The DB must already be migrated.
+CMD ["node", "apps/worker/dist/consume/bin.js"]

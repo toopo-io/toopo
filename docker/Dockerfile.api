@@ -1,0 +1,42 @@
+# syntax=docker/dockerfile:1
+#
+# Toopo API (NestJS, ADR-0020/0024/0026). Multi-stage build over the pnpm +
+# Turborepo monorepo: prune the @toopo/api subgraph, install from a pruned
+# lockfile, build, then ship a non-root runner. This image is ALSO the one-shot
+# migrate service (same image, command overridden to run the migrator). See
+# ADR-0030. Debian-slim base (not alpine) keeps the libSQL/pg native bindings
+# friction-free (ADR-0030 §2).
+
+FROM node:22-slim AS base
+ENV PNPM_HOME=/pnpm
+ENV PATH="$PNPM_HOME:$PATH"
+RUN corepack enable
+WORKDIR /app
+
+# --- prune: isolate the @toopo/api workspace subgraph + a pruned lockfile ---
+FROM base AS prune
+COPY . .
+RUN pnpm dlx turbo@2.9.14 prune @toopo/api --docker
+
+# --- install: only the pruned dependency set (cached until manifests change) ---
+FROM base AS install
+COPY --from=prune /app/out/json/ ./
+COPY --from=prune /app/out/pnpm-lock.yaml ./pnpm-lock.yaml
+RUN pnpm install --frozen-lockfile
+
+# --- build: compile the api and the workspace packages it depends on ---
+FROM install AS build
+COPY --from=prune /app/out/full/ ./
+RUN pnpm exec turbo run build --filter=@toopo/api
+
+# --- runner: non-root, production-only env ---
+FROM base AS runner
+ENV NODE_ENV=production
+RUN groupadd --system --gid 1001 nodejs \
+  && useradd --system --uid 1001 --gid nodejs toopo
+COPY --from=build --chown=toopo:nodejs /app ./
+USER toopo
+EXPOSE 4000
+# The API binds 0.0.0.0:PORT (main.ts); PORT defaults to 4000. Migrations are an
+# explicit step (ADR-0008), run by the separate migrate service before boot.
+CMD ["node", "apps/api/dist/main.js"]

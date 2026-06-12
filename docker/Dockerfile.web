@@ -1,0 +1,59 @@
+# syntax=docker/dockerfile:1
+#
+# Toopo web (Next.js 16, App Router). Multi-stage build over the pnpm +
+# Turborepo monorepo, shipping Next's standalone output (ADR-0030 §2).
+#
+# NEXT_PUBLIC_* values are baked into the client bundle at BUILD time, so they
+# are build args, not runtime env (changing the public API URL means rebuilding
+# this image — ADR-0030 §3, finding F6). INTERNAL_API_URL is server-only and
+# read at RUNTIME, so it is a compose `environment:` value, not an arg.
+
+FROM node:22-slim AS base
+ENV PNPM_HOME=/pnpm
+ENV PATH="$PNPM_HOME:$PATH"
+RUN corepack enable
+WORKDIR /app
+
+# --- prune: isolate the @toopo/web workspace subgraph + a pruned lockfile ---
+FROM base AS prune
+COPY . .
+RUN pnpm dlx turbo@2.9.14 prune @toopo/web --docker
+
+# --- install: only the pruned dependency set ---
+FROM base AS install
+COPY --from=prune /app/out/json/ ./
+COPY --from=prune /app/out/pnpm-lock.yaml ./pnpm-lock.yaml
+RUN pnpm install --frozen-lockfile
+
+# --- build: bake the public origins, then compile to standalone output ---
+FROM install AS build
+# Defaults match the local docker-compose origins; compose overrides them per
+# deploy. The env validator requires the two URLs to be valid, so they must be
+# present at build (apps/web/env.ts).
+ARG NEXT_PUBLIC_API_URL=http://localhost:4000
+ARG NEXT_PUBLIC_AUTH_URL=http://localhost:4000
+ARG NEXT_PUBLIC_DEFAULT_LOCALE=en
+ARG NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED=false
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
+    NEXT_PUBLIC_AUTH_URL=$NEXT_PUBLIC_AUTH_URL \
+    NEXT_PUBLIC_DEFAULT_LOCALE=$NEXT_PUBLIC_DEFAULT_LOCALE \
+    NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED=$NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED
+COPY --from=prune /app/out/full/ ./
+RUN pnpm exec turbo run build --filter=@toopo/web
+
+# --- runner: non-root, the self-contained standalone server ---
+FROM base AS runner
+ENV NODE_ENV=production
+# Next's standalone server reads PORT and HOSTNAME; bind all interfaces so the
+# container is reachable.
+ENV PORT=3000 HOSTNAME=0.0.0.0
+RUN groupadd --system --gid 1001 nodejs \
+  && useradd --system --uid 1001 --gid nodejs toopo
+USER toopo
+# Standalone emits the monorepo tree: server lives at apps/web/server.js, with
+# static assets and public/ copied alongside it (Next standalone contract).
+COPY --from=build --chown=toopo:nodejs /app/apps/web/.next/standalone ./
+COPY --from=build --chown=toopo:nodejs /app/apps/web/.next/static ./apps/web/.next/static
+COPY --from=build --chown=toopo:nodejs /app/apps/web/public ./apps/web/public
+EXPOSE 3000
+CMD ["node", "apps/web/server.js"]

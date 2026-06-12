@@ -51,6 +51,8 @@ export const GRAPH_SEGMENTS = {
   CALL_BINDINGS: 'call-bindings',
   /** V5 — node search by name/path/kind/subKind. */
   SEARCH: 'search',
+  /** D5 (Insights) — top-level symbols sharing a name (ADR-0029). */
+  NAME_COLLISIONS: 'name-collisions',
 } as const;
 
 export type GraphSegment = (typeof GRAPH_SEGMENTS)[keyof typeof GRAPH_SEGMENTS];

@@ -98,6 +98,14 @@ export const SearchQuerySchema = z
   .strict();
 export type SearchQuery = z.infer<typeof SearchQuerySchema>;
 
+/**
+ * A project-global list (no node id, no scope): just the keyset page controls.
+ * The Insights views (D5 name collisions, D6 unused symbols, ADR-0029) range
+ * over the whole project, so they take only `limit`/`cursor`.
+ */
+export const GlobalListQuerySchema = z.object({ limit: limitField, cursor: cursorField }).strict();
+export type GlobalListQuery = z.infer<typeof GlobalListQuerySchema>;
+
 // ───────────────────────────── Pagination envelope ─────────────────────────
 
 /** Wrap an item schema in the keyset-pagination envelope (ADR-0020 Fork 4). */

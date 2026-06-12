@@ -94,6 +94,11 @@
   "AppShell": {
     "workspace": "Workspace",
     "repositories": "Repositories",
+    "tabs": {
+      "aria": "Project views",
+      "graph": "Cartography",
+      "insights": "Insights"
+    },
     "noWorkspace": "No workspace",
     "switchError": "Couldn't switch workspace — please retry.",
     "theme": {
@@ -110,6 +115,21 @@
       "noReposHint": "Connect a repository to populate its graph, then it appears here.",
       "selectRepo": "Select a repository",
       "selectRepoHint": "Pick a repository from the sidebar to open its cartography."
+    }
+  },
+  "Insights": {
+    "title": "Insights",
+    "subtitle": "Deterministic, project-wide readings of the graph. Every finding is proven or honestly marked uncertain — never asserted on a guess.",
+    "loading": "Loading insights…",
+    "error": "Failed to load insights: {message}",
+    "unknownError": "unknown error",
+    "collisions": {
+      "title": "Name collisions",
+      "description": "Top-level declarations that share a name. Certain — a declaration's existence is statically proven.",
+      "empty": "No name collisions — every top-level declaration has a unique name.",
+      "count": "{count, plural, one {# declaration} other {# declarations}}",
+      "more": "More collisions exist beyond the first page.",
+      "unnamed": "(unnamed)"
     }
   },
   "LocaleSwitcher": {

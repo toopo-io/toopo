@@ -12,6 +12,7 @@ import {
   type BlastRadiusQuery,
   type CallBindings,
   CallBindingsSchema,
+  type GlobalListQuery,
   GRAPH_SEGMENTS,
   graphApiPath,
   type MapQuery,
@@ -113,6 +114,14 @@ export const graphApi = {
   search: (projectId: string, query: SearchQuery, locale?: string): Promise<NodePage> =>
     requestJson(
       `${graphApiPath(projectId, GRAPH_SEGMENTS.SEARCH)}${buildQueryString({ ...query })}`,
+      NodePageSchema,
+      locale,
+    ),
+
+  // D5 (Insights) — top-level symbols sharing a name (ADR-0029).
+  nameCollisions: (projectId: string, query: GlobalListQuery, locale?: string): Promise<NodePage> =>
+    requestJson(
+      `${graphApiPath(projectId, GRAPH_SEGMENTS.NAME_COLLISIONS)}${buildQueryString({ ...query })}`,
       NodePageSchema,
       locale,
     ),

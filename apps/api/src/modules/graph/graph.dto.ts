@@ -10,6 +10,7 @@ import {
   BlastRadiusPageSchema,
   BlastRadiusQuerySchema,
   CallBindingsSchema,
+  GlobalListQuerySchema,
   MapQuerySchema,
   MapViewSchema,
   NeighborPageSchema,
@@ -29,6 +30,7 @@ export class NeighborsQueryDto extends createZodDto(NeighborsQuerySchema) {}
 export class BlastRadiusQueryDto extends createZodDto(BlastRadiusQuerySchema) {}
 export class NodeRelationsQueryDto extends createZodDto(NodeRelationsQuerySchema) {}
 export class SearchQueryDto extends createZodDto(SearchQuerySchema) {}
+export class GlobalListQueryDto extends createZodDto(GlobalListQuerySchema) {}
 
 // Response DTOs (output serialization/validation + Swagger).
 export class MapViewDto extends createZodDto(MapViewSchema) {}

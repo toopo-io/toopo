@@ -571,6 +571,66 @@ export class KyselyGraphRepository implements GraphRepository {
     );
   }
 
+  /**
+   * The top-level-symbol base (ADR-0029 §2): a `symbol` reached by a `contains`
+   * edge from its OWN file (`source_id = file_id`), so nested symbols, params,
+   * props and call-sites are excluded. The predicate lives once here, shared by
+   * the collision count, the collision page and (later) the unused view, and both
+   * sides are project-scoped (ADR-0022 §3).
+   */
+  private topLevelSymbols(scope: GraphScope) {
+    return this.db
+      .selectFrom('node as n')
+      .where('n.project_id', '=', scope.projectId)
+      .where('n.kind', '=', 'symbol')
+      .where('n.name', 'is not', null)
+      .where((eb) =>
+        eb.exists(
+          eb
+            .selectFrom('edge as ce')
+            .select(sql.lit(1).as('one'))
+            .where('ce.project_id', '=', scope.projectId)
+            .where('ce.kind', '=', 'contains')
+            .whereRef('ce.target_id', '=', 'n.id')
+            .whereRef('ce.source_id', '=', 'n.file_id'),
+        ),
+      );
+  }
+
+  async nameCollisions(scope: GraphScope, options?: PageOptions): Promise<Page<Node>> {
+    const limit = clampLimit(options?.limit);
+    // Names shared by ≥ 2 top-level symbols — computed with the SAME top-level
+    // predicate as the page, so the collision set and the rows can never disagree.
+    const collidingNames = this.topLevelSymbols(scope)
+      .select('n.name')
+      .groupBy('n.name')
+      .having((eb) => eb(eb.fn.count('n.id'), '>', 1));
+    const base = this.topLevelSymbols(scope).where('n.name', 'in', collidingNames);
+    const total = await firstPageTotal(options?.cursor, () => this.countAll(base));
+    let page = base.selectAll('n');
+    if (options?.cursor !== undefined) {
+      // Composite keyset on (name, id): the stable order that groups by name.
+      const [name, id] = decodeCursorTuple(options.cursor, 2);
+      page = page.where((eb) =>
+        eb.or([
+          eb('n.name', '>', String(name)),
+          eb.and([eb('n.name', '=', String(name)), eb('n.id', '>', String(id))]),
+        ]),
+      );
+    }
+    const rows = await page
+      .orderBy('n.name')
+      .orderBy('n.id')
+      .limit(limit + 1)
+      .execute();
+    return buildPage(
+      rows.map(rowToNode),
+      limit,
+      (node) => encodeCursor([collisionName(node), node.id]),
+      total,
+    );
+  }
+
   async blastRadiusPage(
     scope: GraphScope,
     id: SymbolId,
@@ -671,6 +731,15 @@ export class KyselyGraphRepository implements GraphRepository {
     }));
     return { level: options.level, nodes, edges, truncated };
   }
+}
+
+/**
+ * The name component of a collision keyset cursor. `nameCollisions` yields only
+ * top-level symbols (which carry a name), so the union-narrowing fallback is
+ * unreachable; it keeps the cursor key type-safe over the full Node union.
+ */
+function collisionName(node: Node): string {
+  return (node.kind === 'symbol' ? node.name : undefined) ?? '';
 }
 
 /** Portable case-insensitive name/path substring predicate (escaped LIKE). */

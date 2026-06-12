@@ -106,6 +106,9 @@ function fakeRepository(overrides: Partial<GraphRepository>): GraphRepository {
     unresolvedReferences(_scope: GraphScope, _options?: UnresolvedReferenceOptions) {
       return Promise.resolve<Page<UnresolvedReference>>({ items: [], nextCursor: null });
     },
+    nameCollisions(_scope: GraphScope, _options?: PageOptions): Promise<Page<Node>> {
+      return Promise.resolve({ items: [], nextCursor: null });
+    },
   };
   return { ...base, ...overrides };
 }
@@ -396,5 +399,21 @@ describe('GraphViewService pass-through', () => {
     );
     const page = await without.search(SCOPE, {});
     expect('total' in page).toBe(false);
+  });
+});
+
+describe('GraphViewService.nameCollisions (D5)', () => {
+  it('threads the scope, passes the page controls, and adapts to the node page', async () => {
+    const btnA: Node = { kind: 'symbol', id: 'sym:a:Button', name: 'Button', properties: {} };
+    const btnB: Node = { kind: 'symbol', id: 'sym:b:Button', name: 'Button', properties: {} };
+    const nameCollisions = vi.fn((_scope: GraphScope, _options?: PageOptions) =>
+      Promise.resolve<Page<Node>>({ items: [btnA, btnB], nextCursor: 'next', total: 2 }),
+    );
+    const service = new GraphViewService(fakeRepository({ nameCollisions }));
+
+    const page = await service.nameCollisions(SCOPE, { limit: 10, cursor: 'c0' });
+
+    expect(nameCollisions).toHaveBeenCalledWith(SCOPE, { limit: 10, cursor: 'c0' });
+    expect(page).toEqual({ items: [btnA, btnB], nextCursor: 'next', total: 2 });
   });
 });

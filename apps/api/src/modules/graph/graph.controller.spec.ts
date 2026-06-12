@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { ProjectAccessGuard } from '../project/project-access.guard';
 import { SessionGuard } from '../user/session.guard';
 import { GraphController } from './graph.controller';
-import type { MapQueryDto, NodeQueryDto } from './graph.dto';
+import type { GlobalListQueryDto, MapQueryDto, NodeQueryDto } from './graph.dto';
 
 const project: ProjectRecord = {
   id: 'proj-123',
@@ -40,6 +40,16 @@ describe('GraphController scope threading', () => {
     const query = { id: 'sym:absent' } as NodeQueryDto;
     await expect(controller.node(project, query)).rejects.toBeInstanceOf(NotFoundException);
     expect(nodeDetail).toHaveBeenCalledWith({ projectId: 'proj-123' }, query);
+  });
+
+  it('scopes the name-collisions view by the resolved project id (D5)', async () => {
+    const nameCollisions = vi.fn(() => Promise.resolve({ items: [], nextCursor: null }));
+    const controller = new GraphController({ nameCollisions } as unknown as GraphViewService);
+
+    const query = { limit: 25 } as GlobalListQueryDto;
+    await controller.nameCollisions(project, query);
+
+    expect(nameCollisions).toHaveBeenCalledWith({ projectId: 'proj-123' }, query);
   });
 });
 

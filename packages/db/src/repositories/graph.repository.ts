@@ -346,4 +346,13 @@ export interface GraphRepository {
    * re-parse.
    */
   mapView(scope: GraphScope, options: MapViewOptions): Promise<MapView>;
+
+  /**
+   * D5 (ADR-0029) — top-level symbols whose `name` is shared by ≥ 2 such symbols,
+   * keyset-paged by `(name, id)` so the UI groups consecutive rows under a name.
+   * "Top-level" = a `symbol` reached by a `contains` edge from its own file
+   * (excludes params, props, locals and call-sites). A symbol's existence is a
+   * parse fact, so every collision is certain — there is no trust axis here.
+   */
+  nameCollisions(scope: GraphScope, options?: PageOptions): Promise<Page<Node>>;
 }

@@ -8,6 +8,7 @@ import type { WorkspaceSummary } from '../../lib/workspaces/workspace';
 import { workspaceGlyph } from '../../lib/workspaces/workspace';
 import { LocaleSwitcher } from '../locale-switcher';
 import { BrandMark } from './brand-mark';
+import { ProjectViewTabs } from './project-view-tabs';
 import { RepoList } from './repo-list';
 import { ThemeToggle } from './theme-toggle';
 import { WorkspacePicker } from './workspace-picker';
@@ -72,6 +73,7 @@ export function AppShell({
           ) : null}
         </nav>
         <div className="flex-1" />
+        {activeRepo !== null ? <ProjectViewTabs locale={locale} projectId={activeRepo.id} /> : null}
         <ThemeToggle />
         <LocaleSwitcher />
       </header>

@@ -16,6 +16,7 @@ import type {
   BlastRadiusQuery,
   CallBinding,
   CallBindings,
+  GlobalListQuery,
   GraphNeighbor,
   MapQuery,
   MapView,
@@ -214,6 +215,19 @@ export class GraphViewService {
       query: query.query,
       kind: query.kind,
       subKind: query.subKind,
+      limit: query.limit,
+      cursor: query.cursor,
+    });
+    return toNodePage(page);
+  }
+
+  /**
+   * D5 (ADR-0029) — top-level symbols sharing a name, keyset-paged by `(name, id)`
+   * so the UI groups consecutive rows under a name. All certain (a symbol's
+   * existence is a parse fact): there is no trust axis, hence no accent.
+   */
+  async nameCollisions(scope: GraphScope, query: GlobalListQuery): Promise<NodePage> {
+    const page = await this.repository.nameCollisions(scope, {
       limit: query.limit,
       cursor: query.cursor,
     });

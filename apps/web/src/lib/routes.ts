@@ -49,6 +49,10 @@ export const routes = {
   projectGraph: (locale: string, projectId: string): string =>
     `/${locale}/${ROUTE_SEGMENTS.PROJECTS}/${encodeURIComponent(projectId)}/${ROUTE_SEGMENTS.GRAPH}`,
 
+  /** The deterministic global derived views (Insights) for a project (ADR-0029). */
+  projectInsights: (locale: string, projectId: string): string =>
+    `/${locale}/${ROUTE_SEGMENTS.PROJECTS}/${encodeURIComponent(projectId)}/${ROUTE_SEGMENTS.INSIGHTS}`,
+
   /** The GitHub-App post-install return page (ADR-0026 §5; GitHub's "Setup URL"). */
   connect: (locale: string): string => `/${locale}/${ROUTE_SEGMENTS.CONNECT}`,
 } as const;

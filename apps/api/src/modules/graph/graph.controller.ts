@@ -34,6 +34,7 @@ import {
   BlastRadiusPageDto,
   BlastRadiusQueryDto,
   CallBindingsDto,
+  GlobalListQueryDto,
   MapQueryDto,
   MapViewDto,
   NeighborPageDto,
@@ -151,5 +152,15 @@ export class GraphController {
     @Query() query: SearchQueryDto,
   ): Promise<NodePage> {
     return this.views.search(scopeOf(project), query);
+  }
+
+  @Get(GRAPH_SEGMENTS.NAME_COLLISIONS)
+  @ApiOperation({ summary: 'Top-level symbols sharing a name (Insights, D5)' })
+  @ZodSerializerDto(NodePageDto)
+  nameCollisions(
+    @CurrentProject() project: ProjectRecord,
+    @Query() query: GlobalListQueryDto,
+  ): Promise<NodePage> {
+    return this.views.nameCollisions(scopeOf(project), query);
   }
 }

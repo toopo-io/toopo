@@ -38,6 +38,8 @@ export const graphQueryKeys = {
     ['graph', projectId, 'declarations', locale, id] as const,
   callBindings: (projectId: string, locale: string, id: string) =>
     ['graph', projectId, 'callBindings', locale, id] as const,
+  nameCollisions: (projectId: string, locale: string) =>
+    ['graph', projectId, 'nameCollisions', locale] as const,
 };
 
 export function useGraphMap(
@@ -110,5 +112,14 @@ export function useGraphCallBindings(
     queryKey: graphQueryKeys.callBindings(projectId, locale, id),
     queryFn: () => graphApi.callBindings(projectId, { id }, locale),
     enabled,
+  });
+}
+
+/** D5 (Insights) — top-level symbols sharing a name (ADR-0029); first page. */
+export function useGraphNameCollisions(locale: string): UseQueryResult<NodePage> {
+  const projectId = useProjectId();
+  return useQuery({
+    queryKey: graphQueryKeys.nameCollisions(projectId, locale),
+    queryFn: () => graphApi.nameCollisions(projectId, {}, locale),
   });
 }

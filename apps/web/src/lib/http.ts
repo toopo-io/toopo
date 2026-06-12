@@ -8,6 +8,7 @@
 import { ErrorResponseSchema } from '@toopo/api-contracts';
 import type { z } from 'zod';
 import { Env } from '../../env';
+import { resolveApiBaseUrl } from './api-base';
 
 export async function requestJson<TSchema extends z.ZodTypeAny>(
   path: string,
@@ -22,7 +23,7 @@ export async function requestJson<TSchema extends z.ZodTypeAny>(
   if (init?.body !== undefined && init.body !== null) {
     headers['Content-Type'] = 'application/json';
   }
-  const response = await fetch(`${Env.NEXT_PUBLIC_API_URL}${path}`, {
+  const response = await fetch(`${resolveApiBaseUrl(Env.NEXT_PUBLIC_API_URL)}${path}`, {
     // The Serve API is gated (ADR-0022 §5), so the session cookie must ride along.
     // `credentials: include` covers browser calls; a server component forwards the
     // cookie explicitly via `init.headers` (no cookie jar exists server-side).

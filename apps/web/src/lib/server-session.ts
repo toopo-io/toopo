@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { Env } from '../../env';
+import { resolveApiBaseUrl } from './api-base';
 
 export interface ServerSessionUser {
   readonly id: string;
@@ -36,10 +37,13 @@ export async function getServerSession(): Promise<ServerSessionResponse | null> 
   }
 
   try {
-    const response = await fetch(`${Env.NEXT_PUBLIC_AUTH_URL}/v1/auth/get-session`, {
-      headers: { cookie: cookieHeader },
-      cache: 'no-store',
-    });
+    const response = await fetch(
+      `${resolveApiBaseUrl(Env.NEXT_PUBLIC_AUTH_URL)}/v1/auth/get-session`,
+      {
+        headers: { cookie: cookieHeader },
+        cache: 'no-store',
+      },
+    );
     if (!response.ok) {
       return null;
     }

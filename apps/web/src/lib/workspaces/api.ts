@@ -10,15 +10,19 @@
  * renders) rather than blocking the page.
  */
 import { Env } from '../../../env';
+import { resolveApiBaseUrl } from '../api-base';
 import { WorkspaceListSchema, type WorkspaceSummary } from './workspace';
 
 export async function listMyWorkspaces(init?: RequestInit): Promise<readonly WorkspaceSummary[]> {
   try {
-    const response = await fetch(`${Env.NEXT_PUBLIC_AUTH_URL}/v1/auth/organization/list`, {
-      ...init,
-      headers: { Accept: 'application/json', ...(init?.headers ?? {}) },
-      cache: 'no-store',
-    });
+    const response = await fetch(
+      `${resolveApiBaseUrl(Env.NEXT_PUBLIC_AUTH_URL)}/v1/auth/organization/list`,
+      {
+        ...init,
+        headers: { Accept: 'application/json', ...(init?.headers ?? {}) },
+        cache: 'no-store',
+      },
+    );
     if (!response.ok) {
       return [];
     }

@@ -193,37 +193,83 @@ on a value namespace import (`import * as NS; NS.foo`) now resolves to the
 module's exported `foo` through the export chain, so that usage is a real edge
 rather than a silent drop.
 
-### Known boundary — unresolved call-site usages are NOT yet in the tail
+### Boundary CLOSED — unresolved call-site usages are persisted (C11 closure, 2026-06-12)
 
-The persisted tail currently records only unresolved **imports/exports** (the four
-diagnostic codes). It does NOT yet record unresolved **call-site member usages**:
+The "Known boundary" above (unresolved **call-site member usages** absent from the
+tail) is **closed** by the amendment below. The three cases it named — a member-root
+call on a value import (`Form.Item`), a namespace member that resolves no export
+(`NS.Missing`), and a member-root whose root is a local/param (`handler.run()`) —
+are now recorded as honest gaps, so a symbol used SOLELY via such a path is no longer
+at risk of a false "unused" (the cardinal false positive). The original analysis held:
+closing it required (a) evolving the `bindCallSite` keystone contract, (b) a signal
+**coarser** than an export gap, and (c) recording the dominant member-root case, not a
+"no-edge-only" half-measure. All three are addressed below.
 
-- a member-root call on a value import (`Form.Item`, `widget.draw()`) binds the
-  ROOT and leaves the member unresolved — so a captured member symbol (e.g.
-  `Widget#draw`, captured since A1) used only this way gets no incoming usage edge;
-- a namespace member that resolves no export (`NS.Missing`), or a deeper member
-  path, yields no edge and no diagnostic;
-- a call whose root is a local/param (not an import) is left unbound entirely.
+## Amendment — 2026-06-12 (C11 closure): the unresolved call-site usage tail
 
-A symbol used SOLELY via such a path can therefore have zero incoming dependency
-edges while genuinely being used — exactly the false "unused" C11 exists to
-prevent. This is deliberately deferred, not overlooked: channelling these honestly
-is **larger than an additive change** and must be co-designed with the "unused"
-view, because (a) it requires extending the `bindCallSite` plugin contract — the
-extensibility keystone — to report partial/failed bindings (the member-root case
-emits an edge to the root, so "no edge" cannot detect it); (b) the signal is
-**coarser** than an export gap (it names a member, not a resolvable
-`(targetFileId, name)`), so its persisted shape and the view's consumption differ;
-and (c) a half-measure recording only the "no edge at all" subset would MISS the
-dominant member-root-partial case and give false confidence — and per the
-Perfection Charter a partial honesty signal is worse than a documented boundary.
+The Resolve pass now records the **call-site usage** gaps the C11 amendment left as a
+documented boundary, completing the honest tail. It is additive and reuses the existing
+persistence: **no new core field, no DB migration**.
 
-**Hard prerequisite for Phase D.** The deterministic "unused" (and "cycle") view
-MUST NOT ship until call-site resolution gaps are accounted for. Until they are
-persisted, the view MUST be conservative: a symbol is "unused" with CERTAINTY only
-when the project has **zero** unresolved call-site usages that could reach it;
-otherwise it is a *candidate* (possibly-used), never asserted unused. This keeps
-the honesty guarantee airtight — a resolution gap is never read as genuine absence.
+**Contract evolution (the extensibility keystone).** `ResolverPlugin.bindCallSite` now
+returns a `CallSiteBindingResult { edges, unresolved }` instead of a bare edge list. A
+single binding attempt legitimately yields BOTH products — a member-root callee
+(`Form.Item`) emits an edge to the resolved ROOT (`Form`) **and** an unresolved-member
+gap for `Item` — so "no edge" can never detect the member gap; the plugin surfaces it
+explicitly as an `UnresolvedUsage { rootSymbolId?, member, callee, reason }`. The PLUGIN
+owns the language semantics (which root it resolved, the member name); the ENGINE maps
+`rootSymbolId → targetFileId` via a surfaced `SymbolGraph.fileOf` (graph topology is
+engine-owned; a file is its own container). `NamespaceImports.resolveMember` likewise
+returns a discriminated `MemberResolution` (`resolved | unresolved-member(rootFileId) |
+not-namespace`) so the anchored namespace case keeps its anchor. This is the keystone
+change the boundary flagged as ADR-level; lang-react is the sole implementor.
+
+**Two new codes, mapped onto the existing anchored/anchorless buckets.** A usage gap is
+the same SHAPE as an import gap, so it persists through the exact same
+`UnresolvedReference` model, `unresolved_reference` table, and `unresolvedReferences`
+read — untouched:
+
+- `unresolved-member` (**anchored**): the callee's root resolved to a file but the member
+  did not (`Form.Item` on a value import; `NS.Missing` on a namespace). Carries
+  `targetFileId` (the root's file) + `name` (the member) — structurally identical to an
+  `unresolved-export`, which is what lets the honesty query answer both uniformly.
+- `unbound-callee` (**anchorless**): the root itself did not resolve (a local/param root).
+  Carries `name` (the member) only — the gap broadens the candidate set by name alone
+  (sound, coarse: the trust-mandated price of a lost root type). Recorded now, never
+  dropped — a half-measure that omitted it would reintroduce the false-confidence the
+  boundary warned against.
+
+`specifier` reuses its column with a per-code meaning documented crisply in the core
+model: the module specifier for import gaps, the **callee expression** for usage gaps
+(`Form.Item`) — its identity disambiguator, so two roots in one file stay distinct rows.
+Identity is **collapsed** to `(importerFileId, code, specifier=callee, name=member)`:
+repeated identical call-sites store once (ADR-0015 §11). Bare exact-identifier callees
+that name no import (`foo()`, typically a local or global) remain out of scope — a
+member-usage gap is specifically a `.member` access; this residual is documented, not
+silently dropped.
+
+**Metric isolation.** The ~90% import-resolution metric counts only the four
+`IMPORT_REFERENCE_CODES` via an explicit set, never a `startsWith` prefix (which
+`unresolved-member` would have corrupted). Usage gaps have a different denominator and
+are excluded.
+
+**Determinism.** The usage diagnostics flow through the same total order
+(`sortDiagnostics`) and stored-once `ref_key` as import gaps; messages are pure functions
+of identity. Same commit → byte-identical tail (tested across fragment order).
+
+**Phase-D consumption rule (design-only seam — NOT built here).** The forthcoming
+deterministic "unused"/"cycle" view consults the tail so that a symbol `S` with zero
+incoming usage edges is **certain-unused** only if no unresolved usage could reach it:
+no `unresolved-member` with `targetFileId == file(S)` AND `name == S.name`, and no
+`unbound-callee` with `name == S.name`; otherwise `S` is a *candidate* (possibly-used),
+never asserted unused. Anchored usages exonerate precisely; anchorless ones broaden by
+name alone. This needs a **code-family filter** on the `unresolvedReferences` read (today
+it filters only by `targetFileId`) — noted as a Phase-D seam, deliberately not built now.
+
+ADR-0015 is untouched: a usage gap remains a non-graph sibling, never a fabricated edge.
+ADR-0027 (local-symbol identity) is untouched. This closes the C11 boundary and lifts the
+"Hard prerequisite for Phase D" — the gaps are now persisted, so the "unused"/"cycle" view
+may ship once it applies the consumption rule above.
 
 ## Related ADRs
 

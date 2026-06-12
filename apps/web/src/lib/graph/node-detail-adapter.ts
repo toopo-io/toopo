@@ -7,9 +7,11 @@
  * (an external/unresolved id, ADR-0015 §11) — represented honestly as a missing
  * label, never invented.
  */
-import type { NodeDetail } from '@toopo/api-contracts';
+import type { CallBinding, NodeDetail } from '@toopo/api-contracts';
 import type { Confidence, Edge, EdgeKind, Node } from '@toopo/core';
+import { childSymbolCategory } from './child-symbol-category';
 import { nodeLabel } from './node-label';
+import { composeSignature, type ParsedJsdoc, parseJsdoc } from './node-signature';
 import type { TrustKind } from './trust';
 
 /**
@@ -31,6 +33,30 @@ export interface InterfaceRow {
   readonly id: string;
   readonly label: string;
   readonly subKind?: string;
+  /** The declared type, when recorded (rendered after the name). */
+  readonly type?: string;
+  /** Whether the parameter/prop is optional, when recorded. */
+  readonly optional?: boolean;
+}
+
+/** One payload argument stitched to the parameter it binds (D1). */
+export interface BindingRow {
+  readonly ordinal: number;
+  readonly argName?: string;
+  readonly argValue?: string;
+  readonly passKind: 'positional' | 'named' | 'spread';
+  /** The bound parameter's label, or null when the argument bound to nothing. */
+  readonly paramLabel: string | null;
+  /** True when the binding is inferred OR unbound — shown in the accent. */
+  readonly uncertain: boolean;
+  readonly trustKind: TrustKind;
+  readonly confidence?: Confidence;
+}
+
+/** The contained child symbols split into the inspector's lazy buckets (F1). */
+export interface DeclarationBuckets {
+  readonly locals: readonly InterfaceRow[];
+  readonly nested: readonly InterfaceRow[];
 }
 
 export interface NeighborRow {
@@ -64,7 +90,14 @@ export interface NodeDetailViewModel {
   readonly kind: Node['kind'];
   readonly subKind?: string;
   readonly analysisStatus?: string;
-  readonly declaredInterface: readonly InterfaceRow[];
+  /** The composed `name(params): returnType`, omit-never-fabricate (F2). */
+  readonly signature: string;
+  /** The parsed JSDoc, verbatim, or null when none is recorded (F2). */
+  readonly jsdoc: ParsedJsdoc | null;
+  /** True when any incoming/outgoing edge is inferred — drives the callout. */
+  readonly hasInferredEdge: boolean;
+  /** The declared parameters/props (the declared interface). */
+  readonly parameters: readonly InterfaceRow[];
   readonly callers: readonly NeighborRow[];
   readonly callees: readonly NeighborRow[];
   readonly callSites: readonly CallSiteRow[];
@@ -72,13 +105,28 @@ export interface NodeDetailViewModel {
 
 export function nodeDetailToViewModel(detail: NodeDetail): NodeDetailViewModel {
   const { node } = detail;
+  const parameters = detail.declaredInterface.items.map(toInterfaceRow);
+  const signatureParams = parameters
+    .filter((row) => row.type !== undefined)
+    .map((row) => ({ name: row.label, type: row.type as string }));
+  const onlyNames = parameters.map((row) => ({ name: row.label }));
   return {
     id: node.id,
     label: nodeLabel(node),
     kind: node.kind,
     ...(node.subKind !== undefined ? { subKind: node.subKind } : {}),
     ...(node.analysis !== undefined ? { analysisStatus: node.analysis.status } : {}),
-    declaredInterface: detail.declaredInterface.items.map(toInterfaceRow),
+    signature: composeSignature(
+      nodeLabel(node),
+      // Prefer typed params; fall back to bare names so the shape is still shown.
+      signatureParams.length === parameters.length ? signatureParams : onlyNames,
+      stringProp(node, 'returnType'),
+    ),
+    jsdoc: jsdocOf(node),
+    hasInferredEdge:
+      detail.incoming.items.some((n) => n.edge.resolution === 'inferred') ||
+      detail.outgoing.items.some((n) => n.edge.resolution === 'inferred'),
+    parameters,
     callers: detail.incoming.items
       .filter((neighbor) => DEPENDENCY_EDGE_KINDS.has(neighbor.edge.kind))
       .map((neighbor) => toNeighborRow(neighbor, 'in')),
@@ -89,12 +137,61 @@ export function nodeDetailToViewModel(detail: NodeDetail): NodeDetailViewModel {
   };
 }
 
+/** Split a container's contained declarations into the lazy local/nested buckets. */
+export function declarationBuckets(items: readonly Node[]): DeclarationBuckets {
+  const locals: InterfaceRow[] = [];
+  const nested: InterfaceRow[] = [];
+  for (const node of items) {
+    const category = childSymbolCategory(node.subKind);
+    if (category === 'local') {
+      locals.push(toInterfaceRow(node));
+    } else if (category === 'nested') {
+      nested.push(toInterfaceRow(node));
+    }
+  }
+  return { locals, nested };
+}
+
+/** Stitch a call-site's payload arguments to the parameters they bind (D1). */
+export function callBindingRows(bindings: readonly CallBinding[]): BindingRow[] {
+  return bindings.map((binding) => {
+    const { argument, parameter, edge } = binding;
+    const inferred = edge !== null && edge.resolution === 'inferred';
+    const uncertain = parameter === null || inferred;
+    return {
+      ordinal: argument.ordinal,
+      ...(argument.name !== undefined ? { argName: argument.name } : {}),
+      ...(argument.value !== undefined ? { argValue: argument.value } : {}),
+      passKind: argument.passKind,
+      paramLabel: parameter !== null ? nodeLabel(parameter) : null,
+      uncertain,
+      trustKind: uncertain ? 'inferred' : 'deterministic',
+      ...(inferred ? { confidence: edge.confidence } : {}),
+    };
+  });
+}
+
 function toInterfaceRow(node: Node): InterfaceRow {
+  const type = stringProp(node, 'type');
   return {
     id: node.id,
     label: nodeLabel(node),
     ...(node.subKind !== undefined ? { subKind: node.subKind } : {}),
+    ...(type !== undefined ? { type } : {}),
+    ...(node.properties['optional'] === true ? { optional: true } : {}),
   };
+}
+
+/** A string-valued property from a node's open properties bag, or undefined. */
+function stringProp(node: Node, key: string): string | undefined {
+  const value = node.properties[key];
+  return typeof value === 'string' ? value : undefined;
+}
+
+/** The parsed JSDoc from a node's `jsdoc` property, verbatim (F2). */
+function jsdocOf(node: Node): ParsedJsdoc | null {
+  const raw = stringProp(node, 'jsdoc');
+  return raw !== undefined ? parseJsdoc(raw) : null;
 }
 
 function toNeighborRow(

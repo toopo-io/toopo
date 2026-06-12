@@ -1,27 +1,40 @@
 'use client';
 
 /**
- * The V2 node-detail side-panel (ADR-0020 §5). For the selected symbol it shows
- * its declared interface (expected props/params), its callers and callees, and
- * the call-sites it encloses with the arguments passed — and marks the TRUST of
- * every relationship row (ADR-0015 §8). This is where individual inferred edges
- * (more common than the aggregate case) must read as unmistakably distinct, so
- * each neighbour/argument row carries a solid/dashed `TrustMark` and a trust-tinted
- * left border. The shape is the pure `nodeDetailToViewModel`; this only renders it.
+ * The V2 node-detail side-panel (ADR-0020 §5) — a spec-list for the selected
+ * symbol. It opens with the composed signature and verbatim JSDoc (F2, omit-never-
+ * fabricate), flags when any relationship is inferred, then lists the declared
+ * parameters, the lazily-loaded local variables and nested functions (ADR-0027),
+ * the callers and callees, and each enclosed call-site stitched to the parameters
+ * its arguments bind (D1). Every relationship row carries its TRUST (ADR-0015 §8)
+ * as a solid/dashed mark and a trust-tinted left border; an uncertain binding —
+ * inferred or unbound — reads in the accent. The shapes are the pure adapters;
+ * this only renders them, never claiming an unused/cycle/unresolved fact (the
+ * ADR-0016 C11 Phase-D boundary).
  */
 import type { BlastRadiusPage } from '@toopo/api-contracts';
 import { useTranslations } from 'next-intl';
-import type { JSX, ReactNode } from 'react';
+import { type JSX, type ReactNode, useState } from 'react';
 import { blastRows } from '../../../lib/graph/blast';
 import {
+  type BindingRow,
   type CallSiteRow,
+  callBindingRows,
+  declarationBuckets,
   type InterfaceRow,
   type NeighborRow,
   nodeDetailToViewModel,
 } from '../../../lib/graph/node-detail-adapter';
+import type { ParsedJsdoc } from '../../../lib/graph/node-signature';
 import { TRUST_COLOR_VAR } from '../../../lib/graph/trust';
-import { useGraphNode } from '../../../lib/graph/use-graph-queries';
+import {
+  useGraphCallBindings,
+  useGraphDeclarations,
+  useGraphNode,
+} from '../../../lib/graph/use-graph-queries';
 import { TrustMark } from './trust-mark';
+
+type TrustLabel = (kind: 'deterministic' | 'inferred') => string;
 
 interface NodeDetailPanelProps {
   readonly nodeId: string;
@@ -47,7 +60,7 @@ export function NodeDetailPanel({
   const tl = useTranslations('Graph.legend');
   const { data, isLoading, error } = useGraphNode(nodeId, locale);
   const vm = data !== undefined ? nodeDetailToViewModel(data) : null;
-  const trustLabel = (kind: 'deterministic' | 'inferred'): string =>
+  const trustLabel: TrustLabel = (kind) =>
     kind === 'inferred' ? tl('inferred') : tl('deterministic');
 
   return (
@@ -97,15 +110,17 @@ export function NodeDetailPanel({
           <p className="text-muted-foreground text-sm">{t('loading')}</p>
         ) : (
           <div className="flex flex-col gap-5">
-            <Section
-              title={t('interface')}
-              count={vm.declaredInterface.length}
-              emptyLabel={t('none')}
-            >
-              {vm.declaredInterface.map((row) => (
+            <SignatureBlock label={vm.label} signature={vm.signature} jsdoc={vm.jsdoc} />
+            {vm.hasInferredEdge ? <InferredCallout text={t('inferredCallout')} /> : null}
+
+            <Section title={t('parameters')} count={vm.parameters.length} emptyLabel={t('none')}>
+              {vm.parameters.map((row) => (
                 <InterfaceItem key={row.id} row={row} />
               ))}
             </Section>
+
+            {vm.kind === 'symbol' ? <MembersDisclosure nodeId={vm.id} locale={locale} /> : null}
+
             <Section title={t('callers')} count={vm.callers.length} emptyLabel={t('none')}>
               {vm.callers.map((row) => (
                 <NeighborItem
@@ -128,13 +143,102 @@ export function NodeDetailPanel({
             </Section>
             <Section title={t('callSites')} count={vm.callSites.length} emptyLabel={t('none')}>
               {vm.callSites.map((row) => (
-                <CallSiteItem key={row.id} row={row} trustLabel={trustLabel} />
+                <CallSiteItem key={row.id} row={row} locale={locale} trustLabel={trustLabel} />
               ))}
             </Section>
           </div>
         )}
       </div>
     </aside>
+  );
+}
+
+function SignatureBlock({
+  label,
+  signature,
+  jsdoc,
+}: {
+  label: string;
+  signature: string;
+  jsdoc: ParsedJsdoc | null;
+}): JSX.Element | null {
+  const t = useTranslations('Graph.panel');
+  // Skip the signature line when it is merely the bare name (the header already
+  // shows it); still render the doc block when there is documentation.
+  const showSignature = signature !== label;
+  if (!showSignature && jsdoc === null) {
+    return null;
+  }
+  return (
+    <section className="flex flex-col gap-2">
+      {showSignature ? (
+        <code className="block overflow-x-auto rounded-md border border-border bg-muted/40 px-3 py-2 font-mono text-xs">
+          {signature}
+        </code>
+      ) : null}
+      {jsdoc !== null ? (
+        <div className="text-sm">
+          <h3 className="sr-only">{t('documentation')}</h3>
+          {jsdoc.description.length > 0 ? (
+            <p className="whitespace-pre-wrap text-muted-foreground">{jsdoc.description}</p>
+          ) : null}
+          {jsdoc.tags.length > 0 ? (
+            <dl className="mt-1.5 flex flex-col gap-0.5">
+              {jsdoc.tags.map((tag) => (
+                <div key={`${tag.tag}:${tag.text}`} className="flex gap-1.5 text-xs">
+                  <dt className="shrink-0 font-mono text-muted-foreground">@{tag.tag}</dt>
+                  <dd className="text-muted-foreground">{tag.text}</dd>
+                </div>
+              ))}
+            </dl>
+          ) : null}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function InferredCallout({ text }: { text: string }): JSX.Element {
+  return (
+    <p className="rounded-md border border-(--tp-inferred)/40 bg-(--tp-inferred)/5 px-3 py-2 text-(--tp-inferred) text-xs">
+      {text}
+    </p>
+  );
+}
+
+function MembersDisclosure({ nodeId, locale }: { nodeId: string; locale: string }): JSX.Element {
+  const t = useTranslations('Graph.panel');
+  const [open, setOpen] = useState(false);
+  const { data, isFetching } = useGraphDeclarations(nodeId, locale, open);
+  const buckets = data !== undefined ? declarationBuckets(data.items) : { locals: [], nested: [] };
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="self-start rounded-md border border-border px-2.5 py-1 text-muted-foreground text-xs hover:text-foreground"
+      >
+        {t('showMembers')}
+      </button>
+    );
+  }
+  if (isFetching && data === undefined) {
+    return <p className="text-muted-foreground text-sm">{t('loading')}</p>;
+  }
+  return (
+    <>
+      <Section title={t('localVariables')} count={buckets.locals.length} emptyLabel={t('none')}>
+        {buckets.locals.map((row) => (
+          <InterfaceItem key={row.id} row={row} />
+        ))}
+      </Section>
+      <Section title={t('nestedFunctions')} count={buckets.nested.length} emptyLabel={t('none')}>
+        {buckets.nested.map((row) => (
+          <InterfaceItem key={row.id} row={row} />
+        ))}
+      </Section>
+    </>
   );
 }
 
@@ -167,8 +271,12 @@ function Section({
 function InterfaceItem({ row }: { row: InterfaceRow }): JSX.Element {
   return (
     <li className="flex items-baseline justify-between gap-2 rounded-md border border-border px-2 py-1 text-sm">
-      <span className="truncate font-medium" title={row.label}>
+      <span className="truncate font-mono" title={row.label}>
         {row.label}
+        {row.optional === true ? '?' : ''}
+        {row.type !== undefined ? (
+          <span className="text-muted-foreground">: {row.type}</span>
+        ) : null}
       </span>
       {row.subKind !== undefined ? (
         <span className="shrink-0 font-mono text-[10px] text-muted-foreground">{row.subKind}</span>
@@ -183,7 +291,7 @@ function NeighborItem({
   external,
 }: {
   row: NeighborRow;
-  trustLabel: (kind: 'deterministic' | 'inferred') => string;
+  trustLabel: TrustLabel;
   external: string;
 }): JSX.Element {
   return (
@@ -217,7 +325,7 @@ function BlastSection({
   // Per-hit trust (ADR-0021): a solid mark = a proven chain reaches this dependent
   // (certainly impacted); a dashed mark = every path is inferred (possibly
   // impacted). This replaces the old panel-level caveat with a real distinction.
-  const trustLabel = (kind: 'deterministic' | 'inferred'): string =>
+  const trustLabel: TrustLabel = (kind) =>
     kind === 'inferred' ? tl('inferred') : tl('deterministic');
   return (
     <section className="mb-5 rounded-lg border border-(--toopo-impact)/50 bg-(--toopo-impact)/5 p-3">
@@ -256,38 +364,75 @@ function BlastSection({
 
 function CallSiteItem({
   row,
+  locale,
   trustLabel,
 }: {
   row: CallSiteRow;
-  trustLabel: (kind: 'deterministic' | 'inferred') => string;
+  locale: string;
+  trustLabel: TrustLabel;
 }): JSX.Element {
+  const t = useTranslations('Graph.panel');
+  const [open, setOpen] = useState(false);
+  const { data, isFetching } = useGraphCallBindings(row.id, locale, open);
+  const bindings = data !== undefined ? callBindingRows(data.bindings) : [];
   return (
     <li className="rounded-md border border-border px-2 py-1.5 text-sm">
-      <div className="mb-1 font-mono text-xs">{row.callee}(…)</div>
-      {row.args.length > 0 ? (
-        <ul className="flex flex-col gap-1 pl-2">
-          {row.args.map((arg) => (
-            <li
-              key={arg.ordinal}
-              className="flex items-center gap-2 border-l-2 pl-2 text-xs"
-              style={{ borderLeftColor: TRUST_COLOR_VAR[arg.trustKind] }}
-            >
-              <TrustMark
-                kind={arg.trustKind}
-                {...(arg.confidence !== undefined ? { confidence: arg.confidence } : {})}
-                label={trustLabel(arg.trustKind)}
-              />
-              <span
-                className="truncate font-mono text-muted-foreground"
-                title={arg.value ?? arg.name}
-              >
-                {arg.name ?? `#${arg.ordinal}`}
-                {arg.value !== undefined ? `=${arg.value}` : ''}
-              </span>
-            </li>
-          ))}
-        </ul>
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+        className="flex w-full items-center justify-between gap-2 font-mono text-xs"
+      >
+        <span className="truncate">{row.callee}(…)</span>
+        <span className="shrink-0 text-muted-foreground">{row.args.length}</span>
+      </button>
+      {open ? (
+        isFetching && data === undefined ? (
+          <p className="mt-1 text-muted-foreground text-xs">{t('loading')}</p>
+        ) : (
+          <ul className="mt-1.5 flex flex-col gap-1 pl-1">
+            {bindings.map((binding) => (
+              <BindingItem key={binding.ordinal} binding={binding} trustLabel={trustLabel} />
+            ))}
+          </ul>
+        )
       ) : null}
+    </li>
+  );
+}
+
+function BindingItem({
+  binding,
+  trustLabel,
+}: {
+  binding: BindingRow;
+  trustLabel: TrustLabel;
+}): JSX.Element {
+  const t = useTranslations('Graph.panel');
+  const argLabel = binding.argName ?? `#${binding.ordinal}`;
+  return (
+    <li
+      className="flex items-center gap-2 border-l-2 pl-2 text-xs"
+      style={{ borderLeftColor: TRUST_COLOR_VAR[binding.trustKind] }}
+    >
+      <TrustMark
+        kind={binding.trustKind}
+        {...(binding.confidence !== undefined ? { confidence: binding.confidence } : {})}
+        label={trustLabel(binding.trustKind)}
+      />
+      <span
+        className="truncate font-mono text-muted-foreground"
+        title={binding.argValue ?? argLabel}
+      >
+        {argLabel}
+        {binding.argValue !== undefined ? `=${binding.argValue}` : ''}
+      </span>
+      <span aria-hidden="true" className="shrink-0 text-muted-foreground">
+        →
+      </span>
+      <span className="truncate font-mono" title={binding.paramLabel ?? t('unbound')}>
+        {binding.paramLabel ?? <span className="text-(--tp-inferred) italic">{t('unbound')}</span>}
+      </span>
     </li>
   );
 }

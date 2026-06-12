@@ -10,6 +10,8 @@ import {
   type BlastRadiusPage,
   BlastRadiusPageSchema,
   type BlastRadiusQuery,
+  type CallBindings,
+  CallBindingsSchema,
   GRAPH_SEGMENTS,
   graphApiPath,
   type MapQuery,
@@ -85,6 +87,26 @@ export const graphApi = {
     requestJson(
       `${graphApiPath(projectId, GRAPH_SEGMENTS.CALL_SITES)}${buildQueryString({ ...query })}`,
       NodePageSchema,
+      locale,
+    ),
+
+  // D2 — a container's contained declarations (a symbol's locals / nested fns).
+  declarations: (
+    projectId: string,
+    query: NodeRelationsQuery,
+    locale?: string,
+  ): Promise<NodePage> =>
+    requestJson(
+      `${graphApiPath(projectId, GRAPH_SEGMENTS.DECLARATIONS)}${buildQueryString({ ...query })}`,
+      NodePageSchema,
+      locale,
+    ),
+
+  // D1 — a call-site's payload arguments stitched to the params/props they bind.
+  callBindings: (projectId: string, query: NodeQuery, locale?: string): Promise<CallBindings> =>
+    requestJson(
+      `${graphApiPath(projectId, GRAPH_SEGMENTS.CALL_BINDINGS)}${buildQueryString({ ...query })}`,
+      CallBindingsSchema,
       locale,
     ),
 

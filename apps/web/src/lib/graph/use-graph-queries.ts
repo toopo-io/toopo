@@ -10,6 +10,7 @@
 import { type UseQueryResult, useQuery } from '@tanstack/react-query';
 import type {
   BlastRadiusPage,
+  CallBindings,
   MapQuery,
   MapView,
   NodeDetail,
@@ -33,6 +34,10 @@ export const graphQueryKeys = {
     ['graph', projectId, 'search', locale, query] as const,
   blastRadius: (projectId: string, locale: string, id: string) =>
     ['graph', projectId, 'blastRadius', locale, id] as const,
+  declarations: (projectId: string, locale: string, id: string) =>
+    ['graph', projectId, 'declarations', locale, id] as const,
+  callBindings: (projectId: string, locale: string, id: string) =>
+    ['graph', projectId, 'callBindings', locale, id] as const,
 };
 
 export function useGraphMap(
@@ -77,5 +82,33 @@ export function useGraphBlastRadius(
     queryKey: graphQueryKeys.blastRadius(projectId, locale, id ?? ''),
     queryFn: () => graphApi.blastRadius(projectId, { id: id ?? '' }, locale),
     enabled: enabled && id !== undefined,
+  });
+}
+
+/** A symbol's contained declarations (D2) — loaded lazily on demand (ADR-0027). */
+export function useGraphDeclarations(
+  id: string,
+  locale: string,
+  enabled: boolean,
+): UseQueryResult<NodePage> {
+  const projectId = useProjectId();
+  return useQuery({
+    queryKey: graphQueryKeys.declarations(projectId, locale, id),
+    queryFn: () => graphApi.declarations(projectId, { id }, locale),
+    enabled,
+  });
+}
+
+/** A call-site's argument→parameter bindings (D1) — loaded lazily on expand. */
+export function useGraphCallBindings(
+  id: string,
+  locale: string,
+  enabled: boolean,
+): UseQueryResult<CallBindings> {
+  const projectId = useProjectId();
+  return useQuery({
+    queryKey: graphQueryKeys.callBindings(projectId, locale, id),
+    queryFn: () => graphApi.callBindings(projectId, { id }, locale),
+    enabled,
   });
 }

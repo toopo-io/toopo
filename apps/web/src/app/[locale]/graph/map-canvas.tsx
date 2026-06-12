@@ -2,7 +2,7 @@
 
 /**
  * The React Flow canvas itself, inside the provider so it can drive the viewport.
- * It re-fits the view whenever the displayed graph changes (`fitSignal`) once the
+ * It re-fits the view whenever the displayed graph's node set changes, once the
  * nodes are measured, so every level/scope lands centred with comfortable padding
  * rather than parked off to one side. `maxZoom: 1` keeps a tiny graph from
  * ballooning to fill the canvas.
@@ -15,10 +15,9 @@ import {
   type NodeMouseHandler,
   type NodeTypes,
   ReactFlow,
-  useNodesInitialized,
   useReactFlow,
 } from '@xyflow/react';
-import { type JSX, useEffect } from 'react';
+import { type JSX, useEffect, useRef } from 'react';
 import type { MapFlowEdge, MapFlowNode } from '../../../lib/graph/map-adapter';
 
 interface MapCanvasProps {
@@ -39,16 +38,30 @@ export function MapCanvas({
   onNodeClick,
   onNodeHover,
 }: MapCanvasProps): JSX.Element {
-  const initialized = useNodesInitialized();
   const { fitView } = useReactFlow();
+  const lastFit = useRef<string | null>(null);
 
-  // Re-fit whenever the laid-out node set changes (a new level/scope produces a
-  // new array), once measured — so every view lands centred, not parked aside.
+  // Re-fit once per view. The trigger is the node-ID SET, which changes exactly
+  // when a level/scope swaps in a new graph — NOT the URL level/scope (which
+  // updates before the async layout sets the nodes, so fitting on it would centre
+  // the stale graph) and NOT the node array identity (which churns on every
+  // hover/focus re-render). Nodes carry explicit dimensions (see the adapter), so
+  // a deferred fit lands correctly without waiting on a measure pass; the two
+  // frames let React Flow apply the swapped set first. Every view lands centred —
+  // the few-node, zero-edge case included.
+  const fitKey = nodes.map((node) => node.id).join('|');
   useEffect(() => {
-    if (initialized && nodes.length > 0) {
-      void fitView({ padding: 0.2, duration: 300, maxZoom: 1 });
+    if (nodes.length === 0 || lastFit.current === fitKey) {
+      return;
     }
-  }, [initialized, nodes, fitView]);
+    lastFit.current = fitKey;
+    const frame = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        void fitView({ padding: 0.2, duration: 300, maxZoom: 1 });
+      });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [fitKey, nodes.length, fitView]);
 
   const handleNodeClick: NodeMouseHandler<MapFlowNode> = (_event, node) => {
     onNodeClick?.(node.id);
@@ -76,8 +89,6 @@ export function MapCanvas({
       maxZoom={2}
       nodesDraggable={false}
       nodesConnectable={false}
-      // Cull off-screen nodes/edges so a dense map only paints what is in view.
-      onlyRenderVisibleElements
     >
       <Background />
       <Controls showInteractive={false} />

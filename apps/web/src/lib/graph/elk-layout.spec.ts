@@ -72,4 +72,22 @@ describe('layoutGraph (ELK)', () => {
     expect(positions.size).toBe(3);
     expect(edgeRoutes.has('x')).toBe(false);
   });
+
+  it('spreads disconnected nodes (zero edges) into distinct positions', async () => {
+    const isolated: LayoutInputNode[] = Array.from({ length: 6 }, (_, i) => ({
+      id: `n${i}`,
+      width: 180,
+      height: 56,
+    }));
+    const { positions, edgeRoutes } = await layoutGraph(isolated, []);
+    expect(positions.size).toBe(6);
+    expect(edgeRoutes.size).toBe(0);
+    // None are stacked on top of another at the origin — every node is placed.
+    const coords = [...positions.values()].map((point) => `${point.x},${point.y}`);
+    expect(new Set(coords).size).toBe(6);
+    for (const point of positions.values()) {
+      expect(Number.isFinite(point.x)).toBe(true);
+      expect(Number.isFinite(point.y)).toBe(true);
+    }
+  });
 });

@@ -63,6 +63,11 @@ export function mapViewToFlowNodes(view: MapView): MapFlowNode[] {
     id: mapNode.node.id,
     type: MAP_NODE_TYPE,
     position: { x: 0, y: 0 },
+    // Container nodes are a fixed size (the dimensions fed to ELK), so declare
+    // them up front: React Flow then knows every node's extent without waiting on
+    // a measure pass, which keeps `useNodesInitialized` and fit-to-view reliable.
+    width: MAP_NODE_SIZE.width,
+    height: MAP_NODE_SIZE.height,
     data: {
       nodeId: mapNode.node.id,
       label: nodeLabel(mapNode.node),

@@ -40,6 +40,9 @@ RUN apt-get update \
 RUN groupadd --system --gid 1001 nodejs \
   && useradd --system --uid 1001 --gid nodejs toopo
 COPY --from=build --chown=toopo:nodejs /app ./
+# A fresh named volume mounted at /data inherits this ownership so the non-root
+# worker can read/write the shared SQLite file (ADR-0030 §2, §4).
+RUN mkdir -p /data && chown toopo:nodejs /data
 USER toopo
 # Long-running drainer; one job per process (ADR-0025). Handles SIGTERM/SIGINT
 # to drain the in-flight job before exit. The DB must already be migrated.

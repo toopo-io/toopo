@@ -1,0 +1,53 @@
+# Postgres backend overlay (ADR-0017 / ADR-0030 §4). Use instead of the default
+# SQLite for heavier multi-writer load:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.postgres.yml up --build
+#
+# Adds a `db` service and repoints migrate/api/worker at it. The SQLite volume is
+# simply unused in this mode.
+name: toopo
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-toopo}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-toopo}
+      POSTGRES_DB: ${POSTGRES_DB:-toopo}
+    volumes:
+      - toopo-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-toopo} -d ${POSTGRES_DB:-toopo}']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
+  migrate:
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgres://toopo:toopo@db:5432/toopo}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  api:
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgres://toopo:toopo@db:5432/toopo}
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  worker:
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgres://toopo:toopo@db:5432/toopo}
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+volumes:
+  toopo-pgdata:

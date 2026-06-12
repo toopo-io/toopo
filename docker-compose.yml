@@ -1,0 +1,100 @@
+# Toopo self-host stack (ADR-0030). `docker compose up --build` brings up the
+# whole product: a one-shot migrate, the API, the worker drainer, and the web UI,
+# on SQLite by default (one named volume). Postgres is the documented option —
+# see docker-compose.postgres.yml.
+#
+# All configuration comes from .env (copy .env.example). The only value you MUST
+# set is BETTER_AUTH_SECRET. The GitHub-App credentials are optional: without
+# them the stack still runs (connect/webhook fail closed; see ADR-0024/0026 and
+# docs/self-host-deploy.md).
+name: toopo
+
+services:
+  # One-shot: apply migrations, then exit. The API and worker wait for it to
+  # complete successfully (migrations are never run on boot — ADR-0008).
+  migrate:
+    image: toopo-api
+    command: ['pnpm', '--filter', '@toopo/db', 'migrate']
+    env_file: .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-file:/data/toopo.db}
+    volumes:
+      - toopo-data:/data
+    restart: 'no'
+
+  api:
+    image: toopo-api
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.api
+    env_file: .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-file:/data/toopo.db}
+      PORT: '4000'
+      # Auth and CORS must agree with the real deploy origins (ADR-0030 §1).
+      BETTER_AUTH_URL: ${API_ORIGIN:-http://localhost:4000}
+      CORS_ORIGIN: ${WEB_ORIGIN:-http://localhost:3000}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - '4000:4000'
+    volumes:
+      - toopo-data:/data
+    healthcheck:
+      # node:22 ships global fetch — no curl in the slim image.
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://localhost:4000/v1/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+
+  worker:
+    image: toopo-worker
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.worker
+    env_file: .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-file:/data/toopo.db}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      api:
+        condition: service_healthy
+    volumes:
+      - toopo-data:/data
+    restart: unless-stopped
+
+  web:
+    image: toopo-web
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.web
+      args:
+        # Baked into the client bundle at build time (ADR-0030 §3, F6).
+        NEXT_PUBLIC_API_URL: ${API_ORIGIN:-http://localhost:4000}
+        NEXT_PUBLIC_AUTH_URL: ${API_ORIGIN:-http://localhost:4000}
+        NEXT_PUBLIC_DEFAULT_LOCALE: ${NEXT_PUBLIC_DEFAULT_LOCALE:-en}
+        NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED: ${NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED:-false}
+    environment:
+      # Server-only, runtime: SSR reaches the API over the compose network, not
+      # the published localhost origin the browser uses (ADR-0030 §3).
+      INTERNAL_API_URL: http://api:4000
+      PORT: '3000'
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - '3000:3000'
+    restart: unless-stopped
+
+volumes:
+  toopo-data:

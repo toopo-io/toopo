@@ -35,6 +35,10 @@ ENV NODE_ENV=production
 RUN groupadd --system --gid 1001 nodejs \
   && useradd --system --uid 1001 --gid nodejs toopo
 COPY --from=build --chown=toopo:nodejs /app ./
+# Pre-create the SQLite data dir owned by the runtime user: a fresh named volume
+# mounted here inherits this ownership, so the non-root process can write the DB
+# file (ADR-0030 §2). Unused under the Postgres backend.
+RUN mkdir -p /data && chown toopo:nodejs /data
 USER toopo
 EXPOSE 4000
 # The API binds 0.0.0.0:PORT (main.ts); PORT defaults to 4000. Migrations are an

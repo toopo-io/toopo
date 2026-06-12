@@ -42,17 +42,41 @@ export const ANALYSIS_STATUSES = [
 export const PROVENANCE_PASSES = ['parse', 'resolve', 'ai'] as const;
 
 /**
- * Why a deferred import/usage could NOT be bound to a precise symbol (ADR-0016
- * Resolve pass). The persisted honest tail of resolution (ADR-0016 amendment): a
- * `*-module` code means the specifier matched no/ambiguous file; a `*-export`
- * code means the module resolved but the named export did not. Persisted so a
- * later "unused"/"cycle" view never mistakes a resolution gap for genuine absence.
+ * Why a deferred IMPORT could not be bound to a precise symbol (ADR-0016 Resolve
+ * pass, import binding). A `*-module` code means the specifier matched no/ambiguous
+ * file (no anchor — the target is outside the graph); a `*-export` code means the
+ * module resolved but the named export did not (anchored to that file + name).
+ * These four are the import-resolution gaps that feed the ~90% resolution metric.
  */
-export const UNRESOLVED_REFERENCE_CODES = [
+export const IMPORT_REFERENCE_CODES = [
   'unresolved-module',
   'ambiguous-module',
   'unresolved-export',
   'ambiguous-export',
+] as const;
+
+/**
+ * Why a deferred CALL-SITE USAGE could not be bound to a precise symbol (ADR-0016
+ * C11 closure, call-site binding). `unresolved-member` is ANCHORED: the callee's
+ * root resolved to a file but the member did not (`Form.Item` on a value import,
+ * `NS.Missing` on a namespace) — carries `targetFileId` + the member `name`.
+ * `unbound-callee` is ANCHORLESS: the root itself did not resolve (a local/param
+ * root, `handler.run()`) — carries the member `name` only, no `targetFileId`. Both
+ * are gap markers, NEVER edges (the trust principle); they keep the forthcoming
+ * "unused"/"cycle" view from reading a call-site resolution gap as genuine absence.
+ */
+export const USAGE_REFERENCE_CODES = ['unresolved-member', 'unbound-callee'] as const;
+
+/**
+ * Every reason a deferred import/usage could NOT be bound to a precise symbol — the
+ * persisted honest tail of the Resolve pass (ADR-0016 amendment + C11 closure). The
+ * union of the import gaps and the call-site usage gaps; both share one persisted
+ * shape and one read primitive, so a later "unused"/"cycle" view consults a single
+ * source and never mistakes any resolution gap for genuine absence.
+ */
+export const UNRESOLVED_REFERENCE_CODES = [
+  ...IMPORT_REFERENCE_CODES,
+  ...USAGE_REFERENCE_CODES,
 ] as const;
 
 /** How a value reaches a call-site argument slot (ADR-0015 §7). */

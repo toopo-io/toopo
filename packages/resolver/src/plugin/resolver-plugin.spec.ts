@@ -22,18 +22,21 @@ const fakePlugin: ResolverPlugin = {
   bindCallSite: (callSite, resolvedImports) => {
     const resolved = resolvedImports.get(callSite.callee);
     if (resolved === undefined) {
-      return [];
+      return { edges: [], unresolved: [] };
     }
-    return [
-      {
-        kind: 'calls',
-        sourceId: callSite.callSiteId,
-        targetId: resolved.symbolId,
-        rule: 'fake/binds',
-        ...(callSite.subKind === undefined ? {} : { subKind: 'fake:renders' }),
-        certainty: resolved.certainty,
-      },
-    ];
+    return {
+      edges: [
+        {
+          kind: 'calls',
+          sourceId: callSite.callSiteId,
+          targetId: resolved.symbolId,
+          rule: 'fake/binds',
+          ...(callSite.subKind === undefined ? {} : { subKind: 'fake:renders' }),
+          certainty: resolved.certainty,
+        },
+      ],
+      unresolved: [],
+    };
   },
 };
 
@@ -83,26 +86,29 @@ describe('ResolverPlugin contract', () => {
       ['Button', { symbolId: 'B.', certainty: { resolution: 'deterministic' as const } }],
     ]);
     const noChildren = { declaredChildren: () => [] };
-    const noNamespaces = { size: 0, resolveMember: () => null };
+    const noNamespaces = { size: 0, resolveMember: () => ({ status: 'not-namespace' as const }) };
 
-    const renderEdges = fakePlugin.bindCallSite(
+    const renderResult = fakePlugin.bindCallSite(
       { callSiteId: 'cs.', callee: 'Button', subKind: 'x:element', payload: [] },
       resolvedImports,
       noNamespaces,
       noChildren,
     );
-    expect(renderEdges).toEqual([
-      {
-        kind: 'calls',
-        sourceId: 'cs.',
-        targetId: 'B.',
-        rule: 'fake/binds',
-        subKind: 'fake:renders',
-        certainty: { resolution: 'deterministic' },
-      },
-    ]);
+    expect(renderResult).toEqual({
+      edges: [
+        {
+          kind: 'calls',
+          sourceId: 'cs.',
+          targetId: 'B.',
+          rule: 'fake/binds',
+          subKind: 'fake:renders',
+          certainty: { resolution: 'deterministic' },
+        },
+      ],
+      unresolved: [],
+    });
 
-    // A callee with no resolved import yields no edge.
+    // A callee with no resolved import yields no edge and no gap.
     expect(
       fakePlugin.bindCallSite(
         { callSiteId: 'cs.', callee: 'Unknown', subKind: undefined, payload: [] },
@@ -110,6 +116,6 @@ describe('ResolverPlugin contract', () => {
         noNamespaces,
         noChildren,
       ),
-    ).toEqual([]);
+    ).toEqual({ edges: [], unresolved: [] });
   });
 });

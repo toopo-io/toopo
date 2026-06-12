@@ -72,7 +72,7 @@ const plugin: ResolverPlugin = {
     }
     return { status: 'unresolved', reason: 'no export' };
   },
-  bindCallSite: () => [],
+  bindCallSite: () => ({ edges: [], unresolved: [] }),
 };
 
 const project = (workspacePackages: ProjectModel['workspacePackages']): ProjectModel => ({

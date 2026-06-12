@@ -115,7 +115,7 @@ const plugin: ResolverPlugin = {
       status: 'unresolved',
       reason: 'no export',
     },
-  bindCallSite: () => [],
+  bindCallSite: () => ({ edges: [], unresolved: [] }),
 };
 
 const moduleIndex: ModuleIndex = { fileId: () => undefined };

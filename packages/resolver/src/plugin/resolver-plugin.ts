@@ -164,6 +164,23 @@ export interface ResolvedImport {
 }
 
 /**
+ * The outcome of resolving a member access on a namespace import (ADR-0016 Fork 4,
+ * C11). Three honest outcomes the call-site binder must distinguish — collapsing
+ * the latter two (as a bare `ResolvedImport | null` would) loses the anchor a
+ * `namespace-member` gap needs:
+ *   - `resolved`: `NS.foo` IS the module's exported `foo` (C10) — bind the edge;
+ *   - `unresolved-member`: `NS` is a (resolvable, internal) namespace but the member
+ *     names no export — an ANCHORED gap, attributable to the namespace's module
+ *     (`rootFileId`) and the member name;
+ *   - `not-namespace`: `localName` is not a resolvable internal namespace import —
+ *     the binder falls through (the root may be a value import, or unbound).
+ */
+export type MemberResolution =
+  | { readonly status: 'resolved'; readonly symbolId: SymbolId; readonly certainty: Certainty }
+  | { readonly status: 'unresolved-member'; readonly rootFileId: SymbolId }
+  | { readonly status: 'not-namespace' };
+
+/**
  * The file's namespace imports (`import * as NS from './mod'`), resolvable to the
  * member they name (ADR-0016 Fork 4). A member access `NS.foo` on a namespace
  * import IS the module's exported `foo` by language semantics, so the engine
@@ -178,11 +195,12 @@ export interface NamespaceImports {
   /** How many namespace imports the file has — zero lets the engine skip call-site work. */
   readonly size: number;
   /**
-   * Resolve `memberName` accessed on the namespace bound to `localName`, or `null`
-   * when `localName` is not a (resolvable, internal) namespace import or the member
-   * names no resolvable export.
+   * Resolve `memberName` accessed on the namespace bound to `localName`. Returns a
+   * discriminated {@link MemberResolution}: `resolved` to bind the edge,
+   * `unresolved-member` (with the namespace's `rootFileId`) for an anchored gap, or
+   * `not-namespace` when `localName` is not a resolvable internal namespace import.
    */
-  resolveMember(localName: string, memberName: string): ResolvedImport | null;
+  resolveMember(localName: string, memberName: string): MemberResolution;
 }
 
 /** A deferred call-site the engine asks a plugin to bind across files. `subKind`
@@ -226,14 +244,51 @@ export interface ResolvedEdge {
 }
 
 /**
+ * A call-site member usage the plugin could NOT bind to a precise symbol (ADR-0016
+ * C11). It is a gap marker, NEVER an edge — a member-root binding emits an edge to
+ * the resolved ROOT, so "no edge" cannot detect that the MEMBER is unresolved; the
+ * plugin must surface the gap explicitly. The PLUGIN owns the language semantics
+ * (which root it resolved, the member name); the ENGINE maps `rootSymbolId` to a
+ * file id (graph topology is engine-owned) to attribute an anchored gap.
+ *
+ * `rootSymbolId` is the resolved root the member hangs off — a value import's
+ * symbol (`Form` in `Form.Item`) or a namespace's module file (`NS` in `NS.Missing`)
+ * — which the engine resolves to the gap's `targetFileId`. It is ABSENT when the
+ * root itself did not resolve (a local/param root, `handler.run()`): an anchorless
+ * gap recorded by member name alone. `callee` is the full callee as written (the
+ * reference's source token, used for identity and the message); `member` is the
+ * unbound member name.
+ */
+export interface UnresolvedUsage {
+  readonly rootSymbolId?: SymbolId;
+  readonly member: string;
+  readonly callee: string;
+  readonly reason: 'member-root' | 'namespace-member' | 'unbound-root';
+}
+
+/**
+ * What binding one deferred call-site produces: the cross-file `edges` to mint AND
+ * the `unresolved` member usages to record as honest gaps (ADR-0016 C11). A single
+ * attempt can yield BOTH — a member-root callee (`Form.Item`) emits an edge to the
+ * root `Form` and an unresolved-member gap for `Item` — which is why the contract
+ * returns the two products of one attempt rather than a bare edge list.
+ */
+export interface CallSiteBindingResult {
+  readonly edges: readonly ResolvedEdge[];
+  readonly unresolved: readonly UnresolvedUsage[];
+}
+
+/**
  * A language's resolution implementation, injected into the resolver at runtime.
  * `bindCallSite` is where ALL call-site binding semantics live — how a callee
  * maps to an imported name (exact identifier; `member-root` like `Form.Item`; or
  * a namespace member like `NS.foo`, resolved through {@link NamespaceImports}),
  * whether a render or a call edge is emitted, and how a payload binds to the
  * receiver's declared interface — because every one of those carries language-
- * specific subKinds the agnostic engine must not know. It returns descriptors;
- * the engine mints, dedupes, orders, and never upgrades their certainty.
+ * specific subKinds the agnostic engine must not know. It returns a
+ * {@link CallSiteBindingResult}: the descriptors the engine mints (deduped,
+ * ordered, certainty never upgraded) PLUS the unresolved member usages the engine
+ * records as honest gaps (ADR-0016 C11) — never a fabricated edge.
  */
 export interface ResolverPlugin {
   readonly id: string;
@@ -249,5 +304,5 @@ export interface ResolverPlugin {
     resolvedImports: ReadonlyMap<string, ResolvedImport>,
     namespaceImports: NamespaceImports,
     symbols: SymbolView,
-  ): readonly ResolvedEdge[];
+  ): CallSiteBindingResult;
 }

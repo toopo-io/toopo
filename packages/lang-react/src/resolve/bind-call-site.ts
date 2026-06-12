@@ -1,11 +1,13 @@
 import type { SymbolId } from '@toopo/core';
 import {
   type CallSiteBinding,
+  type CallSiteBindingResult,
   combineCertainty,
   type NamespaceImports,
   type ResolvedEdge,
   type ResolvedImport,
   type SymbolView,
+  type UnresolvedUsage,
 } from '@toopo/resolver';
 
 /** The call-site subKind the parser tags a JSX render with, and the prop subKind
@@ -15,6 +17,9 @@ const PROP_SUBKIND = 'react:prop';
 /** A member-root binding is never proven down to the exact member, so it is
  * inferred at this confidence (the root is solid; the member is the guess). */
 const MEMBER_ROOT_CERTAINTY = { resolution: 'inferred', confidence: 'medium' } as const;
+
+/** Nothing bound and nothing unresolved — the empty/exact-unresolved outcome. */
+const NOTHING: CallSiteBindingResult = { edges: [], unresolved: [] };
 
 /** Where a fully-resolved target came from — only the provenance rule differs. */
 type TargetSource = 'import' | 'namespace-member';
@@ -30,20 +35,26 @@ interface CalleeBinding {
 
 /**
  * Bind a deferred call-site to its cross-file target (ADR-0016) — the resolve-
- * pass mirror of the parser's in-file binding.
+ * pass mirror of the parser's in-file binding. Returns the edges to mint AND the
+ * member usages it could not bind (ADR-0016 C11), never a fabricated edge.
  *
  *   - an EXACT identifier callee (`Button` → the imported `Button`) gets the
  *     `react:renders`/call target edge at the import's own certainty, and (for a
  *     render) each named prop bound to the receiver's declared `react:prop` by
- *     name — the cross-file "component A passes these props to B";
+ *     name. An exact callee that names no import is left alone (not a member usage,
+ *     typically a local or a global — out of the C11 boundary);
  *   - a MEMBER-ROOT callee `NS.foo` where `NS` is a NAMESPACE import resolves the
  *     member as the module's exported `foo` (C10) — the exact target, at the same
  *     certainty a named import would carry, with prop bindings like any resolved
- *     render;
+ *     render; if the namespace names no such export, it is an ANCHORED gap on the
+ *     namespace's module (`namespace-member`);
  *   - a MEMBER-ROOT callee `Form.Item` where `Form` is a VALUE import binds only
- *     its resolved ROOT, tagged `react:memberRoot` and forced `inferred`: the
- *     member is a runtime property we do not resolve, so we claim no more and bind
- *     no props (those belong to the unresolved member).
+ *     its resolved ROOT, tagged `react:memberRoot` and forced `inferred` (the member
+ *     is a runtime property we do not resolve), AND records the unresolved member as
+ *     an ANCHORED gap on `Form`'s file (`member-root`);
+ *   - a MEMBER-ROOT callee whose root is neither a value nor a namespace import (a
+ *     local/param, `handler.run()`) records an ANCHORLESS gap by member name alone
+ *     (`unbound-root`).
  *
  * Spreads and positional/dynamic values are never bound (the trust principle).
  */
@@ -52,30 +63,61 @@ export function bindCallSite(
   resolvedImports: ReadonlyMap<string, ResolvedImport>,
   namespaceImports: NamespaceImports,
   symbols: SymbolView,
-): readonly ResolvedEdge[] {
+): CallSiteBindingResult {
   const binding = calleeBinding(callSite.callee);
   if (binding === null) {
-    return [];
+    return NOTHING;
   }
   const isRender = callSite.subKind === RENDER_SUBKIND;
   const valueImport = resolvedImports.get(binding.localName);
 
   if (binding.precision === 'exact') {
     return valueImport === undefined
-      ? []
-      : targetEdges(callSite, valueImport, isRender, symbols, 'import');
+      ? NOTHING
+      : { edges: targetEdges(callSite, valueImport, isRender, symbols, 'import'), unresolved: [] };
   }
 
   // A member access. A value root is solid but its member is an unresolved runtime
-  // property; a namespace root resolves the member to the exact module export.
+  // property; a namespace root either resolves the member to the exact export, or
+  // is an anchored gap; any other root is unbound (an anchorless gap).
   if (valueImport !== undefined) {
-    return [memberRootEdge(callSite, valueImport, isRender)];
+    return {
+      edges: [memberRootEdge(callSite, valueImport, isRender)],
+      unresolved: [usage('member-root', callSite.callee, binding.memberName, valueImport.symbolId)],
+    };
   }
   const member = namespaceImports.resolveMember(binding.localName, binding.memberName);
-  if (member !== null) {
-    return targetEdges(callSite, member, isRender, symbols, 'namespace-member');
+  if (member.status === 'resolved') {
+    return {
+      edges: targetEdges(callSite, member, isRender, symbols, 'namespace-member'),
+      unresolved: [],
+    };
   }
-  return [];
+  if (member.status === 'unresolved-member') {
+    return {
+      edges: [],
+      unresolved: [
+        usage('namespace-member', callSite.callee, binding.memberName, member.rootFileId),
+      ],
+    };
+  }
+  return {
+    edges: [],
+    unresolved: [usage('unbound-root', callSite.callee, binding.memberName)],
+  };
+}
+
+/** Build an unresolved member usage marker; `rootSymbolId` anchors it to a resolved
+ * root (value import's symbol or namespace's module file), absent ⇒ anchorless. */
+function usage(
+  reason: UnresolvedUsage['reason'],
+  callee: string,
+  member: string,
+  rootSymbolId?: SymbolId,
+): UnresolvedUsage {
+  return rootSymbolId === undefined
+    ? { reason, callee, member }
+    : { reason, callee, member, rootSymbolId };
 }
 
 /** The inferred edge to a member callee's resolved ROOT — never the exact member. */

@@ -1,11 +1,13 @@
 export type {
   AliasRule,
   CallSiteBinding,
+  CallSiteBindingResult,
   Certainty,
   DeclaredChildView,
   ExportIndex,
   ExportRequest,
   ExportResolution,
+  MemberResolution,
   ModuleIndex,
   ModuleRequest,
   ModuleResolution,
@@ -16,6 +18,7 @@ export type {
   ResolverPlugin,
   SubpathExport,
   SymbolView,
+  UnresolvedUsage,
   WorkspacePackage,
 } from './plugin/resolver-plugin.js';
 export { dirname, normalizeRepoPath, resolveRelative } from './project/paths.js';

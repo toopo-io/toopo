@@ -1,4 +1,10 @@
-import { type Edge, type GraphDocument, isSymbolNode, parseSymbolId } from '@toopo/core';
+import {
+  type Edge,
+  type GraphDocument,
+  IMPORT_REFERENCE_CODES,
+  isSymbolNode,
+  parseSymbolId,
+} from '@toopo/core';
 import type { Diagnostic } from '@toopo/resolver';
 import type { FileOutcome } from '../ingest/assemble.js';
 import type { IngestResult, IngestTimings } from '../ingest/ingest-project.js';
@@ -124,10 +130,16 @@ function resolutionMetrics(
     }
   }
 
-  const ambiguous = diagnostics.filter((diagnostic) =>
+  // Only IMPORT gaps belong to the import-resolution metric — its denominator is
+  // import bindings. Call-site usage gaps (`unresolved-member`, `unbound-callee`,
+  // ADR-0016 C11) are a different denominator and are excluded by an explicit code
+  // set, never a `startsWith` prefix (which `unresolved-member` would corrupt).
+  const importGaps = new Set<string>(IMPORT_REFERENCE_CODES);
+  const importDiagnostics = diagnostics.filter((diagnostic) => importGaps.has(diagnostic.code));
+  const ambiguous = importDiagnostics.filter((diagnostic) =>
     diagnostic.code.startsWith('ambiguous'),
   ).length;
-  const unresolved = diagnostics.filter((diagnostic) =>
+  const unresolved = importDiagnostics.filter((diagnostic) =>
     diagnostic.code.startsWith('unresolved'),
   ).length;
 

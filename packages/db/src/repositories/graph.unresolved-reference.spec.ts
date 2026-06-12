@@ -141,5 +141,55 @@ for (const { backend, skip } of backends) {
       const there = await repository.unresolvedReferences(other);
       expect(there.items).toHaveLength(1);
     });
+
+    it('round-trips call-site usage gaps and answers the honesty query for a member usage (C11)', async () => {
+      const scope = { projectId: 'proj-unresolved-usage' };
+      // An ANCHORED member usage (`Form.Item` on a value import resolved to fileB) and
+      // an ANCHORLESS callee (`handler.run`, root unresolved — name only, no target).
+      const memberGapToB: UnresolvedReference = {
+        code: 'unresolved-member',
+        importerFileId: 'fileA',
+        specifier: 'Form.Item',
+        targetFileId: 'fileB',
+        name: 'Item',
+        message: 'Unresolved member "Item" on "Form.Item"',
+      };
+      const unboundCallee: UnresolvedReference = {
+        code: 'unbound-callee',
+        importerFileId: 'fileA',
+        specifier: 'handler.run',
+        name: 'run',
+        message: 'Unbound callee root for member "run" on "handler.run"',
+      };
+      await repository.replaceProjectGraph(scope, EMPTY, [memberGapToB, unboundCallee]);
+
+      const all = await drain((c) => repository.unresolvedReferences(scope, { cursor: c }));
+      expect(all).toEqual(expect.arrayContaining([memberGapToB, unboundCallee]));
+      expect(all).toHaveLength(2);
+
+      // The honesty query attributes the anchored member usage to fileB; the
+      // anchorless callee carries no target, so it is never attributed to a file.
+      const toB = await drain((c) =>
+        repository.unresolvedReferences(scope, { targetFileId: 'fileB', cursor: c }),
+      );
+      expect(toB).toEqual([memberGapToB]);
+    });
+
+    it('is stored-once for collapsed usage identity (same file/code/callee/member)', async () => {
+      const scope = { projectId: 'proj-unresolved-usage-collapse' };
+      const gap: UnresolvedReference = {
+        code: 'unresolved-member',
+        importerFileId: 'fileA',
+        specifier: 'Form.Item',
+        targetFileId: 'fileB',
+        name: 'Item',
+        message: 'Unresolved member "Item" on "Form.Item"',
+      };
+      // Two structurally identical usages (two `Form.Item` call-sites in one file)
+      // collapse to one persisted row by ref_key — stored-once (ADR-0015 §11).
+      await repository.replaceProjectGraph(scope, EMPTY, [gap, { ...gap }]);
+      const all = await drain((c) => repository.unresolvedReferences(scope, { cursor: c }));
+      expect(all).toEqual([gap]);
+    });
   });
 }

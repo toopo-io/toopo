@@ -70,10 +70,16 @@ export function resolveProject(
     }
     const imports = bindFileImports(fragment, file, plugin, moduleIndex, exportIndex, project);
     resolvedEdges.push(...imports.edges);
-    resolvedEdges.push(
-      ...bindFileCallSites(file, plugin, imports.resolvedImports, imports.namespaces, symbolGraph),
-    );
     diagnostics.push(...imports.diagnostics);
+    const callSites = bindFileCallSites(
+      file,
+      plugin,
+      imports.resolvedImports,
+      imports.namespaces,
+      symbolGraph,
+    );
+    resolvedEdges.push(...callSites.edges);
+    diagnostics.push(...callSites.diagnostics);
   }
 
   // Supersede provisional external edges for workspace imports (incl. subpaths)

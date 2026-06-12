@@ -21,6 +21,13 @@ export interface SymbolGraph {
   callSitesOfFile(fileId: SymbolId): readonly CallSiteNode[];
   /** Whether a call-site already has a `calls` edge (parse bound it in-file). */
   isBound(callSiteId: SymbolId): boolean;
+  /**
+   * The file that contains a symbol — and a file is its own container, so a file id
+   * maps to itself. Used to anchor an unresolved call-site usage (ADR-0016 C11) to
+   * the file its resolved root lives in. `undefined` when the id is neither a known
+   * symbol nor a file (the gap is then recorded anchorless).
+   */
+  fileOf(id: SymbolId): SymbolId | undefined;
 }
 
 export function buildSymbolGraph(nodes: readonly Node[], edges: readonly Edge[]): SymbolGraph {
@@ -71,6 +78,13 @@ export function buildSymbolGraph(nodes: readonly Node[], edges: readonly Edge[])
     symbolView: { declaredChildren: (id) => childrenOfSymbol.get(id) ?? [] },
     callSitesOfFile: (fileId) => callSitesByFile.get(fileId) ?? [],
     isBound: (callSiteId) => boundCallSites.has(callSiteId),
+    fileOf: (id) => {
+      const containing = fileOfSymbol.get(id);
+      if (containing !== undefined) {
+        return containing;
+      }
+      return nodeById.get(id)?.kind === 'file' ? id : undefined;
+    },
   };
 }
 

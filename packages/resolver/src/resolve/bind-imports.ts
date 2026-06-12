@@ -9,6 +9,7 @@ import type { ImportedBinding, ParseResult, UnresolvedImport } from '@toopo/pars
 import type {
   Certainty,
   ExportIndex,
+  MemberResolution,
   ModuleIndex,
   ModuleResolution,
   NamespaceImports,
@@ -125,10 +126,10 @@ function buildNamespaceImports(
 ): NamespaceImports {
   return {
     size: targets.size,
-    resolveMember(localName: string, memberName: string): ResolvedImport | null {
+    resolveMember(localName: string, memberName: string): MemberResolution {
       const target = targets.get(localName);
       if (target === undefined || memberName.length === 0) {
-        return null;
+        return { status: 'not-namespace' };
       }
       const chain = resolveExportChain(
         { fileId: target.fileId, exportedName: memberName, typeOnly: false },
@@ -138,9 +139,12 @@ function buildNamespaceImports(
         project,
       );
       if (chain.status !== 'symbol') {
-        return null;
+        // `NS` IS a resolvable internal namespace, but the member names no export —
+        // an anchored gap attributable to the namespace's module (ADR-0016 C11).
+        return { status: 'unresolved-member', rootFileId: target.fileId };
       }
       return {
+        status: 'resolved',
         symbolId: chain.symbolId,
         certainty: combineCertainty(target.certainty, chain.certainty),
       };

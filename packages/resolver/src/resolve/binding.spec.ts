@@ -210,7 +210,7 @@ function fakePlugin(): ResolverPlugin {
     bindCallSite: (callSite, resolvedImports, _namespaceImports, symbols) => {
       const resolved = resolvedImports.get(callSite.callee);
       if (resolved === undefined) {
-        return [];
+        return { edges: [], unresolved: [] };
       }
       const isRender = callSite.subKind === 'react:element';
       const edges = [
@@ -224,7 +224,7 @@ function fakePlugin(): ResolverPlugin {
         },
       ];
       if (!isRender) {
-        return edges;
+        return { edges, unresolved: [] };
       }
       for (const child of symbols.declaredChildren(resolved.symbolId)) {
         const arg = callSite.payload.find((a) => a.passKind === 'named' && a.name === child.name);
@@ -239,7 +239,7 @@ function fakePlugin(): ResolverPlugin {
           });
         }
       }
-      return edges;
+      return { edges, unresolved: [] };
     },
   };
 }

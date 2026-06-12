@@ -33,7 +33,7 @@
     "@commitlint/config-conventional": "21.0.1",
     "@types/node": "25.8.0",
     "dependency-cruiser": "^17.4.3",
-    "lefthook": "2.1.6",
+    "lefthook": "2.1.9",
     "turbo": "2.9.14",
     "typescript": "6.0.3"
   }

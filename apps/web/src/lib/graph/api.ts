@@ -28,6 +28,8 @@ import {
   type NodeQuery,
   type NodeRelationsQuery,
   type SearchQuery,
+  type UnusedSymbolPage,
+  UnusedSymbolPageSchema,
 } from '@toopo/api-contracts';
 import { requestJson } from '../http';
 import { buildQueryString } from './query';
@@ -123,6 +125,18 @@ export const graphApi = {
     requestJson(
       `${graphApiPath(projectId, GRAPH_SEGMENTS.NAME_COLLISIONS)}${buildQueryString({ ...query })}`,
       NodePageSchema,
+      locale,
+    ),
+
+  // D6 (Insights) — top-level symbols with no incoming usage (ADR-0029).
+  unusedSymbols: (
+    projectId: string,
+    query: GlobalListQuery,
+    locale?: string,
+  ): Promise<UnusedSymbolPage> =>
+    requestJson(
+      `${graphApiPath(projectId, GRAPH_SEGMENTS.UNUSED_SYMBOLS)}${buildQueryString({ ...query })}`,
+      UnusedSymbolPageSchema,
       locale,
     ),
 };

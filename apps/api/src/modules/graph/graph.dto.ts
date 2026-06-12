@@ -20,6 +20,7 @@ import {
   NodeQuerySchema,
   NodeRelationsQuerySchema,
   SearchQuerySchema,
+  UnusedSymbolPageSchema,
 } from '@toopo/api-contracts';
 import { createZodDto } from 'nestjs-zod';
 
@@ -39,3 +40,4 @@ export class CallBindingsDto extends createZodDto(CallBindingsSchema) {}
 export class NeighborPageDto extends createZodDto(NeighborPageSchema) {}
 export class BlastRadiusPageDto extends createZodDto(BlastRadiusPageSchema) {}
 export class NodePageDto extends createZodDto(NodePageSchema) {}
+export class UnusedSymbolPageDto extends createZodDto(UnusedSymbolPageSchema) {}

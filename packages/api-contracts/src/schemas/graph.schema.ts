@@ -130,6 +130,20 @@ export type GraphNeighbor = z.infer<typeof GraphNeighborSchema>;
 export const NodePageSchema = paginated(NodeSchema);
 export type NodePage = z.infer<typeof NodePageSchema>;
 
+/**
+ * D6 (ADR-0029) — a top-level symbol with no incoming usage, classified by the
+ * honest rule. `candidate` is true when an unresolved usage could still reach it
+ * (possibly-used, never asserted unused); `exported` is the graph fact that it is
+ * exported from its file — a displayed fact, never a "dead"/"API" verdict.
+ */
+export const UnusedSymbolSchema = z
+  .object({ node: NodeSchema, candidate: z.boolean(), exported: z.boolean() })
+  .strict();
+export type UnusedSymbol = z.infer<typeof UnusedSymbolSchema>;
+
+export const UnusedSymbolPageSchema = paginated(UnusedSymbolSchema);
+export type UnusedSymbolPage = z.infer<typeof UnusedSymbolPageSchema>;
+
 export const NeighborPageSchema = paginated(GraphNeighborSchema);
 export type NeighborPage = z.infer<typeof NeighborPageSchema>;
 

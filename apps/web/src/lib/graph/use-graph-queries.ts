@@ -15,6 +15,7 @@ import type {
   MapView,
   NodeDetail,
   NodePage,
+  UnusedSymbolPage,
 } from '@toopo/api-contracts';
 import { useProjectId } from '../projects/project-context';
 import { graphApi } from './api';
@@ -40,6 +41,8 @@ export const graphQueryKeys = {
     ['graph', projectId, 'callBindings', locale, id] as const,
   nameCollisions: (projectId: string, locale: string) =>
     ['graph', projectId, 'nameCollisions', locale] as const,
+  unusedSymbols: (projectId: string, locale: string) =>
+    ['graph', projectId, 'unusedSymbols', locale] as const,
 };
 
 export function useGraphMap(
@@ -121,5 +124,14 @@ export function useGraphNameCollisions(locale: string): UseQueryResult<NodePage>
   return useQuery({
     queryKey: graphQueryKeys.nameCollisions(projectId, locale),
     queryFn: () => graphApi.nameCollisions(projectId, {}, locale),
+  });
+}
+
+/** D6 (Insights) — top-level symbols with no incoming usage (ADR-0029); first page. */
+export function useGraphUnusedSymbols(locale: string): UseQueryResult<UnusedSymbolPage> {
+  const projectId = useProjectId();
+  return useQuery({
+    queryKey: graphQueryKeys.unusedSymbols(projectId, locale),
+    queryFn: () => graphApi.unusedSymbols(projectId, {}, locale),
   });
 }

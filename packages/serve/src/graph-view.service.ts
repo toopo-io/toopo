@@ -27,6 +27,7 @@ import type {
   NodeQuery,
   NodeRelationsQuery,
   SearchQuery,
+  UnusedSymbolPage,
 } from '@toopo/api-contracts';
 import type { Edge, Node } from '@toopo/core';
 import type { GraphRepository, GraphScope, Neighbor, Page } from '@toopo/db';
@@ -232,5 +233,24 @@ export class GraphViewService {
       cursor: query.cursor,
     });
     return toNodePage(page);
+  }
+
+  /**
+   * D6 (ADR-0029) — top-level symbols with no incoming usage, each classified
+   * `candidate` (an unresolved usage could still reach it — possibly-used) or
+   * certain-unused, carrying the `exported` graph fact. The view asserts no
+   * "dead"/"API" verdict; the UI discloses the bare-identifier residual.
+   */
+  async unusedSymbols(scope: GraphScope, query: GlobalListQuery): Promise<UnusedSymbolPage> {
+    const page = await this.repository.unusedSymbols(scope, {
+      limit: query.limit,
+      cursor: query.cursor,
+    });
+    const items = page.items.map((unused) => ({
+      node: unused.node,
+      candidate: unused.candidate,
+      exported: unused.exported,
+    }));
+    return { items, nextCursor: page.nextCursor, ...withTotal(page.total) };
   }
 }

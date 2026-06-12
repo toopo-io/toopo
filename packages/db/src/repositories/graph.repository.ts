@@ -355,4 +355,28 @@ export interface GraphRepository {
    * parse fact, so every collision is certain — there is no trust axis here.
    */
   nameCollisions(scope: GraphScope, options?: PageOptions): Promise<Page<Node>>;
+
+  /**
+   * D6 (ADR-0029) — top-level symbols with zero incoming usage edges (the
+   * dependency kinds {@link DEFAULT_BLAST_RADIUS_KINDS}, never `contains`/
+   * `exports`), keyset-paged by id. Each row is classified by the honest rule: a
+   * `candidate` (possibly-used) when an unresolved usage could still reach it (an
+   * `unresolved-member` anchored to its file+name, or an `unbound-callee` by
+   * name), else certain-unused. The `exported` fact (an `exports` edge) lets the
+   * reader tell public-API-with-no-internal-usage from likely-dead — we never
+   * assert "dead". The bare-identifier residual (ADR-0016) is disclosed in the UI.
+   */
+  unusedSymbols(scope: GraphScope, options?: PageOptions): Promise<Page<UnusedSymbol>>;
+}
+
+/**
+ * A D6 unused-symbol row (ADR-0029): a top-level symbol with no incoming usage,
+ * classified by the honest consumption rule. `candidate` is true when an
+ * unresolved usage could still reach it (so it is possibly-used, never asserted
+ * unused); `exported` is the graph fact that it is exported from its file.
+ */
+export interface UnusedSymbol {
+  readonly node: Node;
+  readonly candidate: boolean;
+  readonly exported: boolean;
 }

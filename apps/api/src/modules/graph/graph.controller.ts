@@ -23,6 +23,7 @@ import {
   type NeighborPage,
   type NodeDetail,
   type NodePage,
+  type UnusedSymbolPage,
 } from '@toopo/api-contracts';
 import type { GraphScope, ProjectRecord } from '@toopo/db';
 import { GraphViewService } from '@toopo/serve';
@@ -44,6 +45,7 @@ import {
   NodeQueryDto,
   NodeRelationsQueryDto,
   SearchQueryDto,
+  UnusedSymbolPageDto,
 } from './graph.dto';
 
 /** The graph scope of a request: the resolved project's id (ADR-0022 §3). */
@@ -162,5 +164,15 @@ export class GraphController {
     @Query() query: GlobalListQueryDto,
   ): Promise<NodePage> {
     return this.views.nameCollisions(scopeOf(project), query);
+  }
+
+  @Get(GRAPH_SEGMENTS.UNUSED_SYMBOLS)
+  @ApiOperation({ summary: 'Top-level symbols with no incoming usage (Insights, D6)' })
+  @ZodSerializerDto(UnusedSymbolPageDto)
+  unusedSymbols(
+    @CurrentProject() project: ProjectRecord,
+    @Query() query: GlobalListQueryDto,
+  ): Promise<UnusedSymbolPage> {
+    return this.views.unusedSymbols(scopeOf(project), query);
   }
 }

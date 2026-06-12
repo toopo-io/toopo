@@ -23,6 +23,7 @@ import {
   type Insertable,
   type Kysely,
   type RawBuilder,
+  type Selectable,
   type SelectQueryBuilder,
   type SqlBool,
   sql,
@@ -54,6 +55,7 @@ import {
   type PersistGraphResult,
   type SearchOptions,
   type UnresolvedReferenceOptions,
+  type UnusedSymbol,
 } from './graph.repository.js';
 import {
   buildPage,
@@ -631,6 +633,46 @@ export class KyselyGraphRepository implements GraphRepository {
     );
   }
 
+  async unusedSymbols(scope: GraphScope, options?: PageOptions): Promise<Page<UnusedSymbol>> {
+    const limit = clampLimit(options?.limit);
+    const projectId = scope.projectId;
+    // Top-level symbols with NO incoming usage edge (the dependency kinds, never
+    // contains/exports). `extends`/`implements`/`imports` count as usage so a
+    // depended-upon symbol is never asserted unused (the trust direction, ADR-0029).
+    const base = this.topLevelSymbols(scope).where((eb) =>
+      eb.not(
+        eb.exists(
+          eb
+            .selectFrom('edge as ue')
+            .select(sql.lit(1).as('one'))
+            .where('ue.project_id', '=', projectId)
+            .where('ue.kind', 'in', DEFAULT_BLAST_RADIUS_KINDS)
+            .whereRef('ue.target_id', '=', 'n.id'),
+        ),
+      ),
+    );
+    const total = await firstPageTotal(options?.cursor, () => this.countAll(base));
+    let page = base
+      .selectAll('n')
+      .select([
+        candidateFlagSql(projectId).as('candidate_flag'),
+        exportedFlagSql(projectId).as('exported_flag'),
+      ]);
+    if (options?.cursor !== undefined) {
+      page = page.where('n.id', '>', String(decodeCursorTuple(options.cursor, 1)[0]));
+    }
+    const rows = await page
+      .orderBy('n.id')
+      .limit(limit + 1)
+      .execute();
+    return buildPage(
+      rows.map(rowToUnusedSymbol),
+      limit,
+      (row) => encodeCursor([row.node.id]),
+      total,
+    );
+  }
+
   async blastRadiusPage(
     scope: GraphScope,
     id: SymbolId,
@@ -740,6 +782,51 @@ export class KyselyGraphRepository implements GraphRepository {
  */
 function collisionName(node: Node): string {
   return (node.kind === 'symbol' ? node.name : undefined) ?? '';
+}
+
+/**
+ * D6 classification (ADR-0029): 1 when an unresolved usage could still reach the
+ * top-level symbol `n` — an `unresolved-member` anchored to its file+name, or an
+ * `unbound-callee` by name — so it is a *candidate* (possibly-used), never
+ * asserted unused. Anchored gaps exonerate precisely; anchorless ones by name.
+ */
+function candidateFlagSql(projectId: string): RawBuilder<number> {
+  return sql<number>`(case when exists(
+      select 1 from "unresolved_reference" as "um"
+        where "um"."project_id" = ${projectId}
+          and "um"."code" = 'unresolved-member'
+          and "um"."target_file_id" = "n"."file_id"
+          and "um"."name" = "n"."name"
+    ) or exists(
+      select 1 from "unresolved_reference" as "uc"
+        where "uc"."project_id" = ${projectId}
+          and "uc"."code" = 'unbound-callee'
+          and "uc"."name" = "n"."name"
+    ) then 1 else 0 end)`;
+}
+
+/** D6 export fact (ADR-0029): 1 when `n` is exported from its file (a `file
+ *  ─exports→ symbol` edge). A displayed fact, not a verdict — the reader tells
+ *  public-API-with-no-internal-usage from likely-dead; we never assert "dead". */
+function exportedFlagSql(projectId: string): RawBuilder<number> {
+  return sql<number>`(case when exists(
+      select 1 from "edge" as "xe"
+        where "xe"."project_id" = ${projectId}
+          and "xe"."kind" = 'exports'
+          and "xe"."target_id" = "n"."id"
+    ) then 1 else 0 end)`;
+}
+
+/** Map a D6 row (node columns + the two integer flags) to an {@link UnusedSymbol};
+ *  the flags arrive as a number or driver-stringified integer, so they are coerced. */
+function rowToUnusedSymbol(
+  row: Selectable<NodeTable> & { candidate_flag: number; exported_flag: number },
+): UnusedSymbol {
+  return {
+    node: rowToNode(row),
+    candidate: Number(row.candidate_flag) !== 0,
+    exported: Number(row.exported_flag) !== 0,
+  };
 }
 
 /** Portable case-insensitive name/path substring predicate (escaped LIKE). */

@@ -51,6 +51,16 @@ describe('GraphController scope threading', () => {
 
     expect(nameCollisions).toHaveBeenCalledWith({ projectId: 'proj-123' }, query);
   });
+
+  it('scopes the unused-symbols view by the resolved project id (D6)', async () => {
+    const unusedSymbols = vi.fn(() => Promise.resolve({ items: [], nextCursor: null }));
+    const controller = new GraphController({ unusedSymbols } as unknown as GraphViewService);
+
+    const query = { limit: 25 } as GlobalListQueryDto;
+    await controller.unusedSymbols(project, query);
+
+    expect(unusedSymbols).toHaveBeenCalledWith({ projectId: 'proj-123' }, query);
+  });
 });
 
 describe('GraphController guards (Fork 5 closure)', () => {

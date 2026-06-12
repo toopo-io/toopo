@@ -130,6 +130,16 @@
       "count": "{count, plural, one {# declaration} other {# declarations}}",
       "more": "More collisions exist beyond the first page.",
       "unnamed": "(unnamed)"
+    },
+    "unused": {
+      "title": "Unused symbols",
+      "description": "Top-level declarations with no usage detected in this graph or its unresolved tail — never read as 'dead': a declaration may be public API, or used via a call this analysis cannot resolve.",
+      "empty": "No unused declarations — every top-level declaration has a detected use.",
+      "certain": "No usage detected",
+      "candidate": "Possibly used",
+      "exported": "exported",
+      "residual": "Blind spot: a declaration used only via an unresolved bare call — not a member access — cannot be seen here.",
+      "more": "More results exist beyond the first page."
     }
   },
   "LocaleSwitcher": {

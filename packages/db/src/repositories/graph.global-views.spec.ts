@@ -15,7 +15,13 @@
  *
  * D5 (name collisions) lands here; D6 (unused) and D7 (cycles) append.
  */
-import { type Edge, FORMAT_VERSION, type GraphDocument, type Node } from '@toopo/core';
+import {
+  type Edge,
+  FORMAT_VERSION,
+  type GraphDocument,
+  type Node,
+  type UnresolvedReference,
+} from '@toopo/core';
 import type { Kysely } from 'kysely';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { MIGRATIONS_DIR } from '../migrations-dir.js';
@@ -80,6 +86,62 @@ const document: GraphDocument = {
 
 const EMPTY: GraphDocument = { formatVersion: FORMAT_VERSION, nodes: [], edges: [] };
 const SCOPE = { projectId: 'proj-global' };
+
+// ── D6 fixture: one file of top-level symbols exercising every unused/candidate
+// branch. `used` and `base` have incoming usage (a call, an extends) so they are
+// excluded; the rest are unused, classified by the tail and the exports edge.
+const fileF = file('fileF', 'f.ts');
+const D6_NODES: readonly Node[] = [
+  repo,
+  pkg,
+  fileF,
+  symbol('sym:f:caller', 'caller'),
+  symbol('sym:f:used', 'used'),
+  symbol('sym:f:dead', 'dead'),
+  symbol('sym:f:exportedDead', 'exportedDead'),
+  symbol('sym:f:item', 'Item'),
+  symbol('sym:f:run', 'run'),
+  symbol('sym:f:base', 'Base'),
+  symbol('sym:f:sub', 'Sub'),
+];
+const D6_DOC: GraphDocument = {
+  formatVersion: FORMAT_VERSION,
+  nodes: [...D6_NODES],
+  edges: [
+    edge('contains', 'repo', 'pkg'),
+    edge('contains', 'pkg', 'fileF'),
+    edge('contains', 'fileF', 'sym:f:caller'),
+    edge('contains', 'fileF', 'sym:f:used'),
+    edge('contains', 'fileF', 'sym:f:dead'),
+    edge('contains', 'fileF', 'sym:f:exportedDead'),
+    edge('contains', 'fileF', 'sym:f:item'),
+    edge('contains', 'fileF', 'sym:f:run'),
+    edge('contains', 'fileF', 'sym:f:base'),
+    edge('contains', 'fileF', 'sym:f:sub'),
+    edge('calls', 'sym:f:caller', 'sym:f:used'), // `used` has incoming usage → excluded
+    edge('extends', 'sym:f:sub', 'sym:f:base'), // `base` is extended → usage → excluded
+    edge('exports', 'fileF', 'sym:f:exportedDead'), // the export fact
+  ],
+};
+// The tail: an anchored member usage exonerates 'Item' (target fileF + name),
+// an anchorless callee exonerates 'run' by name — both become candidates.
+const D6_REFS: readonly UnresolvedReference[] = [
+  {
+    code: 'unresolved-member',
+    importerFileId: 'fileX',
+    specifier: 'Thing.Item',
+    targetFileId: 'fileF',
+    name: 'Item',
+    message: 'Unresolved member "Item" on "Thing.Item"',
+  },
+  {
+    code: 'unbound-callee',
+    importerFileId: 'fileX',
+    specifier: 'handler.run',
+    name: 'run',
+    message: 'Unbound callee root for member "run" on "handler.run"',
+  },
+];
 
 async function drain<T>(fetch: (cursor: string | undefined) => Promise<Page<T>>): Promise<T[]> {
   const all: T[] = [];
@@ -153,6 +215,53 @@ for (const { backend, skip } of backends) {
         const other = { projectId: 'proj-global-other' };
         await repository.replaceProjectGraph(other, EMPTY);
         expect((await repository.nameCollisions(other)).items).toEqual([]);
+      });
+    });
+
+    describe('unusedSymbols (D6)', () => {
+      const d6 = { projectId: 'proj-unused' };
+
+      beforeAll(async () => {
+        await repository.replaceProjectGraph(d6, D6_DOC, D6_REFS);
+      });
+
+      it('lists only top-level symbols with zero incoming usage (extends/calls count)', async () => {
+        const all = await drain((c) => repository.unusedSymbols(d6, { limit: 2, cursor: c }));
+        // `used` (incoming call) and `base` (incoming extends) are used → excluded.
+        expect(all.map((u) => u.node.id)).toEqual([
+          'sym:f:caller',
+          'sym:f:dead',
+          'sym:f:exportedDead',
+          'sym:f:item',
+          'sym:f:run',
+          'sym:f:sub',
+        ]);
+      });
+
+      it('marks a symbol a candidate when an unresolved usage could reach it', async () => {
+        const all = await drain((c) => repository.unusedSymbols(d6, { cursor: c }));
+        const byId = new Map(all.map((u) => [u.node.id, u]));
+        // 'Item' is exonerated by an anchored unresolved-member (file + name);
+        // 'run' by an anchorless unbound-callee (name) — both possibly-used.
+        expect(byId.get('sym:f:item')?.candidate).toBe(true);
+        expect(byId.get('sym:f:run')?.candidate).toBe(true);
+        // No unresolved usage could reach these — certain-unused.
+        expect(byId.get('sym:f:dead')?.candidate).toBe(false);
+        expect(byId.get('sym:f:caller')?.candidate).toBe(false);
+      });
+
+      it('surfaces the exported fact (an exports edge), asserting no verdict', async () => {
+        const all = await drain((c) => repository.unusedSymbols(d6, { cursor: c }));
+        const byId = new Map(all.map((u) => [u.node.id, u]));
+        expect(byId.get('sym:f:exportedDead')?.exported).toBe(true);
+        expect(byId.get('sym:f:dead')?.exported).toBe(false);
+      });
+
+      it('reports the total on the first page and is byte-identical on a re-walk', async () => {
+        expect((await repository.unusedSymbols(d6, { limit: 2 })).total).toBe(6);
+        const a = await drain((c) => repository.unusedSymbols(d6, { limit: 2, cursor: c }));
+        const b = await drain((c) => repository.unusedSymbols(d6, { limit: 2, cursor: c }));
+        expect(JSON.stringify(b)).toBe(JSON.stringify(a));
       });
     });
   });

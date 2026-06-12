@@ -53,6 +53,8 @@ export const GRAPH_SEGMENTS = {
   SEARCH: 'search',
   /** D5 (Insights) — top-level symbols sharing a name (ADR-0029). */
   NAME_COLLISIONS: 'name-collisions',
+  /** D6 (Insights) — top-level symbols with no incoming usage (ADR-0029). */
+  UNUSED_SYMBOLS: 'unused-symbols',
 } as const;
 
 export type GraphSegment = (typeof GRAPH_SEGMENTS)[keyof typeof GRAPH_SEGMENTS];

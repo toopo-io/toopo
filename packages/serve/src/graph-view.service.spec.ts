@@ -23,6 +23,7 @@ import type {
   PersistGraphResult,
   SearchOptions,
   UnresolvedReferenceOptions,
+  UnusedSymbol,
 } from '@toopo/db';
 import { describe, expect, it, vi } from 'vitest';
 import { GraphViewService } from './graph-view.service.js';
@@ -107,6 +108,9 @@ function fakeRepository(overrides: Partial<GraphRepository>): GraphRepository {
       return Promise.resolve<Page<UnresolvedReference>>({ items: [], nextCursor: null });
     },
     nameCollisions(_scope: GraphScope, _options?: PageOptions): Promise<Page<Node>> {
+      return Promise.resolve({ items: [], nextCursor: null });
+    },
+    unusedSymbols(_scope: GraphScope, _options?: PageOptions): Promise<Page<UnusedSymbol>> {
       return Promise.resolve({ items: [], nextCursor: null });
     },
   };
@@ -415,5 +419,29 @@ describe('GraphViewService.nameCollisions (D5)', () => {
 
     expect(nameCollisions).toHaveBeenCalledWith(SCOPE, { limit: 10, cursor: 'c0' });
     expect(page).toEqual({ items: [btnA, btnB], nextCursor: 'next', total: 2 });
+  });
+});
+
+describe('GraphViewService.unusedSymbols (D6)', () => {
+  it('threads the scope and carries candidate + exported through to the envelope', async () => {
+    const dead: UnusedSymbol = {
+      node: { kind: 'symbol', id: 'sym:dead', name: 'dead', properties: {} },
+      candidate: false,
+      exported: true,
+    };
+    const maybe: UnusedSymbol = {
+      node: { kind: 'symbol', id: 'sym:maybe', name: 'maybe', properties: {} },
+      candidate: true,
+      exported: false,
+    };
+    const unusedSymbols = vi.fn((_scope: GraphScope, _options?: PageOptions) =>
+      Promise.resolve<Page<UnusedSymbol>>({ items: [dead, maybe], nextCursor: null, total: 2 }),
+    );
+    const service = new GraphViewService(fakeRepository({ unusedSymbols }));
+
+    const page = await service.unusedSymbols(SCOPE, { limit: 5 });
+
+    expect(unusedSymbols).toHaveBeenCalledWith(SCOPE, { limit: 5, cursor: undefined });
+    expect(page).toEqual({ items: [dead, maybe], nextCursor: null, total: 2 });
   });
 });

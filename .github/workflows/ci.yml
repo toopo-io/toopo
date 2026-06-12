@@ -47,6 +47,13 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-turbo-
 
+      # Dependency-boundary gate (Verification gate #5): the architecture's hard,
+      # one-way boundaries, machine-enforced. Runs right after install (no build
+      # needed — source-to-source resolution via tsconfig.depcruise.json) so a
+      # boundary regression fails fast, before the slower lint/typecheck/build.
+      - name: Boundaries
+        run: pnpm boundaries
+
       - name: Lint
         run: pnpm lint
 

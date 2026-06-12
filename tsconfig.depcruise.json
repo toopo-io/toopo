@@ -1,0 +1,10 @@
+{
+  "//": "Check-only TypeScript config for the dependency-boundary gate (Verification gate #5). It exists solely so dependency-cruiser resolves workspace imports source-to-source (@toopo/* -> packages/*/src) instead of via the pnpm symlink to dist. This needs no build and never touches the real build/typecheck configs.",
+  "extends": "./tooling/tsconfig/base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@toopo/*": ["packages/*/src"]
+    }
+  }
+}

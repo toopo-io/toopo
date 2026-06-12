@@ -20,9 +20,18 @@ commit-msg:
 pre-push:
   parallel: false
   commands:
+    # Run boundaries FIRST (priority is ascending — lower runs earlier): the
+    # dependency-boundary gate (Verification gate #5) is fast and has no build
+    # dependency, so an architecture-boundary regression fails before the slow
+    # typecheck/build/test.
+    boundaries:
+      priority: 1
+      run: pnpm boundaries
     typecheck:
+      priority: 2
       run: pnpm typecheck
     build:
+      priority: 3
       run: pnpm build
     # Run test:coverage (not plain test) so the local quality gate
     # matches CI. Without this, coverage-threshold failures stay
@@ -31,4 +40,5 @@ pre-push:
     # dragged @toopo/db below 80%, no local signal until CI).
     # See ADR-0007 (coverage strategy) and ADR-0010 (operational gaps).
     test:
+      priority: 4
       run: pnpm test:coverage

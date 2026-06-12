@@ -21,6 +21,7 @@
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "test:coverage": "turbo run test:coverage",
+    "boundaries": "depcruise apps packages tooling && node scripts/check-core-manifest.mjs",
     "clean": "turbo run clean",
     "db:generate": "pnpm --filter @toopo/db db:generate",
     "db:migrate": "pnpm --filter @toopo/db db:migrate",
@@ -31,6 +32,7 @@
     "@commitlint/cli": "21.0.1",
     "@commitlint/config-conventional": "21.0.1",
     "@types/node": "25.8.0",
+    "dependency-cruiser": "^17.4.3",
     "lefthook": "2.1.6",
     "turbo": "2.9.14",
     "typescript": "6.0.3"

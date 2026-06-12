@@ -103,12 +103,21 @@ A change is "done" only when ALL pass — not when the code is written:
 2. Biome lint + format — clean.
 3. Vitest — green, ≥80% coverage on new code (unit + integration; E2E for critical flows).
 4. Build — green across the affected graph.
-5. Dependency-boundary check — one-way, no cycles, core dependency-light.
+5. Dependency-boundary check — one-way, no (runtime) cycles, core dependency-light. Run `pnpm boundaries`.
 6. Conventional Commit message.
 
 Enforcement: lefthook (pre-commit/pre-push) + CI run these. The dependency-boundary
-check is mandated here; its tool is to be selected by research and wired into CI.
-A rule without a gate is a gap — surface it.
+check (gate #5) is **wired**: `pnpm boundaries` runs dependency-cruiser
+(`.dependency-cruiser.cjs`, source-to-source via `tsconfig.depcruise.json`) for the
+directional rules — one-way (no `packages`/`tooling` → `apps`; apps & tooling are
+leaves), no runtime cycles (type-only-closed cycles are excluded as a false
+positive; type-only *boundary* crossings stay caught), `core` imports no other
+workspace package, and the F1 frontend isolation (`apps/web` reaches only
+api-contracts/core/env/i18n/ui — never `lang-react`/the engine tier) — plus
+`scripts/check-core-manifest.mjs` for the external-dep half of ADR-0015 (`core`
+has zero runtime deps; `zod` peer only). It is a CI step (after install, before
+lint) and the first lefthook pre-push command. A rule without a gate is a gap —
+surface it.
 
 ## Working in this repo
 

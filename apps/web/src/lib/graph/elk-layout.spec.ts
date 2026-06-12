@@ -12,12 +12,14 @@ const EDGES = [
 ];
 
 describe('layoutGraph (ELK)', () => {
-  it('returns an empty map for an empty graph', async () => {
-    expect((await layoutGraph([], [])).size).toBe(0);
+  it('returns empty positions and routes for an empty graph', async () => {
+    const layout = await layoutGraph([], []);
+    expect(layout.positions.size).toBe(0);
+    expect(layout.edgeRoutes.size).toBe(0);
   });
 
   it('assigns a finite position to every node', async () => {
-    const positions = await layoutGraph(NODES, EDGES);
+    const { positions } = await layoutGraph(NODES, EDGES);
     expect(positions.size).toBe(3);
     for (const id of ['a', 'b', 'c']) {
       const pos = positions.get(id);
@@ -27,7 +29,7 @@ describe('layoutGraph (ELK)', () => {
   });
 
   it('lays a dependency chain out left-to-right (a before b before c)', async () => {
-    const positions = await layoutGraph(NODES, EDGES);
+    const { positions } = await layoutGraph(NODES, EDGES);
     const ax = positions.get('a')?.x ?? 0;
     const bx = positions.get('b')?.x ?? 0;
     const cx = positions.get('c')?.x ?? 0;
@@ -35,14 +37,39 @@ describe('layoutGraph (ELK)', () => {
     expect(bx).toBeLessThan(cx);
   });
 
-  it('is deterministic — the same graph yields the same layout', async () => {
+  it('returns an orthogonal route per edge (start, optional bends, end)', async () => {
+    const { edgeRoutes } = await layoutGraph(NODES, EDGES);
+    for (const id of ['a->b', 'b->c']) {
+      const route = edgeRoutes.get(id);
+      expect(route).toBeDefined();
+      expect((route?.length ?? 0) >= 2).toBe(true);
+      for (const point of route ?? []) {
+        expect(Number.isFinite(point.x)).toBe(true);
+        expect(Number.isFinite(point.y)).toBe(true);
+      }
+    }
+  });
+
+  it('routes a left-to-right edge from a lower to a higher x', async () => {
+    const { edgeRoutes } = await layoutGraph(NODES, EDGES);
+    const route = edgeRoutes.get('a->b');
+    const first = route?.[0];
+    const last = route?.[route.length - 1];
+    expect((first?.x ?? 0) < (last?.x ?? 0)).toBe(true);
+  });
+
+  it('is deterministic — the same graph yields the same layout and routes', async () => {
     const first = await layoutGraph(NODES, EDGES);
     const second = await layoutGraph(NODES, EDGES);
-    expect([...first.entries()]).toEqual([...second.entries()]);
+    expect([...first.positions.entries()]).toEqual([...second.positions.entries()]);
+    expect([...first.edgeRoutes.entries()]).toEqual([...second.edgeRoutes.entries()]);
   });
 
   it('drops an edge that references a missing node instead of throwing', async () => {
-    const positions = await layoutGraph(NODES, [{ id: 'x', source: 'a', target: 'ghost' }]);
+    const { positions, edgeRoutes } = await layoutGraph(NODES, [
+      { id: 'x', source: 'a', target: 'ghost' },
+    ]);
     expect(positions.size).toBe(3);
+    expect(edgeRoutes.has('x')).toBe(false);
   });
 });

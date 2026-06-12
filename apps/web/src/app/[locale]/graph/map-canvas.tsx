@@ -27,6 +27,8 @@ interface MapCanvasProps {
   readonly nodeTypes: NodeTypes;
   readonly edgeTypes: EdgeTypes;
   readonly onNodeClick?: (nodeId: string) => void;
+  /** Hover enter/leave drive the focus-neighbourhood dim (null = left the node). */
+  readonly onNodeHover?: (nodeId: string | null) => void;
 }
 
 export function MapCanvas({
@@ -35,6 +37,7 @@ export function MapCanvas({
   nodeTypes,
   edgeTypes,
   onNodeClick,
+  onNodeHover,
 }: MapCanvasProps): JSX.Element {
   const initialized = useNodesInitialized();
   const { fitView } = useReactFlow();
@@ -50,6 +53,12 @@ export function MapCanvas({
   const handleNodeClick: NodeMouseHandler<MapFlowNode> = (_event, node) => {
     onNodeClick?.(node.id);
   };
+  const handleNodeMouseEnter: NodeMouseHandler<MapFlowNode> = (_event, node) => {
+    onNodeHover?.(node.id);
+  };
+  const handleNodeMouseLeave: NodeMouseHandler<MapFlowNode> = () => {
+    onNodeHover?.(null);
+  };
 
   return (
     <ReactFlow
@@ -59,6 +68,8 @@ export function MapCanvas({
       nodeTypes={nodeTypes}
       edgeTypes={edgeTypes}
       onNodeClick={handleNodeClick}
+      onNodeMouseEnter={handleNodeMouseEnter}
+      onNodeMouseLeave={handleNodeMouseLeave}
       fitView
       fitViewOptions={{ padding: 0.2, maxZoom: 1 }}
       minZoom={0.1}

@@ -19,9 +19,11 @@ import '@xyflow/react/dist/style.css';
 import type { MapLevel, MapView } from '@toopo/api-contracts';
 import { useLocale, useTranslations } from 'next-intl';
 import { type JSX, type ReactNode, useEffect, useMemo, useState } from 'react';
+import { edgeTouchesFocus, focusNeighbourhood } from '../../../lib/graph/canvas-focus';
 import { layoutGraph } from '../../../lib/graph/elk-layout';
 import {
   MAP_NODE_SIZE,
+  type MapEdgeData,
   type MapFlowEdge,
   type MapFlowNode,
   mapViewToFlowEdges,
@@ -33,10 +35,13 @@ import { ProjectIdProvider } from '../../../lib/projects/project-context';
 import './graph.css';
 import { useGraphViewState } from '../../../lib/graph/use-graph-view-state';
 import { Breadcrumb } from './breadcrumb';
+import { IsolateToggle } from './isolate-toggle';
+import { LevelSwitcher } from './level-switcher';
 import { MapCanvas } from './map-canvas';
 import { MapContainerNode } from './map-container-node';
 import { NodeDetailPanel } from './node-detail-panel';
 import { SearchBox } from './search-box';
+import { StatBar } from './stat-bar';
 import { TrustEdge } from './trust-edge';
 import { TrustLegend } from './trust-legend';
 import { useScopeTrail } from './use-scope-trail';
@@ -114,22 +119,71 @@ function GraphExplorerInner({
     setState({ ...state, blast: !state.blast });
   };
 
+  const onSelectLevel = (next: MapLevel): void => {
+    // Never emit an invalid symbol-without-scope query: the symbol level is only
+    // offered when a file scope is active, where re-selecting it keeps that scope.
+    if (next === 'symbol') {
+      if (scope !== undefined) {
+        setState({ level: 'symbol', scope, blast: false });
+      }
+      return;
+    }
+    setState({ level: next, blast: false });
+  };
+
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [isolateInferred, setIsolateInferred] = useState(false);
   const [nodes, setNodes] = useState<MapFlowNode[]>([]);
   const [edges, setEdges] = useState<MapFlowEdge[]>([]);
+
+  // The blast overlay (a deep trust-aware traversal) takes precedence; otherwise
+  // hovering or selecting a node focuses its one-hop neighbourhood (ADR-0021 vs
+  // the everyday focus-dim). A null focus means the whole map is lit.
+  const focusId = blastActive ? undefined : (hoveredId ?? state.node);
+  const neighbourhood = useMemo(
+    () => (focusId !== undefined ? focusNeighbourhood(focusId, edges) : null),
+    [focusId, edges],
+  );
+
   const displayNodes = useMemo(
     () =>
       nodes.map((node) => {
         const impact = blastActive ? impacted.get(node.id) : undefined;
-        const isDimmed = blastActive && impact === undefined && node.id !== state.node;
+        const blastDim = blastActive && impact === undefined && node.id !== state.node;
+        const focusDim = neighbourhood !== null && !neighbourhood.has(node.id);
         return {
           ...node,
           selected: node.id === state.node,
           // `impact` is set only when this node is an impacted dependent — never
           // explicitly `undefined` (exactOptionalPropertyTypes).
-          data: { ...node.data, ...(impact !== undefined ? { impact } : {}), dimmed: isDimmed },
+          data: {
+            ...node.data,
+            ...(impact !== undefined ? { impact } : {}),
+            dimmed: blastDim || focusDim,
+          },
         };
       }),
-    [nodes, state.node, blastActive, impacted],
+    [nodes, state.node, blastActive, impacted, neighbourhood],
+  );
+
+  const displayEdges = useMemo(
+    () =>
+      edges.map((edge) => {
+        const base: MapEdgeData = edge.data ?? { trustKind: 'deterministic', count: 0 };
+        const focusDim = focusId !== undefined && !edgeTouchesFocus(edge, focusId);
+        const isolateDim = isolateInferred && base.trustKind === 'deterministic';
+        return { ...edge, data: { ...base, dimmed: focusDim || isolateDim } };
+      }),
+    [edges, focusId, isolateInferred],
+  );
+
+  const stats = useMemo(
+    () => ({
+      nodes: nodes.length,
+      edges: edges.length,
+      inferred: edges.filter((edge) => edge.data?.trustKind === 'inferred').length,
+    }),
+    [nodes, edges],
   );
 
   useEffect(() => {
@@ -142,14 +196,27 @@ function GraphExplorerInner({
     void layoutGraph(
       flowNodes.map((node) => ({ id: node.id, ...MAP_NODE_SIZE })),
       flowEdges.map((edge) => ({ id: edge.id, source: edge.source, target: edge.target })),
-    ).then((positions) => {
+    ).then((layout) => {
       if (cancelled) {
         return;
       }
       setNodes(
-        flowNodes.map((node) => ({ ...node, position: positions.get(node.id) ?? node.position })),
+        flowNodes.map((node) => ({
+          ...node,
+          position: layout.positions.get(node.id) ?? node.position,
+        })),
       );
-      setEdges(flowEdges.map((edge) => ({ ...edge, markerEnd: { type: MarkerType.ArrowClosed } })));
+      setEdges(
+        flowEdges.map((edge) => {
+          const points = layout.edgeRoutes.get(edge.id);
+          const base: MapEdgeData = edge.data ?? { trustKind: 'deterministic', count: 0 };
+          return {
+            ...edge,
+            markerEnd: { type: MarkerType.ArrowClosed },
+            data: points !== undefined ? { ...base, points } : base,
+          };
+        }),
+      );
     });
     return () => {
       cancelled = true;
@@ -174,6 +241,13 @@ function GraphExplorerInner({
     <div className="relative h-full w-full">
       <div className="absolute top-3 left-3 z-10 flex max-w-[70%] flex-col gap-2">
         <Breadcrumb crumbs={crumbs} onNavigate={setState} ariaLabel={t('breadcrumb.aria')} />
+        <div className="flex flex-wrap items-center gap-2">
+          <LevelSwitcher level={level} canSymbol={level === 'symbol'} onSelect={onSelectLevel} />
+          <IsolateToggle
+            active={isolateInferred}
+            onToggle={() => setIsolateInferred((on) => !on)}
+          />
+        </div>
         {data?.truncated ? (
           <div
             role="status"
@@ -187,13 +261,15 @@ function GraphExplorerInner({
         <SearchBox locale={locale} onJump={(node) => setState(searchJumpState(node, state))} />
       </div>
       <TrustLegend />
+      <StatBar nodes={stats.nodes} edges={stats.edges} inferred={stats.inferred} />
       <ReactFlowProvider>
         <MapCanvas
           nodes={displayNodes}
-          edges={edges}
+          edges={displayEdges}
           nodeTypes={NODE_TYPES}
           edgeTypes={EDGE_TYPES}
           onNodeClick={onNodeClick}
+          onNodeHover={setHoveredId}
         />
       </ReactFlowProvider>
       {state.node !== undefined ? (

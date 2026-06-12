@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import type { MapView } from '@toopo/api-contracts';
 import { NextIntlClientProvider } from 'next-intl';
 import type { ReactElement } from 'react';
@@ -40,9 +40,13 @@ vi.mock('../../../lib/graph/api', () => ({
   graphApi: { map: (...args: unknown[]) => map(...args) },
 }));
 
-// ELK runs an async layout we don't need in a DOM test — return fixed positions.
+// ELK runs an async layout we don't need in a DOM test — return a fixed layout
+// (positions + the orthogonal edge routes, both keyed maps).
 vi.mock('../../../lib/graph/elk-layout', () => ({
-  layoutGraph: vi.fn().mockResolvedValue(new Map([['pkgA', { x: 0, y: 0 }]])),
+  layoutGraph: vi.fn().mockResolvedValue({
+    positions: new Map([['pkgA', { x: 0, y: 0 }]]),
+    edgeRoutes: new Map(),
+  }),
 }));
 
 import { GraphExplorer } from './graph-explorer';
@@ -83,6 +87,33 @@ describe('<GraphExplorer /> (V1 package map)', () => {
     expect(
       screen.getByRole('navigation', { name: messages.Graph.breadcrumb.aria }),
     ).toHaveTextContent(messages.Graph.level.package);
+  });
+
+  it('renders the level switcher, isolate toggle, and the live stat bar', async () => {
+    const view = {
+      level: 'package' as const,
+      nodes: [packageNode('pkgA', '@toopo/web', 4)],
+      edges: [],
+      truncated: false,
+    };
+    // The waitFor below lets React Query refetch; resolve it with the same view so
+    // the refetch does not error (an undefined queryFn result throws).
+    map.mockResolvedValue(view);
+    renderExplorer(view);
+    // The level switcher roots at Packages; Symbols is gated off without a scope.
+    const switcher = screen.getByRole('toolbar', { name: messages.Graph.switcher.aria });
+    expect(
+      within(switcher).getByRole('button', { name: messages.Graph.level.symbol }),
+    ).toBeDisabled();
+    // The isolate-inferred toggle starts off.
+    expect(screen.getByRole('button', { name: messages.Graph.isolate.label })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+    // The stat bar reflects the laid-out counts once ELK resolves.
+    await waitFor(() => expect(screen.getByText('1 node')).toBeInTheDocument());
+    expect(screen.getByText('0 edges')).toBeInTheDocument();
+    expect(screen.getByText('0 inferred')).toBeInTheDocument();
   });
 
   it('shows an honest truncated banner when the view is capped', () => {

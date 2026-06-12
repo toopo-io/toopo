@@ -42,6 +42,18 @@
       "file": "Files",
       "symbol": "Symbols"
     },
+    "switcher": {
+      "aria": "Containment level"
+    },
+    "isolate": {
+      "label": "Isolate inferred",
+      "aria": "Fade the proven edges to show only the inferred ones"
+    },
+    "stat": {
+      "nodes": "{count, plural, one {# node} other {# nodes}}",
+      "edges": "{count, plural, one {# edge} other {# edges}}",
+      "inferred": "{count, plural, one {# inferred} other {# inferred}}"
+    },
     "breadcrumb": {
       "aria": "Cartography breadcrumb"
     },

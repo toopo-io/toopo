@@ -17,12 +17,15 @@ import type { MapEdge, MapView } from '@toopo/api-contracts';
 import type { Node as GraphNode } from '@toopo/core';
 import type { Edge, Node } from '@xyflow/react';
 import { nodeLabel } from './node-label';
+import type { EdgePoint } from './orthogonal-edge-path';
 import type { TrustKind } from './trust';
 
 export interface MapNodeData extends Record<string, unknown> {
   readonly nodeId: string;
   readonly label: string;
   readonly kind: GraphNode['kind'];
+  /** The language-namespaced refinement, when present — drives the kind hue. */
+  readonly subKind?: string;
   /** How many symbols this container holds — used to size the node (ADR-0020). */
   readonly childCount: number;
   /**
@@ -40,6 +43,10 @@ export interface MapEdgeData extends Record<string, unknown> {
   readonly trustKind: TrustKind;
   /** The projected count of underlying edges of this trust kind. */
   readonly count: number;
+  /** The ELK-computed orthogonal route, threaded in after layout (graph-explorer). */
+  readonly points?: readonly EdgePoint[];
+  /** Faded when a focus neighbourhood or the isolate-inferred filter excludes it. */
+  readonly dimmed?: boolean;
 }
 
 export type MapFlowNode = Node<MapNodeData>;
@@ -60,6 +67,7 @@ export function mapViewToFlowNodes(view: MapView): MapFlowNode[] {
       nodeId: mapNode.node.id,
       label: nodeLabel(mapNode.node),
       kind: mapNode.node.kind,
+      ...(mapNode.node.subKind !== undefined ? { subKind: mapNode.node.subKind } : {}),
       childCount: mapNode.childCount,
     },
   }));

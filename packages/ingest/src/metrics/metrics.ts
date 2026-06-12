@@ -132,16 +132,22 @@ function resolutionMetrics(
 
   // Only IMPORT gaps belong to the import-resolution metric — its denominator is
   // import bindings. Call-site usage gaps (`unresolved-member`, `unbound-callee`,
-  // ADR-0016 C11) are a different denominator and are excluded by an explicit code
-  // set, never a `startsWith` prefix (which `unresolved-member` would corrupt).
+  // ADR-0016 C11) are a different denominator and are excluded. Classification is by
+  // EXACT code within the authoritative import-code set — never a `startsWith` prefix
+  // (which `unresolved-member` would have wrongly swept into `unresolved`).
   const importGaps = new Set<string>(IMPORT_REFERENCE_CODES);
-  const importDiagnostics = diagnostics.filter((diagnostic) => importGaps.has(diagnostic.code));
-  const ambiguous = importDiagnostics.filter((diagnostic) =>
-    diagnostic.code.startsWith('ambiguous'),
-  ).length;
-  const unresolved = importDiagnostics.filter((diagnostic) =>
-    diagnostic.code.startsWith('unresolved'),
-  ).length;
+  let ambiguous = 0;
+  let unresolved = 0;
+  for (const { code } of diagnostics) {
+    if (!importGaps.has(code)) {
+      continue;
+    }
+    if (code === 'ambiguous-module' || code === 'ambiguous-export') {
+      ambiguous += 1;
+    } else {
+      unresolved += 1; // the only remaining import codes are the unresolved-* pair
+    }
+  }
 
   const resolved = deterministic + inferred + external;
   const total = resolved + ambiguous + unresolved;

@@ -241,6 +241,18 @@ describe('bindCallSite (React)', () => {
     });
   });
 
+  it('binds nothing for a trailing-dot callee (no member → never an empty-member gap)', () => {
+    // `Form.` names no member, so it binds nothing and emits no usage — an empty
+    // member name must never reach persistence (it would fail the name min(1) schema).
+    const withForm = new Map<string, ResolvedImport>([
+      ['Form', { symbolId: 'F.', certainty: DETERMINISTIC }],
+    ]);
+    expect(bindCallSite(site({ callee: 'Form.' }), withForm, noNamespaces, symbols)).toEqual({
+      edges: [],
+      unresolved: [],
+    });
+  });
+
   it('resolves a namespace-member render (NS.Button) to the EXACT export, with its prop (C10)', () => {
     // `import * as NS` then `<NS.Button label="x" />` — the member IS the module
     // export `Button`, so it resolves exactly (not member-root) at full certainty.

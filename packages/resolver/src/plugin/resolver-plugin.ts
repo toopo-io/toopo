@@ -257,7 +257,9 @@ export interface ResolvedEdge {
  * root itself did not resolve (a local/param root, `handler.run()`): an anchorless
  * gap recorded by member name alone. `callee` is the full callee as written (the
  * reference's source token, used for identity and the message); `member` is the
- * unbound member name.
+ * unbound member name. `reason` is plugin-observability ONLY — the engine derives
+ * the anchored/anchorless verdict from `rootSymbolId` (via `fileOf`), never from
+ * `reason`; it exists to make the plugin's intent legible at the boundary.
  */
 export interface UnresolvedUsage {
   readonly rootSymbolId?: SymbolId;

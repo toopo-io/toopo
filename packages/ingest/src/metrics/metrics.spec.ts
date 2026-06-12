@@ -109,6 +109,22 @@ describe('computeMetrics', () => {
     expect(graph.symbolsBySubKind).toEqual({ 'react:component': 1, 'ts:function': 1 });
   });
 
+  it('excludes call-site usage gaps from the import-resolution metric (C11, MEDIUM-1)', () => {
+    const result = makeResult();
+    // Add usage gaps: an anchored member gap and an anchorless callee gap. These are a
+    // different denominator (call-site usages, not imports) and must NOT inflate the
+    // import counts — the explicit-code classification leaves the metric unchanged.
+    const withUsageGaps: IngestResult = {
+      ...result,
+      diagnostics: [...result.diagnostics, diag('unresolved-member'), diag('unbound-callee')],
+    };
+    const { imports } = computeMetrics(withUsageGaps);
+    expect(imports.ambiguous).toBe(1);
+    expect(imports.unresolved).toBe(2); // unchanged: unresolved-member never swept in
+    expect(imports.total).toBe(6);
+    expect(imports.overallResolutionRate).toBeCloseTo(0.5);
+  });
+
   it('reports a zero resolution rate for a project with no imports', () => {
     const empty: IngestResult = {
       document: { formatVersion: 1, nodes: [], edges: [] },

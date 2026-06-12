@@ -263,8 +263,11 @@ incoming usage edges is **certain-unused** only if no unresolved usage could rea
 no `unresolved-member` with `targetFileId == file(S)` AND `name == S.name`, and no
 `unbound-callee` with `name == S.name`; otherwise `S` is a *candidate* (possibly-used),
 never asserted unused. Anchored usages exonerate precisely; anchorless ones broaden by
-name alone. This needs a **code-family filter** on the `unresolvedReferences` read (today
-it filters only by `targetFileId`) — noted as a Phase-D seam, deliberately not built now.
+name alone. The `unresolvedReferences` read now returns BOTH families (import gaps AND
+usage gaps) from one tail, so any consumer wanting only one — and the unused/cycle view
+in particular — MUST filter by **code-family** (`IMPORT_REFERENCE_CODES` vs
+`USAGE_REFERENCE_CODES`); today the read filters only by `targetFileId`. Adding that
+code-family filter is a Phase-D seam, deliberately not built now.
 
 ADR-0015 is untouched: a usage gap remains a non-graph sibling, never a fabricated edge.
 ADR-0027 (local-symbol identity) is untouched. This closes the C11 boundary and lifts the

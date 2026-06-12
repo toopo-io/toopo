@@ -18,8 +18,12 @@ const PROP_SUBKIND = 'react:prop';
  * inferred at this confidence (the root is solid; the member is the guess). */
 const MEMBER_ROOT_CERTAINTY = { resolution: 'inferred', confidence: 'medium' } as const;
 
-/** Nothing bound and nothing unresolved — the empty/exact-unresolved outcome. */
-const NOTHING: CallSiteBindingResult = { edges: [], unresolved: [] };
+/** Nothing bound and nothing unresolved — the empty/exact-unresolved outcome. Frozen
+ * (object and arrays) so the shared singleton can never be mutated by a caller. */
+const NOTHING: CallSiteBindingResult = Object.freeze({
+  edges: Object.freeze([]),
+  unresolved: Object.freeze([]),
+});
 
 /** Where a fully-resolved target came from — only the provenance rule differs. */
 type TargetSource = 'import' | 'namespace-member';
@@ -137,7 +141,9 @@ function memberRootEdge(
 }
 
 /** Map a callee to its binding: an identifier is exact, a dotted member binds its
- * root and carries the member name (everything after the first dot). */
+ * root and carries the member name (everything after the first dot). A trailing-dot
+ * callee (`Form.`) names no member, so it binds nothing — `null`, like an empty
+ * callee — and never reaches persistence as a usage with an empty member name. */
 function calleeBinding(callee: string): CalleeBinding | null {
   if (callee.length === 0) {
     return null;
@@ -146,11 +152,11 @@ function calleeBinding(callee: string): CalleeBinding | null {
   if (dot === -1) {
     return { localName: callee, memberName: '', precision: 'exact' };
   }
-  return {
-    localName: callee.slice(0, dot),
-    memberName: callee.slice(dot + 1),
-    precision: 'member-root',
-  };
+  const memberName = callee.slice(dot + 1);
+  if (memberName.length === 0) {
+    return null;
+  }
+  return { localName: callee.slice(0, dot), memberName, precision: 'member-root' };
 }
 
 /** The edges for a fully-resolved target: the `calls`/render edge plus, for a

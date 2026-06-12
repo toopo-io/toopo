@@ -70,6 +70,12 @@ export function bindFileCallSites(
  * so a later "unused" view can exonerate precisely; absent ⇒ an ANCHORLESS
  * `unbound-callee` gap recorded by member name alone (a lost root type). `specifier`
  * is the callee as written — the reference's source token and its identity key.
+ *
+ * A present `rootSymbolId` whose `fileOf` returns `undefined` — the root resolved to
+ * a symbol outside the graph (an external coordinate, not a parsed file) — falls
+ * through to the same anchorless `unbound-callee`: with no in-graph file to anchor
+ * to, name-only narrowing is the honest result, behaving identically to a genuinely
+ * anchorless gap for the unused view. It is never a third code — anchorless is correct.
  */
 function usageDiagnostic(
   importerFileId: SymbolId,

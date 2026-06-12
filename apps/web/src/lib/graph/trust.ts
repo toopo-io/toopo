@@ -42,7 +42,15 @@ export const TRUST_EDGE_OFFSET: Record<TrustKind, number> = {
 
 export const TRUST_STROKE_WIDTH = 1.5;
 
-/** Opacity per inferred confidence; deterministic is always fully opaque. */
+/**
+ * Resting opacity of a proven (deterministic) edge. Below full so a dense
+ * orthogonal map of proven dependencies reads as a calm neutral grid rather than
+ * a busy circuit board — and so the inferred accent always leads the eye (the
+ * trust-inversion: certain recedes, inferred is the one accent).
+ */
+const DETERMINISTIC_OPACITY = 0.55;
+
+/** Opacity per inferred confidence — a low-confidence guess reads fainter. */
 const CONFIDENCE_OPACITY: Record<Confidence, number> = {
   high: 1,
   medium: 0.8,
@@ -52,12 +60,16 @@ const CONFIDENCE_OPACITY: Record<Confidence, number> = {
 /**
  * The SVG stroke style for an edge of a given trust kind. `confidence` is only
  * meaningful for `inferred` edges (it is ignored for deterministic ones, which
- * carry no confidence by the §8 invariant).
+ * carry no confidence by the §8 invariant and sit at the calm resting opacity).
  */
 export function trustEdgeStyle(kind: TrustKind, confidence?: Confidence): CSSProperties {
   const dasharray = TRUST_DASHARRAY[kind];
   const opacity =
-    kind === 'inferred' && confidence !== undefined ? CONFIDENCE_OPACITY[confidence] : 1;
+    kind === 'inferred'
+      ? confidence !== undefined
+        ? CONFIDENCE_OPACITY[confidence]
+        : 1
+      : DETERMINISTIC_OPACITY;
   return {
     stroke: TRUST_COLOR_VAR[kind],
     strokeWidth: TRUST_STROKE_WIDTH,

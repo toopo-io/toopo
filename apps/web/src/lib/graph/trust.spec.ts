@@ -15,10 +15,11 @@ describe('trust visual language (ADR-0015 §8)', () => {
     expect(Math.abs(TRUST_EDGE_OFFSET.deterministic)).toBeGreaterThanOrEqual(12);
   });
 
-  it('deterministic edge style is solid and fully opaque, with no dasharray', () => {
+  it('deterministic edge style is solid and recessive, with no dasharray', () => {
     const style = trustEdgeStyle('deterministic');
     expect(style.strokeDasharray).toBeUndefined();
-    expect(style.opacity).toBe(1);
+    // Below full so the proven grid reads calm and the inferred accent leads.
+    expect(style.opacity).toBe(0.55);
     expect(style.stroke).toContain('deterministic');
   });
 
@@ -28,11 +29,18 @@ describe('trust visual language (ADR-0015 §8)', () => {
     expect(style.stroke).toContain('inferred');
   });
 
+  it('a high-confidence inferred edge leads over the recessive proven grid', () => {
+    // The inferred accent at full confidence is more prominent than proven edges.
+    const inferred = Number(trustEdgeStyle('inferred', 'high').opacity);
+    const deterministic = Number(trustEdgeStyle('deterministic').opacity);
+    expect(inferred).toBeGreaterThan(deterministic);
+  });
+
   it('confidence fades inferred edges (low fainter than high), deterministic ignores it', () => {
     expect(trustEdgeStyle('inferred', 'high').opacity).toBe(1);
     expect(trustEdgeStyle('inferred', 'medium').opacity).toBe(0.8);
     expect(trustEdgeStyle('inferred', 'low').opacity).toBe(0.6);
-    // Deterministic carries no confidence (§8) — it stays fully opaque regardless.
-    expect(trustEdgeStyle('deterministic', 'low').opacity).toBe(1);
+    // Deterministic carries no confidence (§8) — it stays at its resting opacity.
+    expect(trustEdgeStyle('deterministic', 'low').opacity).toBe(0.55);
   });
 });

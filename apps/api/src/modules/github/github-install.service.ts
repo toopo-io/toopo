@@ -6,11 +6,15 @@
  * (B5.4) reuses, so the redirect and the webhook converge on one idempotent path.
  *
  * Fail-closed (ADR-0026 §1): with the App unconfigured the auth port is `null` and
- * every entry point throws `503`. The install hijack defense is the signed,
- * session-bound `state` — a returned state whose user id is not the session user
- * is rejected and NOTHING is linked (ADR-0026 §7).
+ * every entry point throws `503`. The install hijack defense is twofold (ADR-0026
+ * §7): the signed, session-bound `state` — a returned state whose user id is not
+ * the session user is rejected and NOTHING is linked — and the no-re-point rule —
+ * an installation already linked to a different user is rejected with `409`, so a
+ * claimed id can never be hijacked away from its holder (it frees up only via the
+ * real `installation.deleted` webhook).
  */
 import {
+  ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -82,10 +86,15 @@ export class GithubInstallService {
       throw new ForbiddenException('Invalid install state');
     }
 
-    await this.installations.upsertInstallation({
+    const link = await this.installations.linkInstallation({
       installationId: args.installationId,
       ownerUserId: args.sessionUserId,
     });
+    if (link.outcome === 'owner-mismatch') {
+      // Never re-point a held link (ADR-0026 §7 hardening): the id frees up only
+      // when the real `installation.deleted` webhook removes it.
+      throw new ConflictException('GitHub installation is already linked to another user');
+    }
 
     const installationId = Number(args.installationId);
     const repos = await auth.listInstallationRepos(installationId);

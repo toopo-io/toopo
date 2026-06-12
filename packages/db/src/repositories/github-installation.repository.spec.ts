@@ -1,8 +1,10 @@
 /**
- * GitHub-App installation repository — upsert link, find, delete, on both backends
- * (ADR-0017 §6, ADR-0026 §3). Asserts: a link round-trips with coerced dates, a
- * re-upsert re-links the owner while preserving created_at (idempotent on the
- * installation id), finding an absent id returns null, and delete is idempotent.
+ * GitHub-App installation repository — link, find, delete, on both backends
+ * (ADR-0017 §6, ADR-0026 §3 + §7 hardening). Asserts: a link round-trips with
+ * coerced dates, a same-owner re-link is idempotent (created_at preserved), a
+ * cross-owner re-link is refused with the stored row untouched, a deleted link
+ * frees the id for a new owner, finding an absent id returns null, and delete is
+ * idempotent.
  */
 import type { Kysely } from 'kysely';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -34,31 +36,69 @@ for (const { backend, skip } of backends) {
       await harness?.cleanup();
     });
 
-    it('upserts a link and round-trips it with coerced dates', async () => {
-      const record = await repository.upsertInstallation({
+    it('links an installation and round-trips it with coerced dates', async () => {
+      const result = await repository.linkInstallation({
         installationId: '100',
         ownerUserId: 'user-1',
       });
-      expect(record.installationId).toBe('100');
-      expect(record.ownerUserId).toBe('user-1');
-      expect(record.createdAt).toBeInstanceOf(Date);
-      expect(record.updatedAt).toBeInstanceOf(Date);
+      expect(result.outcome).toBe('linked');
+      if (result.outcome !== 'linked') {
+        return;
+      }
+      expect(result.record.installationId).toBe('100');
+      expect(result.record.ownerUserId).toBe('user-1');
+      expect(result.record.createdAt).toBeInstanceOf(Date);
+      expect(result.record.updatedAt).toBeInstanceOf(Date);
 
       const found = await repository.findInstallation('100');
       expect(found?.ownerUserId).toBe('user-1');
     });
 
-    it('re-links the owner on a second upsert, preserving created_at', async () => {
-      const first = await repository.upsertInstallation({
+    it('re-links the SAME owner idempotently, preserving created_at', async () => {
+      const first = await repository.linkInstallation({
         installationId: '200',
         ownerUserId: 'user-1',
       });
-      const second = await repository.upsertInstallation({
+      const second = await repository.linkInstallation({
         installationId: '200',
+        ownerUserId: 'user-1',
+      });
+      expect(first.outcome).toBe('linked');
+      expect(second.outcome).toBe('linked');
+      if (first.outcome !== 'linked' || second.outcome !== 'linked') {
+        return;
+      }
+      expect(second.record.ownerUserId).toBe('user-1');
+      expect(second.record.createdAt.getTime()).toBe(first.record.createdAt.getTime());
+    });
+
+    it('refuses to re-point a link held by a DIFFERENT owner, leaving the row untouched', async () => {
+      const held = await repository.linkInstallation({
+        installationId: '250',
+        ownerUserId: 'user-1',
+      });
+      const hijack = await repository.linkInstallation({
+        installationId: '250',
         ownerUserId: 'user-2',
       });
-      expect(second.ownerUserId).toBe('user-2');
-      expect(second.createdAt.getTime()).toBe(first.createdAt.getTime());
+      expect(hijack.outcome).toBe('owner-mismatch');
+
+      const persisted = await repository.findInstallation('250');
+      expect(persisted?.ownerUserId).toBe('user-1');
+      if (held.outcome === 'linked') {
+        expect(persisted?.updatedAt.getTime()).toBe(held.record.updatedAt.getTime());
+      }
+    });
+
+    it('links a NEW owner after the previous link was deleted (real uninstall)', async () => {
+      await repository.linkInstallation({ installationId: '260', ownerUserId: 'user-1' });
+      await repository.deleteInstallation('260');
+      const relinked = await repository.linkInstallation({
+        installationId: '260',
+        ownerUserId: 'user-2',
+      });
+      expect(relinked.outcome).toBe('linked');
+      expect((await repository.findInstallation('260'))?.ownerUserId).toBe('user-2');
     });
 
     it('returns null for an absent installation id', async () => {
@@ -66,7 +106,7 @@ for (const { backend, skip } of backends) {
     });
 
     it('deletes a link and is idempotent for an absent id', async () => {
-      await repository.upsertInstallation({ installationId: '300', ownerUserId: 'user-1' });
+      await repository.linkInstallation({ installationId: '300', ownerUserId: 'user-1' });
       await repository.deleteInstallation('300');
       expect(await repository.findInstallation('300')).toBeNull();
       await expect(repository.deleteInstallation('300')).resolves.toBeUndefined();

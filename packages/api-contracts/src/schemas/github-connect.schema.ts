@@ -18,7 +18,12 @@ export type InstallUrlResponse = z.infer<typeof InstallUrlResponseSchema>;
  */
 export const CompleteInstallRequestSchema = z
   .object({
-    installationId: z.string().regex(/^\d+$/, 'installationId must be a numeric string'),
+    installationId: z
+      .string()
+      .regex(/^\d+$/, 'installationId must be a numeric string')
+      .refine((value) => Number.isSafeInteger(Number(value)), {
+        message: 'installationId is outside the safe integer range',
+      }),
     setupAction: z.string().min(1).optional(),
     state: z.string().min(1),
   })

@@ -36,7 +36,8 @@ export {
 export { createProjectDatabase, type ProjectDatabaseHandle } from './project-database.js';
 export type {
   GithubInstallationRepository,
-  UpsertInstallationInput,
+  LinkInstallationInput,
+  LinkInstallationResult,
 } from './repositories/github-installation.repository.js';
 export { KyselyGithubInstallationRepository } from './repositories/github-installation.repository.kysely.js';
 export {

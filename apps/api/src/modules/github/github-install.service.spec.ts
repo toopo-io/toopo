@@ -1,4 +1,4 @@
-import { ForbiddenException, ServiceUnavailableException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, ServiceUnavailableException } from '@nestjs/common';
 import type {
   GithubInstallationRepository,
   MembershipRepository,
@@ -41,7 +41,7 @@ interface Harness {
     listWorkspaceIds: ReturnType<typeof vi.fn>;
   };
   installations: {
-    upsertInstallation: ReturnType<typeof vi.fn>;
+    linkInstallation: ReturnType<typeof vi.fn>;
     findInstallation: ReturnType<typeof vi.fn>;
     deleteInstallation: ReturnType<typeof vi.fn>;
   };
@@ -81,7 +81,7 @@ function harness(options?: {
     listWorkspaceIds: vi.fn(async () => memberWorkspaceIds),
   };
   const installations = {
-    upsertInstallation: vi.fn(async () => ({})),
+    linkInstallation: vi.fn(async () => ({ outcome: 'linked', record: {} })),
     findInstallation: vi.fn(),
     deleteInstallation: vi.fn(),
   };
@@ -138,7 +138,7 @@ describe('GithubInstallService.completeInstall', () => {
     });
 
     expect(result).toEqual({ linked: true, projectsConnected: 1 });
-    expect(installations.upsertInstallation).toHaveBeenCalledWith({
+    expect(installations.linkInstallation).toHaveBeenCalledWith({
       installationId: '55',
       ownerUserId: USER,
     });
@@ -267,7 +267,7 @@ describe('GithubInstallService.completeInstall', () => {
         sessionUserId: 'victim',
       }),
     ).rejects.toThrow(ForbiddenException);
-    expect(installations.upsertInstallation).not.toHaveBeenCalled();
+    expect(installations.linkInstallation).not.toHaveBeenCalled();
     expect(queue.enqueue).not.toHaveBeenCalled();
   });
 
@@ -281,7 +281,27 @@ describe('GithubInstallService.completeInstall', () => {
         sessionUserId: USER,
       }),
     ).rejects.toThrow(ForbiddenException);
-    expect(installations.upsertInstallation).not.toHaveBeenCalled();
+    expect(installations.linkInstallation).not.toHaveBeenCalled();
+  });
+
+  it('rejects with 409 an installation already linked to a DIFFERENT user and provisions nothing', async () => {
+    const { service, installations, auth, projects, queue } = harness();
+    installations.linkInstallation.mockResolvedValueOnce({ outcome: 'owner-mismatch' });
+
+    await expect(
+      service.completeInstall({
+        installationId: '55',
+        setupAction: 'install',
+        state: validState,
+        sessionUserId: USER,
+      }),
+    ).rejects.toThrow(ConflictException);
+    // Nothing downstream of the refused link may run: no repo listing with the
+    // App JWT, no project creation or revival, no scan enqueued.
+    expect(auth.listInstallationRepos).not.toHaveBeenCalled();
+    expect(projects.createProject).not.toHaveBeenCalled();
+    expect(projects.reviveProject).not.toHaveBeenCalled();
+    expect(queue.enqueue).not.toHaveBeenCalled();
   });
 
   it('fails closed with 503 when the App is unconfigured', async () => {

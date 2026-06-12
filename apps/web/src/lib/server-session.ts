@@ -16,6 +16,8 @@ export interface ServerSession {
   readonly expiresAt: string;
   readonly token: string;
   readonly userId: string;
+  /** The viewer's active organization = active Workspace (ADR-0028, org plugin). */
+  readonly activeOrganizationId?: string | null;
 }
 
 export interface ServerSessionResponse {

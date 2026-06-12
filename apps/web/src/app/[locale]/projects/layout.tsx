@@ -42,15 +42,22 @@ export default async function ProjectsLayout({
     listMyWorkspaces(init),
     listMyProjects(locale, init).catch(() => null),
   ]);
+  // TODO(perf, MEDIUM-1): this fans one package-map probe per repo to derive the
+  // mapped state — an N+1 acceptable at v1's repo counts. The durable fix is a
+  // persisted `mapped` column on the project, set at ingest, read in one query.
   const repos = await Promise.all(
     (projectPage?.items ?? []).map((project) => toRepoSummary(project, locale, init)),
   );
+
+  // The active Workspace is the session's active organization (ADR-0028), not the
+  // first in the list — otherwise a multi-workspace viewer sees the wrong one.
+  const activeWorkspaceId = session.session.activeOrganizationId ?? workspaces[0]?.id ?? null;
 
   return (
     <AppShell
       workspaces={workspaces}
       repos={repos}
-      activeWorkspaceId={workspaces[0]?.id ?? null}
+      activeWorkspaceId={activeWorkspaceId}
       locale={locale}
     >
       {children}

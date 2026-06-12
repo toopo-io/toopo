@@ -257,6 +257,32 @@ describe('<NodeDetailPanel />', () => {
     expect(screen.getByText(messages.Graph.panel.unbound)).toBeInTheDocument();
   });
 
+  it('surfaces a lazy declarations failure instead of a silent empty list', async () => {
+    node.mockResolvedValue(FUNCTION_DETAIL);
+    declarations.mockRejectedValue(new Error('boom'));
+    renderPanel({ nodeId: 'pkg/util.ts#clamp' });
+
+    await waitFor(() =>
+      expect(screen.getByText(messages.Graph.panel.showMembers)).toBeInTheDocument(),
+    );
+    fireEvent.click(screen.getByText(messages.Graph.panel.showMembers));
+    await waitFor(() =>
+      expect(screen.getByText(messages.Graph.panel.lazyError)).toBeInTheDocument(),
+    );
+  });
+
+  it('surfaces a lazy call-bindings failure instead of a silent empty list', async () => {
+    node.mockResolvedValue(FUNCTION_DETAIL);
+    callBindings.mockRejectedValue(new Error('boom'));
+    renderPanel({ nodeId: 'pkg/util.ts#clamp' });
+
+    await waitFor(() => expect(screen.getByText('min(…)')).toBeInTheDocument());
+    fireEvent.click(screen.getByText('min(…)'));
+    await waitFor(() =>
+      expect(screen.getByText(messages.Graph.panel.lazyError)).toBeInTheDocument(),
+    );
+  });
+
   it('shows a load error honestly', async () => {
     node.mockRejectedValue(new Error('nope'));
     renderPanel();

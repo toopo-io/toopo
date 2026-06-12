@@ -209,7 +209,7 @@ function InferredCallout({ text }: { text: string }): JSX.Element {
 function MembersDisclosure({ nodeId, locale }: { nodeId: string; locale: string }): JSX.Element {
   const t = useTranslations('Graph.panel');
   const [open, setOpen] = useState(false);
-  const { data, isFetching } = useGraphDeclarations(nodeId, locale, open);
+  const { data, isFetching, isError } = useGraphDeclarations(nodeId, locale, open);
   const buckets = data !== undefined ? declarationBuckets(data.items) : { locals: [], nested: [] };
 
   if (!open) {
@@ -222,6 +222,9 @@ function MembersDisclosure({ nodeId, locale }: { nodeId: string; locale: string 
         {t('showMembers')}
       </button>
     );
+  }
+  if (isError && data === undefined) {
+    return <p className="text-destructive text-sm">{t('lazyError')}</p>;
   }
   if (isFetching && data === undefined) {
     return <p className="text-muted-foreground text-sm">{t('loading')}</p>;
@@ -373,7 +376,7 @@ function CallSiteItem({
 }): JSX.Element {
   const t = useTranslations('Graph.panel');
   const [open, setOpen] = useState(false);
-  const { data, isFetching } = useGraphCallBindings(row.id, locale, open);
+  const { data, isFetching, isError } = useGraphCallBindings(row.id, locale, open);
   const bindings = data !== undefined ? callBindingRows(data.bindings) : [];
   return (
     <li className="rounded-md border border-border px-2 py-1.5 text-sm">
@@ -387,7 +390,9 @@ function CallSiteItem({
         <span className="shrink-0 text-muted-foreground">{row.args.length}</span>
       </button>
       {open ? (
-        isFetching && data === undefined ? (
+        isError && data === undefined ? (
+          <p className="mt-1 text-destructive text-xs">{t('lazyError')}</p>
+        ) : isFetching && data === undefined ? (
           <p className="mt-1 text-muted-foreground text-xs">{t('loading')}</p>
         ) : (
           <ul className="mt-1.5 flex flex-col gap-1 pl-1">

@@ -67,6 +67,7 @@
       "close": "Close",
       "loading": "Loading node…",
       "error": "Failed to load node: {message}",
+      "lazyError": "Couldn't load this section — please retry.",
       "documentation": "Documentation",
       "inferredCallout": "Some relationships here are inferred — heuristic, not statically proven.",
       "parameters": "Parameters",

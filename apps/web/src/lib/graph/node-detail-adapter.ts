@@ -106,22 +106,19 @@ export interface NodeDetailViewModel {
 export function nodeDetailToViewModel(detail: NodeDetail): NodeDetailViewModel {
   const { node } = detail;
   const parameters = detail.declaredInterface.items.map(toInterfaceRow);
-  const signatureParams = parameters
-    .filter((row) => row.type !== undefined)
-    .map((row) => ({ name: row.label, type: row.type as string }));
-  const onlyNames = parameters.map((row) => ({ name: row.label }));
+  // Each param carries its type when recorded; composeSignature omits the ones
+  // that are absent — `f(a: T, b, c: U)` — rather than dropping every type the
+  // moment one param lacks one (faithful, not fabricated).
+  const signatureParams = parameters.map((row) =>
+    row.type !== undefined ? { name: row.label, type: row.type } : { name: row.label },
+  );
   return {
     id: node.id,
     label: nodeLabel(node),
     kind: node.kind,
     ...(node.subKind !== undefined ? { subKind: node.subKind } : {}),
     ...(node.analysis !== undefined ? { analysisStatus: node.analysis.status } : {}),
-    signature: composeSignature(
-      nodeLabel(node),
-      // Prefer typed params; fall back to bare names so the shape is still shown.
-      signatureParams.length === parameters.length ? signatureParams : onlyNames,
-      stringProp(node, 'returnType'),
-    ),
+    signature: composeSignature(nodeLabel(node), signatureParams, stringProp(node, 'returnType')),
     jsdoc: jsdocOf(node),
     hasInferredEdge:
       detail.incoming.items.some((n) => n.edge.resolution === 'inferred') ||

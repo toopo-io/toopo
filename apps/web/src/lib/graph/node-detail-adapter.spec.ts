@@ -117,6 +117,23 @@ describe('nodeDetailToViewModel', () => {
     expect(vm.hasInferredEdge).toBe(true);
   });
 
+  it('keeps each available param type when some params lack one', () => {
+    const mixed: NodeDetail = {
+      ...DETAIL,
+      node: { kind: 'symbol', id: 'f#', name: 'f', properties: {} },
+      declaredInterface: {
+        items: [
+          { ...symbol('f#a', 'a', 'ts:parameter'), properties: { type: 'T' } },
+          symbol('f#b', 'b', 'ts:parameter'),
+          { ...symbol('f#c', 'c', 'ts:parameter'), properties: { type: 'U' } },
+        ],
+        nextCursor: null,
+      },
+    };
+    // The untyped param drops only its own type, not every type (no fabrication).
+    expect(nodeDetailToViewModel(mixed).signature).toBe('f(a: T, b, c: U)');
+  });
+
   it('marks callers/callees with the edge trust, using the correct far end', () => {
     const vm = nodeDetailToViewModel(DETAIL);
     // Incoming: far end is the source (the caller).

@@ -24,7 +24,8 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "db:generate": "node --import tsx src/bin/generate.ts",
-    "db:migrate": "node --env-file=../../apps/api/.env --import tsx src/bin/migrate.ts"
+    "db:migrate": "node --env-file=../../apps/api/.env --import tsx src/bin/migrate.ts",
+    "migrate": "node dist/bin/migrate.js"
   },
   "dependencies": {
     "@libsql/kysely-libsql": "0.4.1",

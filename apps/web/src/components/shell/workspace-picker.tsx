@@ -21,6 +21,7 @@ export function WorkspacePicker({ workspaces, activeId }: WorkspacePickerProps):
   const t = useTranslations('AppShell');
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const active = workspaces.find((workspace) => workspace.id === activeId) ?? workspaces[0] ?? null;
 
   if (active === null) {
@@ -32,8 +33,19 @@ export function WorkspacePicker({ workspaces, activeId }: WorkspacePickerProps):
     if (id === active.id) {
       return;
     }
-    await authClient.organization.setActive({ organizationId: id });
-    router.refresh();
+    setError(null);
+    // Surface a failed switch rather than leaving the user with a silent no-op:
+    // Better Auth may reject OR resolve with an `error`, so handle both.
+    try {
+      const result = await authClient.organization.setActive({ organizationId: id });
+      if (result.error) {
+        setError(t('switchError'));
+        return;
+      }
+      router.refresh();
+    } catch {
+      setError(t('switchError'));
+    }
   };
 
   return (
@@ -67,6 +79,11 @@ export function WorkspacePicker({ workspaces, activeId }: WorkspacePickerProps):
             </li>
           ))}
         </ul>
+      ) : null}
+      {error !== null ? (
+        <p role="alert" className="mt-1 px-2.5 text-destructive text-xs">
+          {error}
+        </p>
       ) : null}
     </div>
   );

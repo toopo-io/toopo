@@ -95,6 +95,7 @@
     "workspace": "Workspace",
     "repositories": "Repositories",
     "noWorkspace": "No workspace",
+    "switchError": "Couldn't switch workspace — please retry.",
     "theme": {
       "light": "Light",
       "dark": "Dark",

@@ -1,0 +1,44 @@
+# OpenSSF Scorecard (security pass, Part B): automated supply-chain posture
+# checks (pinned dependencies, token permissions, branch protection, …).
+# publish_results makes the score visible on https://scorecard.dev and enables
+# the badge; results also land in the Security > Code scanning tab.
+name: Scorecard
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '37 6 * * 2' # weekly, Tuesday 06:37 UTC
+
+permissions: read-all
+
+jobs:
+  analysis:
+    name: Scorecard analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      # scorecard-action requirements: id-token for the OIDC-attested publish,
+      # security-events to upload the SARIF; everything else stays read.
+      id-token: write
+      security-events: write
+      contents: read
+      actions: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+
+      - name: Run analysis
+        uses: ossf/scorecard-action@4eaacf0543bb3f2c246792bd56e8cdeffafb205a # v2.4.3
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          publish_results: true
+
+      - name: Upload SARIF to code scanning
+        uses: github/codeql-action/upload-sarif@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v4.36.2
+        with:
+          sarif_file: results.sarif

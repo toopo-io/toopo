@@ -100,6 +100,18 @@ export function decodeCursorTuple(cursor: string, arity: number): CursorPart[] {
 }
 
 /**
+ * Assert a decoded cursor part is the finite number the server encoded there.
+ * A forged cursor with a string in a numeric slot must be a 400 — never a
+ * coerced `NaN` handed to the driver as a bind parameter.
+ */
+export function numberCursorPart(part: CursorPart | undefined, cursor: string): number {
+  if (typeof part !== 'number' || !Number.isFinite(part)) {
+    throw new InvalidCursorError(cursor);
+  }
+  return part;
+}
+
+/**
  * Assemble a {@link Page} from over-fetched rows. Pass `limit + 1` rows: if the
  * extra row is present there is a next page, and `toCursor` of the last KEPT row
  * becomes `nextCursor`; otherwise this is the final page. `total`, when provided

@@ -14,6 +14,7 @@ import {
   encodeCursor,
   InvalidCursorError,
   MAX_PAGE_LIMIT,
+  numberCursorPart,
 } from './graph-page.js';
 
 describe('clampLimit', () => {
@@ -85,6 +86,14 @@ describe('cursor encode/decode', () => {
 
   it('decodeCursorTuple rejects an arity mismatch', () => {
     expect(() => decodeCursorTuple(encodeCursor(['only-one']), 2)).toThrow(InvalidCursorError);
+  });
+
+  it('numberCursorPart passes the number the server encoded through', () => {
+    expect(numberCursorPart(3, 'cursor')).toBe(3);
+  });
+
+  it('numberCursorPart REJECTS a string forged into a numeric slot (never a NaN bind)', () => {
+    expect(() => numberCursorPart('abc', 'cursor')).toThrow(InvalidCursorError);
   });
 });
 

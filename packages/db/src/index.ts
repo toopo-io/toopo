@@ -13,6 +13,7 @@ export {
   type DatabaseBackend,
   type DatabaseConfig,
   DatabaseConfigSchema,
+  DatabaseUrlSchema,
   inferBackend,
   parseDatabaseConfig,
   resolveBackend,

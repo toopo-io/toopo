@@ -64,6 +64,7 @@ import {
   decodeCursorTuple,
   encodeCursor,
   firstPageTotal,
+  numberCursorPart,
   type Page,
   type PageOptions,
 } from './graph-page.js';
@@ -932,7 +933,9 @@ function blastKeysetClause(cursor: string | undefined): RawBuilder<unknown> {
     return sql``;
   }
   const [depthPart, nodePart] = decodeCursorTuple(cursor, 2);
-  const depth = Number(depthPart);
+  // The depth slot must hold the number the server encoded — a forged string
+  // there is a 400 (InvalidCursorError), never a NaN bind parameter.
+  const depth = numberCursorPart(depthPart, cursor);
   const nodeId = String(nodePart);
   return sql`where ("depth" > ${depth} or ("depth" = ${depth} and "node_id" > ${nodeId}))`;
 }

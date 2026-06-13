@@ -34,7 +34,11 @@ export async function discoverFiles(
   // fdir's withRelativePaths() collapses to basenames when the crawl root is a
   // bare relative path (e.g. "."); resolving to absolute keeps full subpaths.
   const base = resolve(rootDir);
-  const crawled = await new fdir()
+  // excludeSymlinks: analysed repo content is untrusted (security baseline) and
+  // the reads downstream FOLLOW links — a hostile repo could symlink a file
+  // outside the sandbox and have its target ingested into the graph. Excluding
+  // symlinks at discovery makes the walk provably confined to the real tree.
+  const crawled = await new fdir({ excludeSymlinks: true })
     .withRelativePaths()
     .exclude((dirName) => HARD_DEFAULT_DIRS.has(dirName))
     .crawl(base)

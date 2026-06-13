@@ -1,4 +1,4 @@
-import { inferBackend } from '@toopo/db';
+import { DatabaseUrlSchema } from '@toopo/db';
 import {
   baseEnvShape,
   githubAppClientIdSchema,
@@ -23,17 +23,10 @@ export const ApiEnvSchema = z.object({
     .transform((value) => value === 'true'),
 
   // The backend is inferred from the scheme (ADR-0017 §1): postgres(ql):// for
-  // cloud, libsql://|sqlite://|file: for self-host. Validated with a custom
-  // refine — not .url() — because libSQL's file: and :memory: forms are not
-  // standard URLs.
-  DATABASE_URL: z
-    .string()
-    .trim()
-    .min(1)
-    .refine((value) => inferBackend(value) !== null, {
-      message:
-        'DATABASE_URL must use a known scheme: postgres://, postgresql://, libsql://, sqlite://, file:, or :memory:',
-    }),
+  // cloud, libsql://|sqlite://|file: for self-host. The shared boundary schema
+  // lives in @toopo/db next to the inference it guards (one definition for the
+  // api, the worker consumer, and db:migrate).
+  DATABASE_URL: DatabaseUrlSchema,
 
   BETTER_AUTH_SECRET: z.string().min(32, {
     message:

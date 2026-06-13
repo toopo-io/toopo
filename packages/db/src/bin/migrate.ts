@@ -5,17 +5,22 @@
  *
  * Run: `pnpm --filter @toopo/db db:migrate`
  */
+import { DatabaseUrlSchema } from '../config.js';
 import { createDatabase } from '../database.js';
 import { MIGRATIONS_DIR } from '../migrations-dir.js';
 import { migrateToLatest } from '../migrator.js';
 
 async function main(): Promise<void> {
-  const databaseUrl = process.env['DATABASE_URL'];
-  if (databaseUrl === undefined || databaseUrl.trim().length === 0) {
-    throw new Error('db:migrate: DATABASE_URL must be set');
+  // The same boundary schema every entrypoint validates with (ADR-0006):
+  // presence AND a scheme the dialect layer accepts.
+  const parsedUrl = DatabaseUrlSchema.safeParse(process.env['DATABASE_URL']);
+  if (!parsedUrl.success) {
+    throw new Error(
+      `db:migrate: ${parsedUrl.error.issues[0]?.message ?? 'DATABASE_URL is not set'}`,
+    );
   }
 
-  const { db, backend } = createDatabase({ databaseUrl });
+  const { db, backend } = createDatabase({ databaseUrl: parsedUrl.data });
   try {
     const results = await migrateToLatest({ db, backend, rootDir: MIGRATIONS_DIR });
     if (results.length === 0) {

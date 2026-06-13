@@ -32,15 +32,22 @@ export function inferBackend(databaseUrl: string): DatabaseBackend | null {
   return null;
 }
 
+/**
+ * The DATABASE_URL boundary schema — the ONE definition every entrypoint
+ * (api env, worker consume, db:migrate) validates against (ADR-0006), so no
+ * process can boot against a URL whose scheme the dialect layer would reject.
+ */
+export const DatabaseUrlSchema = z
+  .string()
+  .trim()
+  .min(1, { message: 'DATABASE_URL must not be empty' })
+  .refine((value) => inferBackend(value) !== null, {
+    message:
+      'DATABASE_URL must use a known scheme: postgres://, postgresql://, libsql://, sqlite://, file:, or :memory:',
+  });
+
 export const DatabaseConfigSchema = z.object({
-  databaseUrl: z
-    .string()
-    .trim()
-    .min(1, { message: 'DATABASE_URL must not be empty' })
-    .refine((value) => inferBackend(value) !== null, {
-      message:
-        'DATABASE_URL must use a known scheme: postgres://, postgresql://, libsql://, sqlite://, file:, or :memory:',
-    }),
+  databaseUrl: DatabaseUrlSchema,
 });
 
 export type DatabaseConfig = z.infer<typeof DatabaseConfigSchema>;

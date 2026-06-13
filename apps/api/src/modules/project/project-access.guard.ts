@@ -30,12 +30,21 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import type { MembershipRepository, ProjectRecord, ProjectRepository } from '@toopo/db';
+import { z } from 'zod';
 import { MEMBERSHIP_REPOSITORY, PROJECT_REPOSITORY } from '../database/database.module';
 import type { RequestWithSession } from '../user/session.guard';
 
 export interface RequestWithProject extends RequestWithSession {
   toopoProject?: ProjectRecord;
 }
+
+/**
+ * The `:projectId` path parameter, validated like every other boundary input
+ * (ADR-0006). Ids are opaque, so only sanity bounds apply: non-empty and capped
+ * well above any generated id, so a pathological mega-string never reaches the
+ * lookup. A failed parse is a plain 404 — indistinguishable from an unknown id.
+ */
+const ProjectIdParamSchema = z.string().min(1).max(128);
 
 @Injectable()
 export class ProjectAccessGuard implements CanActivate {
@@ -54,12 +63,12 @@ export class ProjectAccessGuard implements CanActivate {
       throw new UnauthorizedException('Session required');
     }
 
-    const projectId = (req.params as { projectId?: string }).projectId;
-    if (projectId === undefined || projectId.length === 0) {
+    const parsed = ProjectIdParamSchema.safeParse((req.params as { projectId?: string }).projectId);
+    if (!parsed.success) {
       throw new NotFoundException('Project not found');
     }
 
-    const project = await this.projects.findProjectById(projectId);
+    const project = await this.projects.findProjectById(parsed.data);
     if (project === null) {
       throw new NotFoundException('Project not found');
     }

@@ -6,6 +6,7 @@
  * or database URL throws with the usage line.
  */
 import { parseArgs as nodeParseArgs } from 'node:util';
+import { DatabaseUrlSchema } from '@toopo/db';
 
 /** The default project owner for CLI-populated graphs (ADR-0022 §1, §2): the
  *  worker has no session, so the connect is attributed to a system principal
@@ -69,10 +70,13 @@ export function parseArgs(
     throw new Error(USAGE);
   }
 
-  const databaseUrl = values['database-url'] ?? env['DATABASE_URL'];
-  if (databaseUrl === undefined || databaseUrl.length === 0) {
-    throw new Error(`A database URL is required (--database-url or DATABASE_URL).\n${USAGE}`);
+  // The shared boundary schema (ADR-0006): presence AND a scheme the dialect
+  // layer accepts, so a typo fails here with usage help instead of deeper in.
+  const parsedUrl = DatabaseUrlSchema.safeParse(values['database-url'] ?? env['DATABASE_URL']);
+  if (!parsedUrl.success) {
+    throw new Error(`A valid database URL is required (--database-url or DATABASE_URL).\n${USAGE}`);
   }
+  const databaseUrl = parsedUrl.data;
 
   const host = values['repo-host'];
   const owner = values['repo-owner'];

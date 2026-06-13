@@ -58,6 +58,17 @@ describe('ProjectAccessGuard (membership-scoped, ADR-0028 §Phase 3)', () => {
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
+  it('404s a pathological oversized projectId before any lookup (boundary parse)', async () => {
+    const projects = fakeProjects(project);
+    const guard = new ProjectAccessGuard(projects, fakeMemberships(true).repo);
+    await expect(
+      guard.canActivate(
+        contextFor({ betterAuthSession: session, params: { projectId: 'x'.repeat(129) } }),
+      ),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(projects.findProjectById).not.toHaveBeenCalled();
+  });
+
   it('404s when the project does not exist (membership never consulted)', async () => {
     const memberships = fakeMemberships(true);
     const guard = new ProjectAccessGuard(fakeProjects(null), memberships.repo);

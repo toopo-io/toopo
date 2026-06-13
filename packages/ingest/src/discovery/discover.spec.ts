@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -53,6 +53,29 @@ describe('discoverFiles', () => {
     const first = await discoverFiles(root, { include: TS });
     const second = await discoverFiles(root, { include: TS });
     expect(second).toEqual(first);
+  });
+
+  it('NEVER surfaces a symlink — a hostile repo cannot point reads outside the tree', async () => {
+    // The walk is confined to the real tree (security baseline): downstream
+    // reads follow links, so a symlinked "source file" must not be discovered.
+    const outside = await mkdtemp(join(tmpdir(), 'ingest-outside-'));
+    await writeFile(join(outside, 'host-secret.ts'), 'export const leaked = true;\n');
+    try {
+      await symlink(join(outside, 'host-secret.ts'), join(root, 'src', 'evil.ts'), 'file');
+    } catch {
+      // Windows without Developer Mode denies symlink creation — nothing to
+      // prove on a host that cannot materialise links (the worker runs Linux,
+      // where CI exercises this path).
+      await rm(outside, { recursive: true, force: true });
+      return;
+    }
+    try {
+      const files = await discoverFiles(root, { include: TS });
+      expect(files).not.toContain('src/evil.ts');
+    } finally {
+      await rm(join(root, 'src', 'evil.ts'), { force: true });
+      await rm(outside, { recursive: true, force: true });
+    }
   });
 
   it('keeps full subpaths for a bare relative root like "." (regression)', async () => {

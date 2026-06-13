@@ -12,7 +12,7 @@ import { DatabaseUrlSchema } from '@toopo/db';
  *  worker has no session, so the connect is attributed to a system principal
  *  unless `--owner-user-id` is given. `owner_user_id` is a logical reference
  *  (no FK), recorded for provenance and the future cloud isolation rule. */
-export const DEFAULT_OWNER_USER_ID = 'system';
+const DEFAULT_OWNER_USER_ID = 'system';
 
 /* `--workspace-id` is MANDATORY (ADR-0028): the worker has no session, so it
  * cannot resolve a user's workspace the way the install flow does (Phase 2). It
@@ -38,7 +38,7 @@ export interface WorkerCliOptions {
   readonly workspaceId: string;
 }
 
-export const USAGE =
+const USAGE =
   'Usage: toopo-worker ingest <dir> --database-url <url> \\\n' +
   '         --repo-host <host> --repo-owner <owner> --repo-name <name> \\\n' +
   '         --workspace-id <id> [--owner-user-id <id>] [--no-gitignore]\n' +

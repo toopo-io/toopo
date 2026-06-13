@@ -69,7 +69,7 @@ export interface NeighborRow {
   readonly label: string | null;
 }
 
-export interface PayloadArgRow {
+interface PayloadArgRow {
   readonly ordinal: number;
   readonly name?: string;
   readonly passKind: 'positional' | 'named' | 'spread';

@@ -21,7 +21,7 @@ import { protectedPathPrefixes } from './lib/routes';
  * does not redirect to /signin. Add new protected sections via
  * `protectedPathPrefixes` in `lib/routes.ts`.
  */
-export const PROTECTED_PATH_PREFIXES: readonly string[] = protectedPathPrefixes;
+const PROTECTED_PATH_PREFIXES: readonly string[] = protectedPathPrefixes;
 
 export function isProtectedPath(pathAfterLocale: string): boolean {
   const normalized = pathAfterLocale === '' ? '/' : pathAfterLocale;

@@ -30,7 +30,7 @@ export interface SessionCreatePayload {
   readonly userId: string;
 }
 
-export type GetUserDeletedAt = (userId: string) => Promise<Date | null | undefined>;
+type GetUserDeletedAt = (userId: string) => Promise<Date | null | undefined>;
 
 export interface SoftDeleteHookDeps {
   readonly getUserDeletedAt: GetUserDeletedAt;

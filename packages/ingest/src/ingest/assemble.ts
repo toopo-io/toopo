@@ -19,7 +19,7 @@ import {
 import { discoverFiles } from '../discovery/discover.js';
 import { type PackageDir, synthesizePackages } from './synthesize-packages.js';
 
-export const EMPTY_PROJECT_MODEL: ProjectModel = { aliases: [], workspacePackages: [] };
+const EMPTY_PROJECT_MODEL: ProjectModel = { aliases: [], workspacePackages: [] };
 
 /**
  * How a project's `ProjectModel` is built once its files are discovered. Injected,

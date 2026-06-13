@@ -8,7 +8,7 @@ export interface CliOptions {
   readonly title?: string;
 }
 
-export const USAGE = 'Usage: toopo-ingest <dir> [--json <path>] [--no-gitignore] [--title <text>]';
+const USAGE = 'Usage: toopo-ingest <dir> [--json <path>] [--no-gitignore] [--title <text>]';
 
 /**
  * Parse the ingest CLI arguments (pure, so it is unit-testable). The single

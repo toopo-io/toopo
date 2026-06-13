@@ -26,7 +26,7 @@ export interface Cycle {
 }
 
 /** Cap on members surfaced per cycle; a larger SCC is truncated honestly. */
-export const CYCLE_MEMBER_CAP = 100;
+const CYCLE_MEMBER_CAP = 100;
 
 /** Group the dependency edges into recursive cycles (SCCs), each trust-marked. */
 export function findCycles(edges: readonly DependencyEdge[]): Cycle[] {

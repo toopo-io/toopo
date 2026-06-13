@@ -20,5 +20,3 @@ export const en = {
 } as const satisfies LocaleCatalog;
 
 export type ApiCatalog = typeof en;
-
-export default en;

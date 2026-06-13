@@ -10,14 +10,11 @@ import path from 'node:path';
 
 const dbFile = path.join(os.tmpdir(), 'toopo-fullstack-e2e', 'graph.db');
 
-/** The directory holding the ephemeral DB (wiped + recreated per run). */
-export const DB_DIR = path.dirname(dbFile);
-
 /** The libSQL file URL shared by the servers and the seeders (absolute, posix). */
 export const DATABASE_URL = `file:${dbFile.split(path.sep).join('/')}`;
 
-export const API_PORT = 4000;
-export const WEB_PORT = 3000;
+const API_PORT = 4000;
+const WEB_PORT = 3000;
 export const API_URL = `http://localhost:${API_PORT}`;
 export const BASE_URL = `http://localhost:${WEB_PORT}`;
 export const LOCALE = 'en';

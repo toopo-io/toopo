@@ -31,13 +31,13 @@ export interface LayoutInputEdge {
   readonly target: string;
 }
 
-export interface LayoutPosition {
+interface LayoutPosition {
   readonly x: number;
   readonly y: number;
 }
 
 /** An ordered polyline (start → bend points → end) in the layout coordinate space. */
-export type EdgeRoute = readonly LayoutPosition[];
+type EdgeRoute = readonly LayoutPosition[];
 
 export interface GraphLayout {
   /** Top-left position per node id, in layout space (= React Flow flow space). */
@@ -47,7 +47,7 @@ export interface GraphLayout {
 }
 
 /** Left-to-right layered layout, orthogonal edges, generously spaced; pinned. */
-export const ELK_LAYOUT_OPTIONS: Readonly<Record<string, string>> = {
+const ELK_LAYOUT_OPTIONS: Readonly<Record<string, string>> = {
   'elk.algorithm': 'layered',
   'elk.direction': 'RIGHT',
   'elk.edgeRouting': 'ORTHOGONAL',

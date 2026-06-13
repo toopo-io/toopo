@@ -32,7 +32,7 @@ export function composeSignature(
   return `${name}${paramList}${ret}`;
 }
 
-export interface JsdocTag {
+interface JsdocTag {
   readonly tag: string;
   readonly text: string;
 }

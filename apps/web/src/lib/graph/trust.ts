@@ -40,7 +40,7 @@ export const TRUST_EDGE_OFFSET: Record<TrustKind, number> = {
   inferred: -18,
 };
 
-export const TRUST_STROKE_WIDTH = 1.5;
+const TRUST_STROKE_WIDTH = 1.5;
 
 /**
  * Resting opacity of a proven (deterministic) edge. Below full so a dense

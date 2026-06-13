@@ -7,7 +7,7 @@ import { z } from 'zod';
  * (ADR-0006): only the fields the shell renders are modelled; unknown keys from
  * the org plugin are dropped.
  */
-export const WorkspaceSummarySchema = z.object({
+const WorkspaceSummarySchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
   slug: z.string().min(1),

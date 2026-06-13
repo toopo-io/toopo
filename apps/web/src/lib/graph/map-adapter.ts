@@ -20,7 +20,7 @@ import { nodeLabel } from './node-label';
 import type { EdgePoint } from './orthogonal-edge-path';
 import type { TrustKind } from './trust';
 
-export interface MapNodeData extends Record<string, unknown> {
+interface MapNodeData extends Record<string, unknown> {
   readonly nodeId: string;
   readonly label: string;
   readonly kind: GraphNode['kind'];

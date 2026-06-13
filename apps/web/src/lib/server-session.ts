@@ -2,7 +2,7 @@ import { cookies } from 'next/headers';
 import { Env } from '../../env';
 import { resolveApiBaseUrl } from './api-base';
 
-export interface ServerSessionUser {
+interface ServerSessionUser {
   readonly id: string;
   readonly email: string;
   readonly name: string;
@@ -12,7 +12,7 @@ export interface ServerSessionUser {
   readonly updatedAt: string;
 }
 
-export interface ServerSession {
+interface ServerSession {
   readonly id: string;
   readonly expiresAt: string;
   readonly token: string;

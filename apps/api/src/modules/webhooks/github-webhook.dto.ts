@@ -7,7 +7,7 @@
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 
-export const GithubWebhookResponseSchema = z
+const GithubWebhookResponseSchema = z
   .object({
     status: z.enum(['enqueued', 'ignored', 'acknowledged']),
     deduplicated: z.boolean().optional(),

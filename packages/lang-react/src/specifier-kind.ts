@@ -15,11 +15,6 @@ export function isAlias(specifier: string): boolean {
   return specifier.startsWith('@/') || specifier.startsWith('~/');
 }
 
-/** A bare specifier — a package import (`react`, `@scope/pkg`, `lib/sub`). */
-export function isBare(specifier: string): boolean {
-  return !isRelative(specifier) && !isAlias(specifier);
-}
-
 /** The npm package name of a bare specifier (a scoped name keeps its two segments). */
 export function packageName(specifier: string): string {
   const segments = specifier.split('/');

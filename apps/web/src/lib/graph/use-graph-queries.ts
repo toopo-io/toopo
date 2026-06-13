@@ -26,7 +26,7 @@ export const SEARCH_MIN_LENGTH = 2;
 
 // Query keys are namespaced by projectId first (ADR-0022 §3), so cache entries
 // never bleed across projects even for identical view params or node ids.
-export const graphQueryKeys = {
+const graphQueryKeys = {
   all: ['graph'] as const,
   map: (projectId: string, locale: string, query: MapQuery) =>
     ['graph', projectId, 'map', locale, query] as const,

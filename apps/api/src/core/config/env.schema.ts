@@ -50,11 +50,10 @@ export const ApiEnvSchema = z.object({
   // GitHub-App connect credentials (ADR-0026 §1). All optional and fail-closed:
   // unset ⇒ the connect endpoints return 503 and the worker stays public-clone
   // only. Declared as literal properties (not a second spread) so the inferred
-  // ApiEnv stays a precise object. The private key arrives base64-encoded (§7).
+  // env type stays a precise object. The private key arrives base64-encoded (§7).
   GITHUB_APP_ID: githubAppIdSchema,
   GITHUB_APP_PRIVATE_KEY: githubAppPrivateKeySchema,
   GITHUB_APP_CLIENT_ID: githubAppClientIdSchema,
   GITHUB_APP_CLIENT_SECRET: githubAppClientSecretSchema,
   GITHUB_APP_SLUG: githubAppSlugSchema,
 });
-export type ApiEnv = z.infer<typeof ApiEnvSchema>;

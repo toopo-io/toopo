@@ -16,11 +16,15 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { seconds, Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import type { FastifyRequest } from 'fastify';
 import { ZodSerializerDto } from 'nestjs-zod';
 import { GITHUB_DELIVERY_HEADER, GITHUB_EVENT_HEADER, headerValue } from './github-headers';
 import { GithubSignatureGuard } from './github-signature.guard';
-import { GITHUB_WEBHOOK_ROUTE } from './github-webhook.constants';
+import {
+  GITHUB_WEBHOOK_RATE_LIMIT_PER_MINUTE,
+  GITHUB_WEBHOOK_ROUTE,
+} from './github-webhook.constants';
 import { type GithubWebhookResponse, GithubWebhookResponseDto } from './github-webhook.dto';
 import { GithubWebhookService, type WebhookResult } from './github-webhook.service';
 
@@ -38,7 +42,10 @@ export class GithubWebhookController {
 
   @Post()
   @HttpCode(HttpStatus.OK)
-  @UseGuards(GithubSignatureGuard)
+  // Throttle first (cheap per-IP 429), THEN the HMAC gate — an unauthenticated
+  // flood is bounded before it can make the server buffer/verify 25 MiB bodies.
+  @UseGuards(ThrottlerGuard, GithubSignatureGuard)
+  @Throttle({ default: { limit: GITHUB_WEBHOOK_RATE_LIMIT_PER_MINUTE, ttl: seconds(60) } })
   @ApiOperation({
     summary: 'Receive a signature-verified GitHub push webhook and enqueue an ingest job',
   })

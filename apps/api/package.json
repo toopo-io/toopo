@@ -22,6 +22,7 @@
     "@nestjs/core": "11.1.21",
     "@nestjs/platform-fastify": "11.1.21",
     "@nestjs/swagger": "11.4.3",
+    "@nestjs/throttler": "6.5.0",
     "@toopo/api-contracts": "workspace:*",
     "@toopo/db": "workspace:*",
     "@toopo/env": "workspace:*",

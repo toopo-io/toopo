@@ -12,10 +12,14 @@ import { Env } from './env';
 import { I18nService } from './i18n/i18n.service';
 import { registerAuthRoute } from './modules/auth/auth.fastify-bridge';
 import { AUTH_INSTANCE, type Auth } from './modules/auth/auth.module';
-import { GITHUB_WEBHOOK_MAX_PAYLOAD_BYTES } from './modules/webhooks/github-webhook.constants';
+import { applyWebhookBodyLimit } from './modules/webhooks/github-webhook.constants';
 
 async function bootstrap(): Promise<void> {
   const adapter = new FastifyAdapter({
+    // Honor X-Forwarded-* only when a fronting reverse proxy is declared
+    // (self-host TLS topology, ADR-0030): trusting forwarded headers without
+    // one would let any client spoof the IP the rate limiter tracks.
+    trustProxy: Env.TRUST_PROXY,
     genReqId: (req: IncomingMessage) => {
       const headerId = req.headers['x-request-id'];
       if (typeof headerId === 'string' && headerId.length > 0) {
@@ -33,10 +37,11 @@ async function bootstrap(): Promise<void> {
     rawBody: true,
   });
 
-  // Raise the JSON parser limit to cover GitHub's maximum deliverable webhook
-  // payload (ADR-0024 §2) so a legitimate large push is never 413'd. Nest
-  // exposes this at parser granularity (global), not per-route.
-  app.useBodyParser('application/json', { bodyLimit: GITHUB_WEBHOOK_MAX_PAYLOAD_BYTES });
+  // Raise the body ceiling to GitHub's maximum deliverable webhook payload on
+  // the webhook route ALONE (ADR-0024 §2): a legitimate large push is never
+  // 413'd, while every other route keeps Fastify's 1 MiB default — an
+  // unauthenticated client cannot buffer 25 MiB against arbitrary endpoints.
+  app.getHttpAdapter().getInstance().addHook('onRoute', applyWebhookBodyLimit);
 
   const logger = app.get(Logger);
   app.useLogger(logger);

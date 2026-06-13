@@ -7,6 +7,7 @@
  */
 import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { seconds, Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import {
   type CompleteInstallResponse,
   GITHUB_CONNECT_CONTROLLER_PATH,
@@ -25,9 +26,19 @@ import {
 } from './github-connect.dto';
 import { GithubInstallService } from './github-install.service';
 
+/**
+ * Per-IP budget for the connect flow. A legitimate connect is one initiate and
+ * one completion; the tight budget also slows brute-force enumeration of
+ * `installationId` values against the completion endpoint (the documented
+ * never-linked residual of ADR-0026 §7).
+ */
+const CONNECT_RATE_LIMIT_PER_MINUTE = 10;
+
 @ApiTags('github')
 @Controller({ path: GITHUB_CONNECT_CONTROLLER_PATH, version: '1' })
-@UseGuards(SessionGuard)
+// Throttle first (cheap per-IP 429), then the session gate.
+@UseGuards(ThrottlerGuard, SessionGuard)
+@Throttle({ default: { limit: CONNECT_RATE_LIMIT_PER_MINUTE, ttl: seconds(60) } })
 export class GithubConnectController {
   constructor(private readonly install: GithubInstallService) {}
 

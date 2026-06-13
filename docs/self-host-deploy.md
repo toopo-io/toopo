@@ -95,8 +95,11 @@ Two rules, both about URLs (the classic self-host foot-guns):
    hosts.
 
 Put a TLS-terminating reverse proxy (Caddy, Traefik, nginx) in front for HTTPS;
-point it at the published `:3000` and `:4000`. The actual toopo.io
-hosting/DNS is out of scope here (ADR-0030).
+point it at the published `:3000` and `:4000`, and set `TRUST_PROXY=true` so
+the API reads the real client IP from `X-Forwarded-For` — the built-in rate
+limiting (auth, webhook, connect flow) then tracks each client instead of
+lumping everyone under the proxy's IP. The actual toopo.io hosting/DNS is out
+of scope here (ADR-0030).
 
 ## Operations
 

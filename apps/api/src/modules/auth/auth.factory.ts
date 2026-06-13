@@ -70,6 +70,19 @@ export function createAuth(logger: Logger, email: AuthEmailService, database: Au
     baseURL: Env.BETTER_AUTH_URL,
     basePath: '/v1/auth',
     trustedOrigins: [Env.CORS_ORIGIN],
+    // Explicit, deterministic rate limiting on the auth surface: ON in
+    // production — never left to the library's implicit NODE_ENV default — and
+    // OFF in development/test so local flows and the e2e suites stay
+    // deterministic. Enabling it activates Better Auth's hardened per-path
+    // rules (sign-in/sign-up 3 per 10 s, password-reset/OTP 3 per 60 s) on top
+    // of this base window. The default in-memory counters fit the
+    // single-instance self-host topology (ADR-0030); a multi-instance
+    // deployment must switch `storage` to the database or a secondary store.
+    rateLimit: {
+      enabled: Env.NODE_ENV === 'production',
+      window: 10,
+      max: 100,
+    },
     // Workspace tenancy (ADR-0028). The same plugin builder feeds the migration
     // generator, so the running schema and the committed migration agree
     // (ADR-0017 §3); `sendInvitationEmail` is behavioral (it changes no table), so

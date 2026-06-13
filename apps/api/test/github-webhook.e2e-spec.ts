@@ -30,7 +30,7 @@ import {
 } from '../src/modules/database/database.module';
 import { GithubInstallService } from '../src/modules/github/github-install.service';
 import { QueueService } from '../src/modules/queue/queue.module';
-import { GITHUB_WEBHOOK_MAX_PAYLOAD_BYTES } from '../src/modules/webhooks/github-webhook.constants';
+import { applyWebhookBodyLimit } from '../src/modules/webhooks/github-webhook.constants';
 import { GITHUB_WEBHOOK_SECRET } from '../src/modules/webhooks/github-webhook.tokens';
 
 const SECRET = 'e2e-webhook-secret-0123456789abcdef';
@@ -124,7 +124,9 @@ async function bootWebhookApp(secret: string | undefined): Promise<NestFastifyAp
     rawBody: true,
   });
   app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
-  app.useBodyParser('application/json', { bodyLimit: GITHUB_WEBHOOK_MAX_PAYLOAD_BYTES });
+  // The production body-limit wiring (main.ts): the 25 MiB ceiling is scoped to
+  // the webhook route via the same onRoute hook the bootstrap installs.
+  app.getHttpAdapter().getInstance().addHook('onRoute', applyWebhookBodyLimit);
   await app.init();
   await app.getHttpAdapter().getInstance().ready();
   return app;

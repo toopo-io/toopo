@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { APP_FILTER, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
+import { seconds, ThrottlerModule } from '@nestjs/throttler';
 import { ZodSerializerInterceptor, ZodValidationPipe } from 'nestjs-zod';
 import { CoreModule } from './core/core.module';
 import { GlobalExceptionFilter } from './core/filters/global-exception.filter';
@@ -18,6 +19,14 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
 @Module({
   imports: [
     CoreModule,
+    // Per-IP rate limiting for the public edges (webhook receiver, connect
+    // flow). Deliberately NOT a global APP_GUARD: the session-guarded graph
+    // read API stays unthrottled; exposed controllers opt in with
+    // `@UseGuards(ThrottlerGuard)` and a per-route `@Throttle` budget. The
+    // in-memory counters fit the single-instance self-host topology
+    // (ADR-0030); behind a reverse proxy, set TRUST_PROXY so the client IP —
+    // not the proxy — is the tracked key.
+    ThrottlerModule.forRoot([{ ttl: seconds(60), limit: 60 }]),
     DatabaseModule,
     QueueModule,
     I18nModule,

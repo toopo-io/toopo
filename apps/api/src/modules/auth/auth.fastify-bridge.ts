@@ -12,29 +12,9 @@ import { type Locale, negotiateLocale } from '@toopo/i18n';
 import { fromNodeHeaders } from 'better-auth/node';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Logger } from 'nestjs-pino';
+import { ERROR_CODE_TO_I18N_KEY, STATUS_TO_ERROR_CODE } from '../../core/errors/error-code-maps';
 import type { I18nService } from '../../i18n/i18n.service';
 import type { Auth } from './auth.factory';
-
-const AUTH_STATUS_TO_CODE = new Map<number, ErrorCode>([
-  [HttpStatus.BAD_REQUEST, ErrorCode.VALIDATION_FAILED],
-  [HttpStatus.UNAUTHORIZED, ErrorCode.UNAUTHORIZED],
-  [HttpStatus.FORBIDDEN, ErrorCode.FORBIDDEN],
-  [HttpStatus.NOT_FOUND, ErrorCode.NOT_FOUND],
-  [HttpStatus.CONFLICT, ErrorCode.CONFLICT],
-  [HttpStatus.TOO_MANY_REQUESTS, ErrorCode.RATE_LIMITED],
-  [HttpStatus.SERVICE_UNAVAILABLE, ErrorCode.SERVICE_UNAVAILABLE],
-]);
-
-const CODE_TO_I18N_KEY: Readonly<Record<ErrorCode, string>> = {
-  [ErrorCode.VALIDATION_FAILED]: 'errors.validation.failed',
-  [ErrorCode.UNAUTHORIZED]: 'errors.unauthorized',
-  [ErrorCode.FORBIDDEN]: 'errors.forbidden',
-  [ErrorCode.NOT_FOUND]: 'errors.not_found',
-  [ErrorCode.CONFLICT]: 'errors.conflict',
-  [ErrorCode.RATE_LIMITED]: 'errors.rate_limited',
-  [ErrorCode.SERVICE_UNAVAILABLE]: 'errors.service_unavailable',
-  [ErrorCode.INTERNAL]: 'errors.internal',
-};
 
 function resolveLocale(acceptLanguage: string | null, localeOverride: string | null): Locale {
   return negotiateLocale(acceptLanguage, { override: localeOverride });
@@ -60,10 +40,13 @@ export function buildAuthErrorResponse(
   const code =
     status >= HttpStatus.INTERNAL_SERVER_ERROR
       ? ErrorCode.INTERNAL
-      : (AUTH_STATUS_TO_CODE.get(status) ?? ErrorCode.INTERNAL);
+      : (STATUS_TO_ERROR_CODE.get(status) ?? ErrorCode.INTERNAL);
   return {
     code,
-    message: i18n.translate(resolveLocale(acceptLanguage, localeOverride), CODE_TO_I18N_KEY[code]),
+    message: i18n.translate(
+      resolveLocale(acceptLanguage, localeOverride),
+      ERROR_CODE_TO_I18N_KEY[code],
+    ),
     requestId,
   };
 }

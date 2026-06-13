@@ -15,6 +15,7 @@ import { z } from 'zod';
 import { I18nService } from '../../i18n/i18n.service';
 import { translateFlattenedZodError } from '../../i18n/zod-flatten-translator';
 import { translateZodIssue } from '../../i18n/zod-issue.translator';
+import { ERROR_CODE_TO_I18N_KEY, STATUS_TO_ERROR_CODE } from '../errors/error-code-maps';
 
 function resolveLocaleFromHeader(request: FastifyRequest): Locale {
   const header = request.headers['accept-language'];
@@ -22,27 +23,6 @@ function resolveLocaleFromHeader(request: FastifyRequest): Locale {
   const override = typeof overrideHeader === 'string' ? overrideHeader : null;
   return negotiateLocale(typeof header === 'string' ? header : null, { override });
 }
-
-const STATUS_TO_CODE = new Map<number, ErrorCode>([
-  [HttpStatus.BAD_REQUEST, ErrorCode.VALIDATION_FAILED],
-  [HttpStatus.UNAUTHORIZED, ErrorCode.UNAUTHORIZED],
-  [HttpStatus.FORBIDDEN, ErrorCode.FORBIDDEN],
-  [HttpStatus.NOT_FOUND, ErrorCode.NOT_FOUND],
-  [HttpStatus.CONFLICT, ErrorCode.CONFLICT],
-  [HttpStatus.TOO_MANY_REQUESTS, ErrorCode.RATE_LIMITED],
-  [HttpStatus.SERVICE_UNAVAILABLE, ErrorCode.SERVICE_UNAVAILABLE],
-]);
-
-const CODE_TO_KEY: Readonly<Record<ErrorCode, string>> = {
-  [ErrorCode.VALIDATION_FAILED]: 'errors.validation.failed',
-  [ErrorCode.UNAUTHORIZED]: 'errors.unauthorized',
-  [ErrorCode.FORBIDDEN]: 'errors.forbidden',
-  [ErrorCode.NOT_FOUND]: 'errors.not_found',
-  [ErrorCode.CONFLICT]: 'errors.conflict',
-  [ErrorCode.RATE_LIMITED]: 'errors.rate_limited',
-  [ErrorCode.SERVICE_UNAVAILABLE]: 'errors.service_unavailable',
-  [ErrorCode.INTERNAL]: 'errors.internal',
-};
 
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
@@ -86,7 +66,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         status: HttpStatus.BAD_REQUEST,
         body: {
           code: ErrorCode.VALIDATION_FAILED,
-          message: this.i18n.translate(locale, CODE_TO_KEY[ErrorCode.VALIDATION_FAILED]),
+          message: this.i18n.translate(locale, ERROR_CODE_TO_I18N_KEY[ErrorCode.VALIDATION_FAILED]),
           requestId: request.id,
         },
       };
@@ -113,12 +93,12 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
     if (exception instanceof HttpException) {
       const status = exception.getStatus();
-      const code = STATUS_TO_CODE.get(status) ?? ErrorCode.INTERNAL;
+      const code = STATUS_TO_ERROR_CODE.get(status) ?? ErrorCode.INTERNAL;
       return {
         status,
         body: {
           code,
-          message: this.i18n.translate(locale, CODE_TO_KEY[code]),
+          message: this.i18n.translate(locale, ERROR_CODE_TO_I18N_KEY[code]),
           requestId: request.id,
         },
       };

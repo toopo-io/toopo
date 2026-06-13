@@ -219,6 +219,17 @@ for (const { backend, skip } of backends) {
         const page = await repository.search(SCOPE, { query: '%' });
         expect(page.items).toEqual([]);
       });
+
+      it('pins the keyset cursor to its documented byte form (determinism)', async () => {
+        // The repository split must not change the cursor bytes a client
+        // round-trips. A single-id keyset over the two props pages propP1 first;
+        // its nextCursor is exactly encodeCursor(['propP1']). Pinned to the literal
+        // so a refactor that altered the ORDER BY, the keyset key, or the encoding
+        // would fail loudly — the cursor must stay byte-identical (ADR-0020 Fork 4).
+        const page = await repository.search(SCOPE, { subKind: 'react:prop', limit: 1 });
+        expect(page.items.map((n) => n.id)).toEqual(['propP1']);
+        expect(page.nextCursor).toBe('WyJwcm9wUDEiXQ');
+      });
     });
 
     describe('declaredInterface', () => {
@@ -233,6 +244,15 @@ for (const { backend, skip } of backends) {
       it('excludes contained call-sites (non-symbol children)', async () => {
         const page = await repository.declaredInterface(SCOPE, 'sA');
         expect(page.items.some((n) => n.id === 'cs1')).toBe(false);
+      });
+
+      it('pins the aliased-join keyset cursor to the same byte form (determinism)', async () => {
+        // Exercises the selectAll('n') / 'n.id' keyset path (a join, not a plain
+        // table). Its cursor must be byte-identical to the plain-table form above —
+        // both encode [propP1.id] — so the alias never leaks into the cursor.
+        const page = await repository.declaredInterface(SCOPE, 'sA', { limit: 1 });
+        expect(page.items.map((n) => n.id)).toEqual(['propP1']);
+        expect(page.nextCursor).toBe('WyJwcm9wUDEiXQ');
       });
     });
 

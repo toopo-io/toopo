@@ -6,19 +6,12 @@
  */
 import type { Kysely } from 'kysely';
 import type { ParseFragmentDatabase } from '../schema/parse-fragment-types.js';
+import { chunk } from './chunk.js';
 import type { ParseFragmentStore } from './parse-fragment.repository.js';
 
 /** Rows per bulk insert. Two narrow text columns, so 1000 stays well under
  *  SQLite's 32766 bound-parameter ceiling (2 params/row) on both drivers. */
 const PUT_CHUNK = 1_000;
-
-function chunk<T>(items: readonly T[], size: number): T[][] {
-  const batches: T[][] = [];
-  for (let i = 0; i < items.length; i += size) {
-    batches.push(items.slice(i, i + size));
-  }
-  return batches;
-}
 
 export class KyselyParseFragmentStore implements ParseFragmentStore {
   constructor(private readonly db: Kysely<ParseFragmentDatabase>) {}

@@ -1,6 +1,6 @@
 /**
  * The consumer-facing view of a claimed unit of work (ADR-0023 §3) and the
- * mapping between the queue's nested domain `JobReference` (fork F5, queue-local)
+ * mapping between the queue's nested domain `JobReference` (queue-local)
  * and `@toopo/db`'s flat `JobStore` records. Keeping the mapping here is what lets
  * the dependency stay one-way (`queue → db`): db never learns the domain shape.
  */

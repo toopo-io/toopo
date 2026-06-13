@@ -55,9 +55,10 @@ export function RepoList({ repos, locale }: RepoListProps): JSX.Element {
                   ) : null}
                 </span>
                 {repo.mapped && repo.repoOwner === repo.repoName ? null : (
-                  // The owner sub-line disambiguates the repo; when it merely
-                  // repeats the name (a single-owner seed), drop it rather than
-                  // echo the name twice.
+                  // The owner sub-line doubles as the "not mapped yet" indicator:
+                  // a mapped repo shows the owner (dropped only when that would merely
+                  // repeat the repo name); an unmapped repo always shows it, displaying
+                  // the "not mapped yet" label.
                   <span className="mt-0.5 block truncate font-mono text-[10.5px] text-faint">
                     {repo.mapped ? repo.repoOwner : t('repo.notMapped')}
                   </span>

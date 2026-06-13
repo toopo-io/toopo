@@ -181,8 +181,8 @@ function bindStatement(
     return;
   }
   if (moduleResolution.status === 'external') {
-    // A relative/alias specifier landing on an external package has no internal
-    // symbol target; later slices model the external coordinate. Nothing to bind.
+    // A relative/alias specifier that resolves to an external coordinate has no
+    // internal symbol target — nothing to bind here.
     return;
   }
 

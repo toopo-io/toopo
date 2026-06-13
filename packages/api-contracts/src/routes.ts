@@ -5,7 +5,7 @@
 // from `apps/web/src/lib/routes.ts` to derive every `/${locale}/${segment}`
 // path. Centralizing here gives us a single rename surface for product-facing
 // URLs and prevents drift between the URL Better Auth emails and the page
-// the frontend exposes — see ADR-0011 §Email URL ownership (B13) for why we
+// the frontend exposes — see ADR-0011 §Email URL ownership for why we
 // own these URLs end-to-end.
 
 export const ROUTE_SEGMENTS = {
@@ -15,7 +15,7 @@ export const ROUTE_SEGMENTS = {
   VERIFY_EMAIL: 'verify-email',
   FORGOT_PASSWORD: 'forgot-password',
   RESET_PASSWORD: 'reset-password',
-  // The workspace-invitation accept page (ADR-0028, Phase 4): the invitation
+  // The workspace-invitation accept page (ADR-0028): the invitation
   // email links here with `?id=<invitationId>`; the page completes the accept
   // against the API once the invitee has a session.
   ACCEPT_INVITATION: 'accept-invitation',

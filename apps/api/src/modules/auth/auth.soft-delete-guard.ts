@@ -1,5 +1,5 @@
 /**
- * Soft-delete authentication boundary (B10 — Phase 4.1.6 finding).
+ * Soft-delete authentication boundary (ADR-0011).
  *
  * Better Auth has no awareness of our `user.deleted_at` column (a custom
  * extension beyond the canonical schema). Without this hook, a user who

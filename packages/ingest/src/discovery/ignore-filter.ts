@@ -8,7 +8,7 @@ export type GitignoreSources = ReadonlyMap<string, string>;
 
 /**
  * Build a PURE predicate deciding whether a repo-relative POSIX path is ignored,
- * given every `.gitignore` in the tree (F-B: gitignore-aware, root + nested).
+ * given every `.gitignore` in the tree (gitignore-aware, root + nested).
  * The IO — finding and reading those files — happens in the discovery walker;
  * this function is filesystem-free so the precedence logic is unit-testable.
  *

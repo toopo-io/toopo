@@ -7,7 +7,7 @@ import { loadWorkspacePackages } from './workspaces.js';
  * on-disk config (ADR-0016 Fork 2/2b): tsconfig path aliases plus workspace
  * packages. This is the TS-ecosystem adapter — the only part of `@toopo/ingest`
  * that knows about tsconfig and workspaces. The agnostic `ingestProject` takes
- * the model as an injected input (F-E), so adding a language needs no change to
+ * the model as an injected input, so adding a language needs no change to
  * the orchestration; a new ecosystem provides its own builder like this one.
  *
  * The workspace source-entry probe runs against the already-discovered file set,

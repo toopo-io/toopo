@@ -19,7 +19,7 @@ interface ProjectsLayoutProps {
 }
 
 /**
- * The shell layout for the whole project surface (Phase C1). Gates the surface
+ * The shell layout for the whole project surface. Gates the surface
  * behind a session (defense-in-depth + the return path, ADR-0022 §5), then loads
  * the workspaces (the picker) and the caller's repos (the sidebar), tagging each
  * with its deterministic mapped state. The standalone project grid folds into the
@@ -42,9 +42,9 @@ export default async function ProjectsLayout({
     listMyWorkspaces(init),
     listMyProjects(locale, init).catch(() => null),
   ]);
-  // TODO(perf, MEDIUM-1): this fans one package-map probe per repo to derive the
-  // mapped state — an N+1 acceptable at v1's repo counts. The durable fix is a
-  // persisted `mapped` column on the project, set at ingest, read in one query.
+  // N+1 by design at v1 repo counts: one package-map probe per repo derives the
+  // mapped state. The durable fix is a persisted `mapped` column on the project,
+  // set at ingest and read in one query.
   const repos = await Promise.all(
     (projectPage?.items ?? []).map((project) => toRepoSummary(project, locale, init)),
   );

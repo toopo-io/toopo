@@ -11,7 +11,7 @@ import { z } from 'zod';
  * `GITHUB_WEBHOOK_SECRET`, reused as the App's webhook secret, and stays owned by
  * the consumer that already declares it.
  *
- * The private key is supplied **base64-encoded** (ADR-0026 §7, fork F5): the PEM is
+ * The private key is supplied **base64-encoded** (ADR-0026 §7): the PEM is
  * multiline and multiline values are fragile across `.env` parsers. The env layer
  * validates that the value decodes to a PEM (a `.refine`, keeping input and output
  * both `string`); {@link decodeGithubAppPrivateKey} performs the decode at the
@@ -46,7 +46,7 @@ export function decodeGithubAppPrivateKey(base64PrivateKey: string): string {
 
 /** The GitHub App's numeric id (App settings → "App ID"). */
 export const githubAppIdSchema = z.coerce.number().int().positive().optional();
-/** Base64-encoded PEM; decode with {@link decodeGithubAppPrivateKey} (fork F5). */
+/** Base64-encoded PEM; decode with {@link decodeGithubAppPrivateKey}. */
 export const githubAppPrivateKeySchema = z
   .string()
   .trim()

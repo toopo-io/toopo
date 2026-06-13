@@ -1,5 +1,5 @@
 /**
- * The graph-persistence surface apps depend on (ADR-0017 §1, fork F4: the app
+ * The graph-persistence surface apps depend on (ADR-0017 §1: the app
  * never touches Kysely). `createGraphDatabase` builds a connection and hands
  * back a {@link GraphRepository} plus a close function, mirroring
  * {@link createAuthDatabase}. The backend (SQLite self-host / Postgres cloud) is

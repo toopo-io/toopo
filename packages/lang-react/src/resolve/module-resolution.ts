@@ -24,8 +24,9 @@ const DETERMINISTIC = { resolution: 'deterministic' } as const;
  * specifier (`@/x`) is resolved through the tsconfig `paths` table carried in the
  * `ProjectModel` — config-driven, hence deterministic when it resolves; the
  * table is supplied by the caller, never read from disk (the fs-free guarantee).
- * A BARE specifier is an external package coordinate (workspace reclassification
- * is a later slice). Nothing is fabricated — no match is honestly unresolved.
+ * A BARE specifier is an external package coordinate here; workspace packages are
+ * reclassified by a separate pass (ADR-0016 Fork 2b). Nothing is fabricated — no
+ * match is honestly unresolved.
  */
 export function resolveModule(
   request: ModuleRequest,

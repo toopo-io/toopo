@@ -40,7 +40,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     // this filter while `request.locale` is still undefined. Without the
     // explicit Accept-Language re-negotiation below, all guard-thrown
     // errors would return their messages in the default locale regardless
-    // of the client's request. See Phase 4.1.6 finding B8.
+    // of the client's request.
     const locale: Locale = request.locale ?? resolveLocaleFromHeader(request);
 
     const { status, body } = this.normalize(exception, request, locale);

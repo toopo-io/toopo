@@ -1,5 +1,5 @@
 /**
- * The `GIT_ASKPASS` credential channel for private clones (ADR-0026 §5, fork F4).
+ * The `GIT_ASKPASS` credential channel for private clones (ADR-0026 §5).
  * The installation token is fed to `git` through an out-of-band askpass program,
  * NEVER the remote URL, the argv, or a git ref — the channels that leak into
  * process listings, `.git/config`, refs, and logs. The token reaches the askpass

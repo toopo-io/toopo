@@ -111,7 +111,7 @@ export function createAuth(logger: Logger, email: AuthEmailService, database: Au
       // protection — no DB write happens). We surface the attempt as a
       // structured Pino warn so brute-force enumeration is visible in
       // logs/metrics without changing the protection itself. See
-      // ADR-0011 "Email enumeration protection" and Phase 4.1 bug B7.
+      // ADR-0011 "Email enumeration protection".
       onExistingUserSignUp: async ({ user }, request) => {
         const requestId = request?.headers.get('x-request-id') ?? undefined;
         logger.warn(
@@ -142,8 +142,8 @@ export function createAuth(logger: Logger, email: AuthEmailService, database: Au
     },
     // Verification emails: Better Auth automatically invokes
     // `sendVerificationEmail` on successful sign-up when
-    // `emailAndPassword.requireEmailVerification: true` (verified live in
-    // Phase 4.1 — real Resend messageId observed on the signup probe).
+    // `emailAndPassword.requireEmailVerification: true` (verified live —
+    // a real Resend messageId observed on the signup probe).
     // No explicit `sendOnSignUp` flag is required. `sendOnSignIn: true`
     // re-triggers the same email when an unverified user attempts to
     // sign in, so they always have a fresh link to click.

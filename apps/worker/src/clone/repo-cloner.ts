@@ -23,7 +23,7 @@ export interface CloneRequest {
   /**
    * Optional clone credentials for a private repo (ADR-0026 §5). When present they
    * are fed to `git` through a `GIT_ASKPASS` script — never the remote URL, argv,
-   * or refs (fork F4). Absent ⇒ a public clone (the B4 behavior).
+   * or refs (ADR-0026 §5). Absent ⇒ a public clone.
    */
   readonly credentials?: CloneCredentials;
 }

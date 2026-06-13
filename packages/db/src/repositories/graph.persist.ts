@@ -7,11 +7,11 @@
  *
  * Portable across both backends (ADR-0017 §6): `ON CONFLICT ... DO UPDATE SET
  * col = excluded.col` uses the `excluded` pseudo-table, which exists on both
- * libSQL-SQLite and Postgres. Persist is idempotent (ADR-0015 §11): the document
- * is deduped in memory — by `SymbolId` for nodes, by canonical identity key for
- * edges — then upserted, so re-persisting the same graph leaves the row count
- * unchanged. Bulk inserts are chunked to stay within SQLite's bound-parameter
- * limit on large graphs.
+ * libSQL-SQLite and Postgres. Persist is idempotent: the document is deduped in
+ * memory — by `SymbolId` for nodes, by canonical identity key for edges — then
+ * upserted via that `ON CONFLICT` (ADR-0017 §6), so re-persisting the same graph
+ * leaves the row count unchanged. Bulk inserts are chunked to stay within
+ * SQLite's bound-parameter limit on large graphs.
  */
 import { type GraphDocument, GraphDocumentSchema, type UnresolvedReference } from '@toopo/core';
 import type { Insertable, Kysely } from 'kysely';
@@ -69,7 +69,7 @@ function buildDocumentRows(scope: GraphScope, document: GraphDocument): Document
 
 /**
  * Upsert the node and edge rows in chunked batches within the given transaction
- * (ADR-0015 §11 stored-once). Idempotent: re-writing the same rows updates them
+ * (ADR-0017 §6 upsert). Idempotent: re-writing the same rows updates them
  * in place, leaving the row count unchanged. After a full project delete the
  * `onConflict` clause is simply never reached — the same body inserts cleanly,
  * which is why replaceProjectGraph reuses it verbatim (zero duplication).
@@ -127,7 +127,7 @@ async function writeDocumentRows(
 }
 
 /** Project the resolve pass's honest tail to deduped, project-scoped insert rows
- *  (stored-once by ref_key, ADR-0015 §11). */
+ *  (stored once per ref_key via the §6 upsert, ADR-0017 §6). */
 function buildUnresolvedReferenceRows(
   scope: GraphScope,
   references: readonly UnresolvedReference[],

@@ -1,5 +1,5 @@
 /**
- * The Serve pass (ADR-0016 §3, ADR-0020 Fork 1): turns the bounded read
+ * The Serve pass (ADR-0016 §3, ADR-0020 §1): turns the bounded read
  * primitives of a {@link GraphRepository} into the V1–V5 API responses the UI
  * consumes (the `@toopo/api-contracts` shapes). It is the read layer's
  * composition — it computes nothing the database can, holds no SQL, and depends

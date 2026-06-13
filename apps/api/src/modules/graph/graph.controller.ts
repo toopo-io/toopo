@@ -1,5 +1,5 @@
 /**
- * The Serve read API (ADR-0020 Phase C, V1–V5), now project-scoped and gated
+ * The Serve read API (ADR-0020, V1–V5), now project-scoped and gated
  * (ADR-0022 §5). A thin HTTP skin: it validates each request via the query DTOs
  * (global ZodValidationPipe), delegates to the framework-agnostic GraphViewService
  * (@toopo/serve) under the resolved project's scope, and validates each response

@@ -26,7 +26,7 @@ export interface WorkerCliOptions {
   readonly rootDir: string;
   readonly databaseUrl: string;
   readonly gitignore: boolean;
-  /** The connected repo this graph is persisted under (ADR-0022 §3, F-E). */
+  /** The connected repo this graph is persisted under (ADR-0022 §3). */
   readonly repo: {
     readonly host: string;
     readonly owner: string;

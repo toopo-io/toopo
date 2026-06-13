@@ -1,6 +1,6 @@
 /**
  * Nest DTOs bridging the `@toopo/api-contracts` Serve schemas to validation and
- * serialization (ADR-0020 Phase C). Query DTOs drive the global ZodValidationPipe
+ * serialization (ADR-0020). Query DTOs drive the global ZodValidationPipe
  * (coercing/validating `@Query()`); response DTOs drive `@ZodSerializerDto`, so
  * every response is validated against its contract on the way out (ADR-0006
  * boundary validation). The schemas are the single source of truth — these are
@@ -25,7 +25,6 @@ import {
 } from '@toopo/api-contracts';
 import { createZodDto } from 'nestjs-zod';
 
-// Query DTOs (request validation).
 export class MapQueryDto extends createZodDto(MapQuerySchema) {}
 export class NodeQueryDto extends createZodDto(NodeQuerySchema) {}
 export class NeighborsQueryDto extends createZodDto(NeighborsQuerySchema) {}
@@ -34,7 +33,6 @@ export class NodeRelationsQueryDto extends createZodDto(NodeRelationsQuerySchema
 export class SearchQueryDto extends createZodDto(SearchQuerySchema) {}
 export class GlobalListQueryDto extends createZodDto(GlobalListQuerySchema) {}
 
-// Response DTOs (output serialization/validation + Swagger).
 export class MapViewDto extends createZodDto(MapViewSchema) {}
 export class NodeDetailDto extends createZodDto(NodeDetailSchema) {}
 export class CallBindingsDto extends createZodDto(CallBindingsSchema) {}

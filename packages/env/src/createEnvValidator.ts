@@ -16,8 +16,8 @@ export class EnvValidationError extends Error {
  * dotenv (and `@nestjs/config`) parse `KEY=` as `process.env.KEY === ''`,
  * which Zod's `.optional()` does NOT accept (only `undefined` is). Without
  * this normalization, an unfilled optional like `GOOGLE_CLIENT_ID=` in
- * `.env` fails `.min(1).optional()` validation at boot. See ADR-0010 (the
- * smoke-boot gap) and Phase 4.1 bug B3.
+ * `.env` fails `.min(1).optional()` validation at boot — per ADR-0008
+ * (env validation at module load: fail fast, never silently pass).
  */
 function sanitizeEmptyStrings(
   raw: Record<string, string | undefined>,

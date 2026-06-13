@@ -1,5 +1,5 @@
 /**
- * Directory names never traversed during discovery (F-B hard defaults). Shared
+ * Directory names never traversed during discovery (hard defaults). Shared
  * by the walker and the workspace scanner so neither descends into build output
  * or dependency trees.
  */

@@ -32,11 +32,11 @@ export default async function VerifyEmailPage({
   setRequestLocale(locale);
   const t = await getTranslations('Auth.verifyEmail');
 
-  // B13: emails generated post-Phase 4.1.8 embed the frontend URL with the
-  // raw token. When present, hand off to the active client that calls
-  // /v1/auth/verify-email directly. The legacy `?verified=1` / `?error=`
-  // branches below remain for emails generated before B13 — the backend GET
-  // endpoint still validates them and 302s into those branches.
+  // Emails now embed the frontend URL with the raw token. When present, hand off
+  // to the active client that calls /v1/auth/verify-email directly. The legacy
+  // `?verified=1` / `?error=` branches below remain for emails generated before
+  // that change — the backend GET endpoint still validates them and 302s into
+  // those branches.
   const hasToken = token !== undefined && token.length > 0;
   if (hasToken) {
     return <VerifyEmailTokenClient token={token} />;

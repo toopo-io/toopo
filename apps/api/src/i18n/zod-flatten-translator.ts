@@ -14,7 +14,7 @@ export interface TranslatedFlatError {
 // Mirrors the shape of `z.flattenError` but routes every issue through the
 // API i18n catalog (en/fr) so nested `details.fieldErrors[*]` strings carry
 // the negotiated locale instead of Zod's built-in English defaults. See
-// ADR-0009 "Error contract" and Phase 4.1.6 finding O1.
+// ADR-0009 "Error contract".
 export function translateFlattenedZodError(
   zodError: z.ZodError,
   locale: Locale,

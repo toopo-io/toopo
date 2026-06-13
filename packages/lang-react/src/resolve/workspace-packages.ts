@@ -6,7 +6,7 @@ import type { SubpathExport, WorkspacePackage } from '@toopo/resolver';
  * entry fields are optional fallbacks for locating its source entry; `exports`
  * is the raw `exports` map, for resolving published subpaths (Fix C2).
  *
- * NOTE (F-D): this is TS/JS-ecosystem configuration logic, currently the only
+ * NOTE: this is TS/JS-ecosystem configuration logic, currently the only
  * TS-based language. When a second TS-based `lang-*` plugin lands, lift this and
  * {@link buildAliasTable} into a shared `lang-ts-shared` module rather than
  * duplicating them — they are not React-specific.

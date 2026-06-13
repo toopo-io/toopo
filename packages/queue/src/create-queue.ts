@@ -22,9 +22,9 @@ export interface CreateQueueOptions {
 }
 
 export interface QueueHandle {
-  /** The producer surface (the B3 webhook enqueues here). */
+  /** The producer surface (the webhook enqueues here). */
   readonly queue: Queue;
-  /** Build a consumer bound to this queue's store (the B4 worker consumes here). */
+  /** Build a consumer bound to this queue's store (the worker consumes here). */
   createConsumer(options: ConsumerOptions): Consumer;
   /**
    * The resolved backend (informational). The `job` table is migrated globally by

@@ -1,5 +1,5 @@
 /**
- * The Serve read API contract (ADR-0020 Fork 2): the request (query) and
+ * The Serve read API contract (ADR-0020 §2): the request (query) and
  * response Zod schemas the backend validates against and the frontend parses,
  * shared as one source of truth (ADR-0006). Response shapes embed the canonical
  * `@toopo/core` Node/Edge schemas directly — the model is never re-declared
@@ -7,7 +7,7 @@
  * carries its `resolution`/`confidence`, so trust is visible to the UI
  * (ADR-0015 §8).
  *
- * All list responses use one keyset-pagination envelope (ADR-0020 Fork 4):
+ * All list responses use one keyset-pagination envelope (ADR-0020 §4):
  * `{ items, nextCursor, total? }`. `nextCursor` is `null` on the last page.
  * Node ids (SCIP descriptor paths) contain `/`, spaces and backticks, so every
  * id-bearing endpoint takes the id as a query parameter, never a path segment.
@@ -38,11 +38,10 @@ const limitField = z.coerce.number().int().positive().optional();
 const cursorField = z.string().min(1).optional();
 const idField = z.string().min(1);
 
-// ───────────────────────── Request (query) schemas ─────────────────────────
-
 /**
- * V1 map: `GET /v1/graph/map`. The symbol level requires a `scope` (a file id),
- * so it can never be unbounded; package/file may omit it (ADR-0020 Fork 4).
+ * V1 map: `GET /v1/projects/:projectId/graph/map`. The symbol level requires a
+ * `scope` (a file id), so it can never be unbounded; package/file may omit it
+ * (ADR-0020 §4).
  */
 export const MapQuerySchema = z
   .object({ level: MapLevelSchema, scope: z.string().min(1).optional(), limit: limitField })
@@ -53,11 +52,11 @@ export const MapQuerySchema = z
   });
 export type MapQuery = z.infer<typeof MapQuerySchema>;
 
-/** V2 node detail: `GET /v1/graph/node`. */
+/** V2 node detail: `GET /v1/projects/:projectId/graph/node`. */
 export const NodeQuerySchema = z.object({ id: idField }).strict();
 export type NodeQuery = z.infer<typeof NodeQuerySchema>;
 
-/** V3 neighbors: `GET /v1/graph/neighbors`. */
+/** V3 neighbors: `GET /v1/projects/:projectId/graph/neighbors`. */
 export const NeighborsQuerySchema = z
   .object({
     id: idField,
@@ -69,7 +68,7 @@ export const NeighborsQuerySchema = z
   .strict();
 export type NeighborsQuery = z.infer<typeof NeighborsQuerySchema>;
 
-/** V4 blast radius: `GET /v1/graph/blast-radius`. */
+/** V4 blast radius: `GET /v1/projects/:projectId/graph/blast-radius`. */
 export const BlastRadiusQuerySchema = z
   .object({
     id: idField,
@@ -80,13 +79,16 @@ export const BlastRadiusQuerySchema = z
   .strict();
 export type BlastRadiusQuery = z.infer<typeof BlastRadiusQuerySchema>;
 
-/** Declared-interface and call-sites lists (zoom-in): `GET /v1/graph/{…}`. */
+/**
+ * The shared query for the three zoom-in lists: declared-interface, container
+ * declarations (D2), and call-sites — `GET /v1/projects/:projectId/graph/{…}`.
+ */
 export const NodeRelationsQuerySchema = z
   .object({ id: idField, limit: limitField, cursor: cursorField })
   .strict();
 export type NodeRelationsQuery = z.infer<typeof NodeRelationsQuerySchema>;
 
-/** V5 search: `GET /v1/graph/search`. */
+/** V5 search: `GET /v1/projects/:projectId/graph/search`. */
 export const SearchQuerySchema = z
   .object({
     query: z.string().min(1).optional(),
@@ -100,15 +102,14 @@ export type SearchQuery = z.infer<typeof SearchQuerySchema>;
 
 /**
  * A project-global list (no node id, no scope): just the keyset page controls.
- * The Insights views (D5 name collisions, D6 unused symbols, ADR-0029) range
- * over the whole project, so they take only `limit`/`cursor`.
+ * All three Insights views (D5 name collisions, D6 unused symbols, D7 recursive
+ * cycles — ADR-0029) range over the whole project, so they take only
+ * `limit`/`cursor`.
  */
 export const GlobalListQuerySchema = z.object({ limit: limitField, cursor: cursorField }).strict();
 export type GlobalListQuery = z.infer<typeof GlobalListQuerySchema>;
 
-// ───────────────────────────── Pagination envelope ─────────────────────────
-
-/** Wrap an item schema in the keyset-pagination envelope (ADR-0020 Fork 4). */
+/** Wrap an item schema in the keyset-pagination envelope (ADR-0020 §4). */
 export function paginated<T extends z.ZodTypeAny>(item: T) {
   return z
     .object({
@@ -119,9 +120,7 @@ export function paginated<T extends z.ZodTypeAny>(item: T) {
     .strict();
 }
 
-// ───────────────────────────── Response schemas ────────────────────────────
-
-/** An edge and the node on its far end (null for an external id, ADR-0015 Fork 1). */
+/** An edge and the node on its far end — `null` when the far id is external (outside the analysed repo). */
 export const GraphNeighborSchema = z
   .object({ edge: EdgeSchema, node: NodeSchema.nullable() })
   .strict();

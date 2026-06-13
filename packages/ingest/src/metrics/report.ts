@@ -1,7 +1,7 @@
 import type { IngestMetrics } from './metrics.js';
 
 /**
- * Render a human-readable validation report (F-C: the stdout half; the JSON
+ * Render a human-readable validation report (the stdout half; the JSON
  * half is the {@link IngestMetrics} object itself). Pure — no clock, no IO — so
  * it is deterministic given the metrics, except timings which the caller may
  * round. The overall resolution rate and the deterministic share are shown

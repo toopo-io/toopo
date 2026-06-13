@@ -37,6 +37,9 @@ export function findCycles(edges: readonly DependencyEdge[]): Cycle[] {
   const cycles: Cycle[] = [];
   for (const component of tarjan(adjacency)) {
     const members = [...component].sort();
+    // Tarjan emits every node as its own SCC, including a lone sink with no
+    // back-edge; such a singleton is a cycle only if it self-loops. A
+    // multi-member SCC is always a cycle.
     const isCycle =
       members.length > 1 || (members.length === 1 && selfLoops.has(members[0] as string));
     if (!isCycle) {

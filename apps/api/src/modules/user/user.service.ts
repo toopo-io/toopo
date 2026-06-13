@@ -69,10 +69,11 @@ export class UserService {
     return this.users.softDeleteUser(userId);
   }
 
-  // Returns false if the user is missing or soft-deleted. Used as a
-  // defense-in-depth check by `SessionGuard` and by `dataExport` even
-  // though `auth.soft-delete-guard.ts` already blocks new sessions for
-  // soft-deleted users at the Better Auth hook layer. See B10.
+  // Returns false if the user is missing or soft-deleted. Defense-in-depth check:
+  // called by `SessionGuard` on every protected request, and by the `dataExport`
+  // controller endpoint (which re-checks before serving full user data), even
+  // though `auth.soft-delete-guard.ts` already blocks new sessions for soft-deleted
+  // users at the Better Auth hook layer.
   async isActive(userId: string): Promise<boolean> {
     return this.users.isActive(userId);
   }

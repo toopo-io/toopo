@@ -11,7 +11,7 @@ export interface CliRunResult {
 }
 
 /**
- * The TS/React composition root (F-E): it wires the concrete language plugins
+ * The TS/React composition root: it wires the concrete language plugins
  * and the TS-specific project-model builder, runs the agnostic `ingestProject`,
  * and renders the validation report. Returning the text and metrics (rather than
  * printing) keeps it testable; the executable shell does the IO.

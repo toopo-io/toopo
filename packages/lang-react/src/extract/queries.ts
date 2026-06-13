@@ -75,7 +75,8 @@ export const CALL_QUERY = '(call_expression) @call';
  * tag of an element-with-children. The name (identifier vs member) and its
  * casing are inspected in code: a lowercase identifier is an intrinsic host
  * element (never a render); a Capitalized identifier is a component; a dotted
- * member name is always a component (handled by the member pass).
+ * member name (`<Form.Item/>`) is always a component, never an intrinsic
+ * element regardless of casing.
  */
 export const JSX_ELEMENT_QUERY = `
   (jsx_self_closing_element) @element

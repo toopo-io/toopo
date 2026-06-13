@@ -1,8 +1,7 @@
 /**
  * Canonical project read-API route paths (ADR-0014 spirit, ADR-0022 §5): one
- * source of truth shared by the backend controller and clients. Projects are an
- * instance-tenant collection; the access guard scopes per-user/org above this in
- * a future hosted ADR.
+ * source of truth shared by the backend controller and clients. Projects are
+ * scoped to a Workspace; access is predicated on membership (ADR-0028).
  */
 import { GRAPH_API_VERSION, PROJECTS_SEGMENT } from './graph-routes.js';
 

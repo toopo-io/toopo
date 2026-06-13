@@ -4,11 +4,11 @@
  * into fail-closed providers (ADR-0026 §1): when the App id or private key is
  * unset, {@link GITHUB_APP_AUTH} is `null` and the connect endpoints return `503`
  * (a self-host without a GitHub App still boots). The private key arrives
- * base64-encoded and is decoded here at construction (fork F5); the install-state
+ * base64-encoded and is decoded here at construction; the install-state
  * secret reuses `BETTER_AUTH_SECRET` (the server's signing key, always present).
  *
  * Exports {@link GithubInstallService} and {@link GITHUB_APP_AUTH} so the webhook
- * module (B5.4) reuses the same provisioning path and auth instance.
+ * module reuses the same provisioning path and auth instance.
  */
 import { Module } from '@nestjs/common';
 import { decodeGithubAppPrivateKey } from '@toopo/env';

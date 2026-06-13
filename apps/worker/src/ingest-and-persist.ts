@@ -1,9 +1,10 @@
 /**
- * The worker's one job (ADR-0020 Fork 5): ingest a project directory into a
+ * The worker populate CLI (ADR-0020 §6): ingest a project directory into a
  * deterministic graph (the Parse → Resolve pipeline, @toopo/ingest) and persist
- * it (@toopo/db) — the minimal precursor to the future webhook/queue worker
- * (deferred to the queue ADR). It composes packages only; it holds no pipeline
- * or storage logic of its own, and it never names Kysely (fork F4).
+ * it (@toopo/db). This is the local-dev / dogfood path; the queue-backed consume
+ * path (the production push→cartography loop) lives in `consume/`. It composes
+ * packages only; it holds no pipeline or storage logic of its own, and it never
+ * names Kysely (ADR-0017 §1).
  *
  * The database must already be migrated (`db:migrate`, ADR-0008 — never on boot).
  */
@@ -55,7 +56,7 @@ export interface IngestAndPersistResult {
 
 /**
  * Resolve the project for the repo triple, creating it on first connect
- * (idempotent on the per-instance repo unique index, ADR-0022 F-E). Returns the
+ * (idempotent on the per-instance repo unique index, ADR-0022 §3). Returns the
  * project id and whether it was freshly created.
  */
 async function resolveProject(

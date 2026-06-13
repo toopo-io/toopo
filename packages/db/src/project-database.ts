@@ -1,5 +1,5 @@
 /**
- * The project-persistence surface apps depend on (ADR-0017 §1, fork F4: the app
+ * The project-persistence surface apps depend on (ADR-0017 §1: the app
  * never touches Kysely; ADR-0022). `createProjectDatabase` builds a connection
  * and hands back a {@link ProjectRepository} plus a close function, mirroring
  * {@link createGraphDatabase} and {@link createAuthDatabase}. The backend

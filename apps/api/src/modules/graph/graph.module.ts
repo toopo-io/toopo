@@ -1,5 +1,5 @@
 /**
- * Wires the read-only Serve API (ADR-0020 Phase C). The thick view logic lives
+ * Wires the read-only Serve API (ADR-0020). The thick view logic lives
  * in @toopo/serve's GraphViewService; here it is built from the GRAPH_REPOSITORY
  * the global DatabaseModule provides, and exposed via the thin GraphController.
  */

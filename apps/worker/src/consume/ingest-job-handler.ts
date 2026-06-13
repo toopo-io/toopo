@@ -5,7 +5,7 @@
  * graph — or no-op when nothing changed. Throwing propagates to the queue's
  * reliability (retry → dead-letter, ADR-0023); the sandbox is always cleaned up.
  *
- * The project already exists (B3 enqueues resolve-existing-only), so the handler
+ * The project already exists (the webhook enqueues resolve-existing-only), so the handler
  * never creates tenancy — it persists under the job's `projectId` scope directly.
  * It composes packages only (apps stay thin); all pipeline/storage logic is theirs.
  */
@@ -44,7 +44,7 @@ export interface IngestJobHandlerDeps {
  * installation id → a freshly minted installation token. Returns `undefined` (a
  * public clone) when the App is unconfigured, the deps are absent, or the project
  * has no installation id — so a public repo, or a self-host with no App, clones
- * exactly as in B4.
+ * publicly, with no credentials.
  */
 async function resolveCredentials(
   deps: IngestJobHandlerDeps,

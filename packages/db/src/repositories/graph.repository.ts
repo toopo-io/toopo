@@ -1,9 +1,8 @@
 /**
  * The graph persistence abstraction (ADR-0017 §1 repository pattern), mirroring
  * {@link UserRepository}. Callers depend on this interface, never on Kysely, so
- * the storage engine stays swappable behind it. The interface grows by slice:
- * Chunk 2 added persist + getNode + neighbors + blast-radius; ADR-0020 (Serve)
- * adds the bounded read primitives the Serve pass composes — paginated
+ * the storage engine stays swappable behind it. It exposes persist plus the
+ * bounded read primitives the Serve pass composes (ADR-0020) — paginated
  * neighbors, search, declared-interface, call-sites, bounded blast-radius, and
  * the on-read aggregate map view.
  */
@@ -187,7 +186,7 @@ export interface MapView {
 
 export interface GraphRepository {
   /**
-   * Persist a graph document idempotently (ADR-0015 §11 stored-once) under a
+   * Persist a graph document idempotently (ADR-0017 §6 upsert) under a
    * project (ADR-0022 §3): nodes are upserted by `(projectId, SymbolId)`, edges
    * by `(projectId, canonical identity key)`, so re-persisting the same document
    * into the same project is a no-op on row count. The document is a fragment

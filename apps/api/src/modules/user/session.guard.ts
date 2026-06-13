@@ -55,7 +55,7 @@ export class SessionGuard implements CanActivate {
       throw new UnauthorizedException('Session required');
     }
 
-    // Defense-in-depth for B10: even though `auth.soft-delete-guard.ts`
+    // Defense-in-depth for the soft-delete boundary: even though `auth.soft-delete-guard.ts`
     // blocks session creation for soft-deleted users at the Better Auth
     // hook layer, re-check here so a stale-or-leaked session for a
     // soft-deleted user is rejected at the request boundary. The error

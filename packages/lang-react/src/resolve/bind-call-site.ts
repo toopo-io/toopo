@@ -29,8 +29,9 @@ const NOTHING: CallSiteBindingResult = Object.freeze({
 type TargetSource = 'import' | 'namespace-member';
 
 /** How a callee maps to the imported name it may bind to (ADR-0016 Fork 4). For a
- * member access, `memberName` is the segment after the first dot — the export a
- * namespace import resolves, or the unresolved member of a value root. */
+ * member access, `memberName` is the full suffix after the first dot (e.g.
+ * `Item.sub` for `NS.Item.sub`) — the export a namespace import resolves, or the
+ * unresolved member of a value root. */
 interface CalleeBinding {
   readonly localName: string;
   readonly memberName: string;

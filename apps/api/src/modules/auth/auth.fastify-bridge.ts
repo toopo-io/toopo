@@ -4,7 +4,7 @@
  * Auth ships a Web-Fetch `Request → Response` handler, not a Nest decorator
  * surface. The downside is that Nest's APP_FILTER chain does NOT see errors
  * thrown here, so this module reproduces the GlobalExceptionFilter envelope
- * locally. See Phase 4.1 bug B2.
+ * locally.
  */
 import { HttpStatus, type RawBodyRequest } from '@nestjs/common';
 import { ErrorCode, type ErrorResponse } from '@toopo/api-contracts';
@@ -105,7 +105,7 @@ export function registerAuthRoute(deps: RegisterAuthRouteDeps): void {
         // Better Auth occasionally produces a Response with null body on
         // a non-2xx status (e.g. an unmapped internal exception). Replace
         // the bare null with a canonical ErrorResponse envelope so clients
-        // never receive a literal `null` body. See B2.
+        // never receive a literal `null` body.
         if (response.body === null && response.status >= HttpStatus.BAD_REQUEST) {
           logger.error(
             {

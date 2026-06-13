@@ -4,8 +4,7 @@ import { type PackageCoordinate, PackageCoordinateSchema } from './package-coord
 
 /**
  * Stable logical identity of a symbol (ADR-0015 §4) — a SCIP-style descriptor
- * path, never line/column. Two representations, losslessly inter-derivable
- * (Fork 1):
+ * path, never line/column. Two representations, losslessly inter-derivable:
  *
  *   - structured `SymbolIdentity` — manipulated by the parser/resolver.
  *   - encoded `SymbolId` string — the canonical storage key (ADR-0017 §5).
@@ -72,7 +71,7 @@ function encodePackageField(value: string): string {
   return value.replaceAll(' ', '  ');
 }
 
-/** Encode a structured identity into its canonical string form. */
+/** Encode a structured identity to its canonical `SymbolId`; throws on a malformed identity. */
 export function formatSymbolId(identity: SymbolIdentity): SymbolId {
   const parsed = SymbolIdentitySchema.parse(identity);
   const path = parsed.descriptors.map(encodeDescriptor).join('');
@@ -242,7 +241,7 @@ function splitTopLevelSegments(id: string): string[] {
   return segments;
 }
 
-/** Decode a canonical string form back into its structured identity. */
+/** Parse a canonical `SymbolId` back to its structured identity; throws on an empty or malformed id. */
 export function parseSymbolId(id: SymbolId): SymbolIdentity {
   if (id.length === 0) {
     throw new Error('Cannot parse an empty symbol id');

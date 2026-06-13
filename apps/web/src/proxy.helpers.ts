@@ -3,7 +3,7 @@
 // Pure path-matching helpers for the Next proxy. Kept separate from
 // `proxy.ts` so unit tests can import them without loading
 // `next-intl/middleware` (whose Node ESM resolution conflicts with
-// vitest's resolver). See Phase 4.1 bug B5.
+// vitest's resolver).
 //
 // The protected-prefix list lives in `lib/routes.ts` so every internal
 // URL builder and the proxy's path-matcher agree on which locale-
@@ -15,8 +15,8 @@
 import { protectedPathPrefixes } from './lib/routes';
 
 /**
- * Paths that require an authenticated session cookie. Whitelist model
- * (Phase 4.1 bug B5): anything NOT listed here — including unknown URLs —
+ * Paths that require an authenticated session cookie. Whitelist model:
+ * anything NOT listed here — including unknown URLs —
  * falls through to Next's normal routing, so a stray 404 stays a 404 and
  * does not redirect to /signin. Add new protected sections via
  * `protectedPathPrefixes` in `lib/routes.ts`.

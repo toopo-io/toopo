@@ -12,7 +12,7 @@ import { paginated } from './graph.schema.js';
 export const ProjectResponseSchema = z
   .object({
     id: z.string(),
-    /** The connecting user (provenance + future cloud isolation, ADR-0022 §2). */
+    /** The connecting user: provenance, and the source-owner check on project moves (ADR-0028). */
     ownerUserId: z.string(),
     /** The owning Workspace (ADR-0028); the listing's scope and the move target. */
     workspaceId: z.string(),
@@ -26,7 +26,7 @@ export const ProjectResponseSchema = z
   .strict();
 export type ProjectResponse = z.infer<typeof ProjectResponseSchema>;
 
-/** A keyset-paginated page of projects (ADR-0020 Fork 4). */
+/** A keyset-paginated page of projects (ADR-0020 §4). */
 export const ProjectPageSchema = paginated(ProjectResponseSchema);
 export type ProjectPage = z.infer<typeof ProjectPageSchema>;
 

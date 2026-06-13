@@ -39,7 +39,7 @@ type OrganizationPluginOptions = NonNullable<Parameters<typeof organization>[0]>
  * fixed inside `buildOrganizationPlugin` instead, never passed through here.
  */
 export interface OrganizationBehavior {
-  /** Wired in Phase 4 to the fail-soft AuthEmailService (ADR-0028). */
+  /** Fail-soft invitation-email hook (ADR-0028); wired in the apps/api auth factory. */
   readonly sendInvitationEmail?: OrganizationPluginOptions['sendInvitationEmail'];
 }
 

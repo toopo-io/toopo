@@ -9,7 +9,7 @@ import type { AccountRecord, SessionRecord, UserRecord } from './user-records.js
 
 export interface UserRepository {
   /**
-   * The soft-delete timestamp for the auth session guard (ADR-0013 B10):
+   * The soft-delete timestamp for the auth session guard (ADR-0013):
    *   - `undefined` when no such user exists,
    *   - `null` when the user is active,
    *   - a `Date` when the user is soft-deleted.

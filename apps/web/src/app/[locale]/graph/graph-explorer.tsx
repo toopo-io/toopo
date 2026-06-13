@@ -1,7 +1,8 @@
 'use client';
 
 /**
- * The cartography explorer (ADR-0020 V1, S1 scope: the package-level map).
+ * The cartography explorer (ADR-0020 V1–V5): the package → file → symbol map,
+ * the node-detail panel, search, and blast-radius.
  *
  * Data flow: `useGraphMap` reads the Serve `/map` view (hydrated from the
  * server-fetched initial data, then kept fresh by React Query) → the pure
@@ -10,9 +11,6 @@
  * and edge. The chrome (legend, truncated banner, loading/error/empty states)
  * lives in plain DOM around the canvas so it is testable without a WebGL/measure
  * pass. Trust is never merged and always legible (ADR-0015 §8).
- *
- * Later slices add drill-down (file/symbol), the detail panel, search and
- * blast-radius; this slice is intentionally the package map only.
  */
 import { type EdgeTypes, MarkerType, type NodeTypes, ReactFlowProvider } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';

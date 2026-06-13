@@ -2,11 +2,11 @@
  * The external-SDK boundary (ADR-0026 §4): the only module that touches real
  * `@octokit/core` + `@octokit/auth-app`. `createAppAuth` owns the security-sensitive
  * crypto — minting the App JWT from the PEM and signing requests — which we never
- * hand-roll (fork F1). App-level requests mint installation tokens; an
+ * hand-roll. App-level requests mint installation tokens; an
  * installation-scoped client reads that installation's repos. Both are adapted to
  * the narrow {@link OctokitLike} seam so the rest of the package stays octokit-free
  * and unit-testable with a fake. Excluded from coverage (no business logic;
- * validated via the smee.io tunnel procedure, B5.7).
+ * validated via the smee.io tunnel procedure).
  */
 import { createAppAuth } from '@octokit/auth-app';
 import { Octokit } from '@octokit/core';

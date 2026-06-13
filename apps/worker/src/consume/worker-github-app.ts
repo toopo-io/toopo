@@ -2,8 +2,8 @@
  * Resolve the worker's GitHub-App auth from the environment (ADR-0026 §1, §5).
  * The consume path mints an installation token per private-repo job; the App
  * credentials (id + base64 PEM) are read here. Fail-closed graceful degradation:
- * with either credential unset the worker stays public-clone only (the B4
- * behavior) and the deterministic core is untouched. A present-but-invalid
+ * with either credential unset the worker stays public-clone only and the
+ * deterministic core is untouched. A present-but-invalid
  * credential fails loud (a misconfiguration, not a silent downgrade).
  *
  * Only the two fields the worker needs are read — the webhook secret, client

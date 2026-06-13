@@ -4,7 +4,7 @@
  *
  * Scope: only a `push` whose `ref` is the repository's default branch and is not
  * a delete enqueues. The repo resolves an EXISTING project only (a miss is
- * ignored — B5's install flow owns project creation). The enqueued job is a
+ * ignored — the install flow owns project creation). The enqueued job is a
  * reference (project + repo coords + commit sha), never the code, deduped by the
  * work unit `${projectId}:${commitSha}` so GitHub's redeliveries coalesce.
  */

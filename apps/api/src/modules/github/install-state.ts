@@ -1,5 +1,5 @@
 /**
- * The signed, session-bound install `state` (ADR-0026 §7, fork F6) — the
+ * The signed, session-bound install `state` (ADR-0026 §7) — the
  * install-hijack / CSRF defense for the GitHub-App redirect. At initiation the
  * server signs a token binding the initiating user id and an issue time under a
  * server secret; on return the token is verified and its user id MUST equal the

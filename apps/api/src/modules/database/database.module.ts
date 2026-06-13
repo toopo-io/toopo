@@ -2,7 +2,7 @@
  * Owns the single shared connection for the whole API (ADR-0017 §1). Everything
  * comes from @toopo/db's surface — the object Better Auth's adapter expects, the
  * UserRepository, and a close function — so apps/api never names Kysely or the
- * persistence implementation (fork F4). The backend (SQLite self-host / Postgres
+ * persistence implementation. The backend (SQLite self-host / Postgres
  * cloud) is selected by the DATABASE_URL scheme inside `createAuthDatabase`.
  */
 import { Global, Injectable, Module, type OnModuleDestroy } from '@nestjs/common';

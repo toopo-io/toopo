@@ -3,7 +3,7 @@
  * DERIVED view (ADR-0015 §3): positions are computed per render, never stored.
  * We use ELK's `layered` (Sugiyama) algorithm — the readable, direction-bearing
  * layout for a dependency DAG, and the only mainstream engine with first-class
- * nested/containment layout for the deeper zoom tiers built in later slices.
+ * nested/containment layout for the deeper zoom tiers.
  *
  * Edges are routed ORTHOGONALLY and their computed routes are returned alongside
  * the node positions: ELK knows where every wire bends to avoid the boxes, so we

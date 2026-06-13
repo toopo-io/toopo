@@ -3,7 +3,7 @@
  * Everything comes from @toopo/queue's surface — `createQueue` selects the
  * backend (SQLite self-host / Postgres cloud) from the DATABASE_URL scheme, the
  * same way @toopo/db does — so apps/api never names the storage engine. The API
- * only ever produces (the B3 webhook enqueues); the consumer is the worker (B4).
+ * only ever produces (the webhook enqueues); the consumer is the worker.
  *
  * The `job` table is migrated globally by `db:migrate` (0006_job), never on boot
  * (ADR-0008); constructing the handle opens no query, so boot stays cheap.

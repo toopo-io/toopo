@@ -14,7 +14,7 @@ export class UserController {
     @CurrentSession() session: CurrentSessionData,
     @Res() reply: FastifyReply,
   ): Promise<void> {
-    // Defense-in-depth for B10. SessionGuard already rejects requests
+    // Defense-in-depth for the soft-delete boundary. SessionGuard already rejects requests
     // from soft-deleted users, but the export endpoint surfaces full
     // user data, so we re-check at the endpoint boundary to make the
     // soft-delete contract explicit in the controller.

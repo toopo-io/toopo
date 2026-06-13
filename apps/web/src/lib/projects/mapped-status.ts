@@ -11,8 +11,8 @@ export interface RepoSummary {
 
 /**
  * Whether a project's graph has been built — derived deterministically from the
- * served package map, never a stored flag (decision: Phase C stays frontend-only,
- * no backend change). A project with at least one container node is mapped; an
+ * served package map, never a stored flag (by design this stays frontend-only,
+ * with no backend change). A project with at least one container node is mapped; an
  * empty map means "not mapped yet" (the deterministic noindex state). The probe
  * is the package-level map with a tiny limit, so this reads one row, not the graph.
  */

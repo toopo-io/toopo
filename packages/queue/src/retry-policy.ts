@@ -1,7 +1,7 @@
 /**
  * The retry policy (ADR-0023 §5): how many delivery attempts a job gets and the
  * exponential-backoff envelope between them. `attempts` is counted per DELIVERY
- * (incremented on claim, ADR-0023 §5 / fork F1), so a poison job that crashes
+ * (incremented on claim, ADR-0023 §5), so a poison job that crashes
  * the worker before it can reschedule is still bounded by `maxAttempts` and
  * eventually dead-letters.
  */
@@ -25,7 +25,7 @@ export const RetryPolicySchema = z
 export type RetryPolicy = z.infer<typeof RetryPolicySchema>;
 
 /**
- * The confirmed defaults (ADR-0023 §5 fork F3): five attempts, a one-second
+ * The confirmed defaults (ADR-0023 §5): five attempts, a one-second
  * base, a five-minute cap.
  */
 export const DEFAULT_RETRY_POLICY: RetryPolicy = {

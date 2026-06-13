@@ -4,8 +4,7 @@
  * React Query hooks over the Serve read API. Query keys are namespaced under
  * `['graph', …]` and include the locale (the API may localize messages) and the
  * exact query, so cache entries never collide across views. Defaults (staleTime,
- * retry) come from the app-wide `makeQueryClient`. More view hooks are added in
- * their slices; S1 needs the map.
+ * retry) come from the app-wide `makeQueryClient`.
  */
 import { type UseQueryResult, useQuery } from '@tanstack/react-query';
 import type {

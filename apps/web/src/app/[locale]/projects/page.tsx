@@ -14,7 +14,7 @@ interface ProjectsPageProps {
 /**
  * The shell's main surface when no repository is selected. With repos connected
  * it invites the user to pick one from the sidebar; with none, it offers the
- * connect flow — the empty/fresh-workspace state, kept graceful (Phase C1).
+ * connect flow — the empty/fresh-workspace state, kept graceful.
  */
 export default async function ProjectsPage({ params }: ProjectsPageProps): Promise<ReactNode> {
   const { locale } = await params;

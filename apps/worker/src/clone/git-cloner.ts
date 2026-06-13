@@ -2,7 +2,7 @@
  * Native-`git` implementation of {@link RepoCloner} (ADR-0025 Decision 1). `git`
  * is spawned with an ARGV array and `shell: false` — never a shell string — so a
  * repo coordinate or sha can never be interpreted as a command (no injection); the
- * sha is already validated to a hex SHA by B3, and the env is locked down so the
+ * sha is already validated to a hex SHA at enqueue, and the env is locked down so the
  * clone cannot read host credentials, run hooks/LFS filters, or use an unexpected
  * transport. The clone is a `--depth 1` fetch of the exact commit: no history, no
  * tags, the minimum bytes needed to parse the tree.
@@ -131,7 +131,7 @@ export class GitCloner implements RepoCloner {
     const dir = request.destination;
     // For a private repo, the installation token is fed through GIT_ASKPASS (env
     // only) — the remote URL stays the plain `https://host/owner/repo.git`, so no
-    // token ever lands in argv, the URL, or a ref (ADR-0026 §5, fork F4).
+    // token ever lands in argv, the URL, or a ref (ADR-0026 §5).
     const askpass = request.credentials ? await prepareAskpass(request.credentials) : null;
     try {
       const env = askpass?.env;

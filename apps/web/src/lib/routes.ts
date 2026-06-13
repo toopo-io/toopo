@@ -69,7 +69,7 @@ export const absoluteRoutes = {
 
   /**
    * Verify-email "done" landing URL used as the `callbackURL` for the
-   * legacy backend-redirect flow. Post-B13, new emails point straight to
+   * legacy backend-redirect flow. New emails now point straight to
    * `routes.verifyEmail(locale)` with a token, so this is only consumed
    * by `authClient.signUp.email({ callbackURL })` for compatibility with
    * Better Auth's redirect on the resend-verification path.

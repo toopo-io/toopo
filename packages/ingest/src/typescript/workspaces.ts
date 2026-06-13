@@ -14,7 +14,7 @@ const PNPM_WORKSPACE = 'pnpm-workspace.yaml';
 /**
  * Discover the project's workspace packages and map them to the resolver's
  * `{ name, entry }` model (ADR-0016 Fork 2b). IO lives here; the entry-resolution
- * convention is the pure `buildWorkspacePackages` in `lang-react` (F-D). The
+ * convention is the pure `buildWorkspacePackages` in `lang-react`. The
  * source-entry probe is the injected `fileExists` over the analyzed set, so a
  * package whose source is not analyzed is dropped rather than guessed.
  *

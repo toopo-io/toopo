@@ -1,6 +1,6 @@
 /**
  * Pure adapter: a Serve V2 `NodeDetail` (ADR-0020 §5) → a flat view-model the
- * detail panel renders (built in a later slice). It surfaces trust on EVERY
+ * detail panel renders. It surfaces trust on EVERY
  * relationship (ADR-0015 §8): each neighbour and each passed argument carries its
  * `trustKind` (+ `confidence` for inferred), so the panel can mark every row
  * solid/dashed exactly like the map. The far node of a neighbour may be `null`

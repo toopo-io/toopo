@@ -1,5 +1,5 @@
 /**
- * On-read aggregation for the Serve map view (ADR-0015 §3, ADR-0020 Fork 3):
+ * On-read aggregation for the Serve map view (ADR-0015 §3, ADR-0020 §3):
  * roll the graph up to a containment level (package / file / symbol) and project
  * the dependency edges between containers, split by trust (ADR-0015 §8). Views
  * are computed on read here — never stored, never a re-parse.

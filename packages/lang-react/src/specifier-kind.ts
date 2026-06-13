@@ -10,7 +10,11 @@ export function isRelative(specifier: string): boolean {
   return specifier.startsWith('.');
 }
 
-/** A path-alias specifier (`@/x`, `~/x`) — resolved via tsconfig paths (Slice 4). */
+/**
+ * A path-alias specifier — only the `@/` and `~/` prefixes are recognized; any
+ * other tsconfig `paths` prefix falls through and is treated as a bare package.
+ * Resolved via the tsconfig `paths` table (ADR-0016).
+ */
 export function isAlias(specifier: string): boolean {
   return specifier.startsWith('@/') || specifier.startsWith('~/');
 }

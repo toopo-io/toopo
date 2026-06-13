@@ -18,7 +18,7 @@ import type { Page, PageOptions } from './graph-page.js';
 
 /**
  * The lifecycle state of a job (ADR-0023 §5). A successful job is DELETED on ack
- * (fork F3 — `ack = delete`), so there is no `done` state; dead jobs are kept for
+ * (`ack = delete`), so there is no `done` state; dead jobs are kept for
  * audit.
  *
  *   ready      — enqueued; claimable once `availableAt <= now`.
@@ -50,7 +50,7 @@ export interface QueuedJob {
   readonly repoName: string;
   readonly commitSha: string;
   readonly status: JobStatus;
-  /** Delivery count — incremented atomically on claim (ADR-0023 §5, fork F1). */
+  /** Delivery count — incremented atomically on claim (ADR-0023 §5). */
   readonly attempts: number;
   readonly availableAt: Date;
   readonly leaseUntil: Date | null;

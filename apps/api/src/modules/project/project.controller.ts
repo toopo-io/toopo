@@ -1,8 +1,9 @@
 /**
- * The project read API (ADR-0022 §5, membership-scoped per ADR-0028 §Phase 3 + §4):
- * list the active workspace's connected repos and fetch one by id. Read-only —
- * project creation is the install flow's job; public connect is the GitHub-App
- * phase. Access is workspace membership (superseding ADR-0022 §2's instance-tenant
+ * The project API (ADR-0022 §5, membership-scoped per ADR-0028 §Phase 3 + §4):
+ * list the active workspace's connected repos, fetch one by id, and move one to
+ * another workspace (source-owner gated, ADR-0028 Phase 5). Project creation is
+ * the install flow's job; public connect is the GitHub-App phase. Access is
+ * workspace membership (superseding ADR-0022 §2's instance-tenant
  * line): `list` returns the projects in the caller's ACTIVE workspace (ADR-0028 §4),
  * and `get` runs through the ProjectAccessGuard (member → 200, non-member → 403,
  * unknown → 404) — sealing the same cross-workspace leak the graph routes close.
@@ -114,9 +115,9 @@ export class ProjectController {
       throw new ForbiddenException('Forbidden');
     }
     // Idempotent no-op: re-homing to the current workspace changes nothing. Placed
-    // after the ownership gate (Option A — a non-owner never reaches here, even for
-    // a no-op, so triviality is no bypass) and before the target probe, so the
-    // no-op costs no extra query (the owner is, by definition, a member of source).
+    // after the ownership gate so a non-owner never reaches here even for a no-op
+    // — triviality is no bypass — and before the target probe, so the no-op costs
+    // no extra query (the owner is, by definition, a member of source).
     if (body.workspaceId === project.workspaceId) {
       return toProjectResponse(project);
     }

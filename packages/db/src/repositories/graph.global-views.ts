@@ -137,8 +137,10 @@ export async function cyclicDependencyEdges(
   const limit = clampLimit(options?.limit);
   const projectId = scope.projectId;
   // The induced cycle-candidate subgraph: a dependency edge survives only if its
-  // source has an incoming and its target an outgoing dependency edge (necessary
-  // for cycle membership; never drops a real cyclic edge). Serve runs Tarjan.
+  // source has an incoming and its target an outgoing dependency edge. This is a
+  // necessary (not sufficient) condition for cycle membership — sound (no real
+  // cyclic edge is ever dropped) but not complete (non-cyclic edges can pass).
+  // Serve runs Tarjan over the survivors to keep only true SCCs (ADR-0029 D7).
   let page = db
     .selectFrom('edge as e')
     .where('e.project_id', '=', projectId)

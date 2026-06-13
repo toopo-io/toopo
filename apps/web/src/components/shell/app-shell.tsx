@@ -22,7 +22,7 @@ interface AppShellProps {
 }
 
 /**
- * The workspace-aware explorer shell (Phase C1): a fixed topbar (brand,
+ * The workspace-aware explorer shell: a fixed topbar (brand,
  * workspace→repo breadcrumb, theme toggle) over a sidebar (workspace picker +
  * repository list) and the main surface. The shell is the app — repo selection
  * lives in the sidebar, not a separate grid (the standalone picker folds in here).

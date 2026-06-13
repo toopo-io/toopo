@@ -9,7 +9,7 @@
  * merely conventional.
  *
  * `JobReference` is the queue's domain shape — repo coordinates nested under
- * `repo` (queue-local, ADR-0023 §6 fork F5). `@toopo/db`'s `JobStore` speaks a
+ * `repo` (queue-local, ADR-0023 §6). `@toopo/db`'s `JobStore` speaks a
  * flat storage record; the mapping between the two lives in this package, so the
  * dependency stays one-way (`queue → db`).
  */

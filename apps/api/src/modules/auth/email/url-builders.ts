@@ -9,12 +9,11 @@ import { ROUTE_SEGMENTS } from '@toopo/api-contracts';
 // constructing our own frontend URL using the raw `token` Better Auth passes
 // alongside it. The backend GET endpoints remain functional, so older emails
 // generated before this change still validate — see ADR-0011 §Email URL
-// ownership and the B13 commit body for the maintenance note.
+// ownership.
 //
 // Route segments (`verify-email`, `reset-password`) come from
 // `@toopo/api-contracts` `ROUTE_SEGMENTS` so backend email URLs and the
-// frontend page paths stay aligned by construction. See Phase 4.1.8a routes
-// refactor and `packages/api-contracts/src/routes/routes.ts`.
+// frontend page paths stay aligned by construction.
 
 export interface BuildAuthEmailUrlOptions {
   token: string;

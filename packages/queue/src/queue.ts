@@ -1,7 +1,7 @@
 /**
  * The producer-facing port (ADR-0023 §1): `enqueue` a reference-only job. It is
  * the public seam an impl is selected behind — the DB-backed queue here, a future
- * Redis/BullMQ queue later — so producers (the B3 webhook) never depend on the
+ * Redis/BullMQ queue later — so producers (the webhook) never depend on the
  * storage engine.
  *
  * `enqueue` validates the reference at the boundary (ADR-0006): a malformed or

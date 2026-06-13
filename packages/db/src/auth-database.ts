@@ -1,5 +1,5 @@
 /**
- * The auth-persistence surface apps/api depends on (ADR-0017 §1, fork F4: the
+ * The auth-persistence surface apps/api depends on (ADR-0017 §1: the
  * app never touches Kysely). `createAuthDatabase` builds the single shared
  * connection and hands back exactly what the app needs — the object Better
  * Auth's Kysely adapter expects, the UserRepository, and a close function —

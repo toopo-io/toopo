@@ -5,7 +5,7 @@ import { Env } from '../../env';
 
 // `onRequest` injects `x-toopo-locale` so the API can prioritize the URL-active
 // locale over `Accept-Language` for content selection (notably email bodies —
-// see ADR-0009 "Locale negotiation priority" and Phase 4.1.6 finding B11).
+// see ADR-0009 "Locale negotiation priority").
 // SSR-safe via the `typeof window` guard; `window.location.pathname` is read at
 // request time so client-side navigation never produces a stale value.
 export const authClient = createAuthClient({

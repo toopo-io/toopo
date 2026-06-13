@@ -3,7 +3,7 @@
  * install redirect, and on return verify the state, link the installation to the
  * session user, and provision its repos (create or revive a project, then enqueue
  * a first scan). `provisionRepos` is the shared seam the installation webhook
- * (B5.4) reuses, so the redirect and the webhook converge on one idempotent path.
+ * reuses, so the redirect and the webhook converge on one idempotent path.
  *
  * Fail-closed (ADR-0026 §1): with the App unconfigured the auth port is `null` and
  * every entry point throws `503`. The install hijack defense is twofold (ADR-0026
@@ -108,7 +108,7 @@ export class GithubInstallService {
 
   /**
    * Create or revive a project per repo and enqueue its first scan. Idempotent and
-   * shared with the installation webhook (B5.4): an existing repo (even archived)
+   * shared with the installation webhook: an existing repo (even archived)
    * is revived under the current installation rather than colliding on the unique
    * repo index. Returns the number of repos provisioned.
    */

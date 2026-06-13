@@ -16,6 +16,31 @@ a new ADR that supersedes the old one.
 - Cross-reference with `ADR-NNNN` and link related ADRs in
   "Consequences".
 
+## Citing decisions from code
+
+Comments and package READMEs reference these decisions in two complementary
+forms. Both are deliberately lightweight pointers — never a paraphrase that
+could drift from the source of truth.
+
+- **§N** — a numbered *Decision* point within an ADR whose Decision section is
+  an enumerated list. `ADR-0015 §8` points to the eighth decision of ADR-0015
+  ("Trust in the type" — the `deterministic | inferred` distinction), not a
+  line or a page. Stable across edits because the points are numbered, not
+  positional. ADRs that argue their decision in prose (named subsections rather
+  than a numbered list) are cited by Fork instead.
+
+- **Fork N** — a named *design fork*: a specific alternative weighed at a
+  decision point, numbered per ADR. `ADR-0016 Fork 6` is the React/TypeScript
+  language slice — `lang-react` parses `.ts` and `.tsx`, with `.js`/`.jsx`/
+  `.mjs`/`.cjs` deferred (cited in `packages/lang-react/src/plugin.ts`). The
+  fork number is a shared shorthand used at the citation site; the rationale
+  lives there in the comment and, where the fork shapes a package's API, in
+  that package's README — not as a heading inside the ADR. Numbers restart per
+  ADR, so `ADR-0015 Fork 6` and `ADR-0016 Fork 6` are unrelated.
+
+A citation may carry both (`ADR-0015 §5, Fork 4`): the § anchors the decision
+point, the Fork names the specific design choice within it.
+
 ## Index
 
 | # | Title | Status |

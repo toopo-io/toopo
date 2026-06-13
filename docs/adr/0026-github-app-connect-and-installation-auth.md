@@ -89,6 +89,46 @@ deterministic core still runs).
 - **Hard delete on uninstall.** Rejected for v1 (Decision 7): destroys history and
   is irreversible; revisit when hosted privacy demands purge.
 
+## Amendment — 2026-06-13 (security pass): the no-re-point rule, its residual, and the pre-multi-user gate
+
+The Phase ① security audit found that Decision 7's signed `state` defends only
+half of the install-hijack surface: it binds the *session user* to *an* install
+flow, but nothing binds it to *that installation*. The completion endpoint took
+`installationId` verbatim from the client, and the link upsert re-pointed an
+existing `owner_user_id` — so any authenticated user could claim an arbitrary
+(sequential, enumerable) installation id, list its private repos with the App
+JWT, and have the worker clone another user's private source into their own
+workspace.
+
+1. **The no-re-point rule (built).** `linkInstallation` replaces the unconditional
+   upsert: the owner guard lives in the statement itself
+   (`ON CONFLICT DO UPDATE … WHERE owner_user_id` matches the caller — portable on
+   both backends, no read-then-write race). A link held by a different user is
+   never re-pointed; the caller gets `409` and nothing downstream runs (no repo
+   listing, no provisioning, no scan). Same-owner re-install stays idempotent;
+   the id frees up only when the real `installation.deleted` webhook removes the
+   link (Decision 7's soft-archive path). The connect flow is additionally
+   throttled per IP, which slows enumeration.
+
+2. **The honest residual.** A *never-linked* installation — freshly installed,
+   its owner's return redirect not yet completed — can still be claimed by an
+   attacker who guesses its id inside the 10-minute state TTL and wins the race
+   against the legitimate owner, **on an instance with more than one user
+   account**. There is no deterministic server-side proof available to close
+   this today: sign-in carries no GitHub identity, and GitHub's redirect does not
+   cryptographically bind `installation_id` to our `state`. A single-user
+   self-host (the v1 target) is not affected. The residual is disclosed in
+   SECURITY.md.
+
+3. **GitHub identity verification is a REQUIRED gate before multi-user hosting**
+   — not open-ended debt. Before toopo.io (or any deployment) is opened to
+   multiple user accounts: add a GitHub account-linking provider (Better Auth)
+   and require it for connect, then verify the claimed installation appears in
+   the user's `GET /user/installations` before linking. This upgrades the
+   Consequences entry "GitHub user-OAuth during install … waits on a real need":
+   the need is now named, and the trigger is binding. It belongs with the
+   deployment-phase real-GitHub-handshake work.
+
 ## Related ADRs
 
 - **Extends ADR-0022** (the install flow is the project creator deferred there).

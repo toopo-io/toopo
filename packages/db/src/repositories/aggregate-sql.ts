@@ -20,6 +20,7 @@ import type { SymbolId } from '@toopo/core';
 import { type Kysely, type Selectable, sql } from 'kysely';
 import type { GraphDatabase, NodeTable } from '../schema/graph-types.js';
 import { DEFAULT_BLAST_RADIUS_KINDS, type MapEdge, type MapLevel } from './graph.repository.js';
+import { UNIT_SEPARATOR } from './unit-separator.js';
 
 type NodeRow = Selectable<NodeTable>;
 
@@ -188,7 +189,7 @@ function foldTrust(rows: readonly ProjectedRow[]): MapEdge[] {
     { sourceId: string; targetId: string; deterministic: number; inferred: number }
   >();
   for (const row of rows) {
-    const key = `${row.src}${row.tgt}`;
+    const key = `${row.src}${UNIT_SEPARATOR}${row.tgt}`;
     // U+001F (Unit Separator) never occurs in a SymbolId, so the joined pair key
     // is unambiguous — the same guarantee the blast-radius path delimiter uses.
     const entry = byPair.get(key) ?? {

@@ -16,10 +16,10 @@
  */
 import { type RawBuilder, sql } from 'kysely';
 import { escapeLikeOperand, LIKE_ESCAPE } from './sql-like.js';
+import { UNIT_SEPARATOR } from './unit-separator.js';
 
-/** The visited-path delimiter — ASCII Unit Separator (0x1F), never present in a
- *  SymbolId (tree-sitter emits no control characters in identifier text). */
-export const BLAST_PATH_SEPARATOR = String.fromCharCode(31);
+/** The visited-path delimiter — the shared {@link UNIT_SEPARATOR}. */
+export const BLAST_PATH_SEPARATOR = UNIT_SEPARATOR;
 
 export interface BlastRadiusCteParams {
   /** The tenancy scope (ADR-0022 §3): every traversed edge is bound to it. */

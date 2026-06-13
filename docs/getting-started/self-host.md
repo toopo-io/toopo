@@ -4,10 +4,10 @@ One command brings up the whole deterministic-cartography product — the web UI
 the API, the ingest worker, and a database — on your own machine or server. This
 guide covers the quickstart, the one secret you must set, the SQLite-default /
 Postgres-option choice, and the URL rules that trip people up. It is the
-deployment counterpart to [ADR-0030](adr/0030-self-host-deployment-topology.md).
+deployment counterpart to [ADR-0030](../adr/0030-self-host-deployment-topology.md).
 
 > The optional **connect-a-repo** GitHub-App layer has its own guide:
-> [github-app-connect-setup.md](github-app-connect-setup.md). The stack runs
+> [Connect a repository](connect-a-repo.md). The stack runs
 > fully without it.
 
 ## Prerequisites
@@ -114,8 +114,8 @@ of scope here (ADR-0030).
 
 ## Related
 
-- [ADR-0030](adr/0030-self-host-deployment-topology.md) — the topology and the
+- [ADR-0030](../adr/0030-self-host-deployment-topology.md) — the topology and the
   decisions behind it.
-- [ADR-0017](adr/0017-storage-strategy.md) — the dual-backend store.
-- [github-app-connect-setup.md](github-app-connect-setup.md) — the optional
+- [ADR-0017](../adr/0017-storage-strategy.md) — the dual-backend store.
+- [Connect a repository](connect-a-repo.md) — the optional
   connect-a-repo flow.

@@ -6,7 +6,7 @@
 # All configuration comes from .env (copy .env.example). The only value you MUST
 # set is BETTER_AUTH_SECRET. The GitHub-App credentials are optional: without
 # them the stack still runs (connect/webhook fail closed; see ADR-0024/0026 and
-# docs/self-host-deploy.md).
+# docs/getting-started/self-host.md).
 name: toopo
 
 services:

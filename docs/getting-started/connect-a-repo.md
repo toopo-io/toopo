@@ -128,8 +128,8 @@ Then, signed in to your local Toopo:
 
 ## Related
 
-- [ADR-0026](adr/0026-github-app-connect-and-installation-auth.md) — the connect
+- [ADR-0026](../adr/0026-github-app-connect-and-installation-auth.md) — the connect
   model: install→project, installation tokens, private clone.
-- [ADR-0024](adr/0024-github-push-webhook-ingestion.md) — the webhook gate.
-- [ADR-0025](adr/0025-worker-ingest-clone-and-incremental-persist.md) — the clone.
-- [`apps/worker/README.md`](../apps/worker/README.md) — the consume path.
+- [ADR-0024](../adr/0024-github-push-webhook-ingestion.md) — the webhook gate.
+- [ADR-0025](../adr/0025-worker-ingest-clone-and-incremental-persist.md) — the clone.
+- [`apps/worker/README.md`](../../apps/worker/README.md) — the consume path.

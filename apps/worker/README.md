@@ -39,7 +39,7 @@ id and the App is configured (`GITHUB_APP_ID` + `GITHUB_APP_PRIVATE_KEY`), the
 handler mints a short-lived installation token and the cloner feeds it to `git`
 through a `GIT_ASKPASS` program — never the remote URL, the argv, or a ref. With
 the App unset the worker clones public repos only (the unchanged B4 behavior). See
-[`docs/github-app-connect-setup.md`](../../docs/github-app-connect-setup.md).
+[`docs/getting-started/connect-a-repo.md`](../../docs/getting-started/connect-a-repo.md).
 
 `SIGINT`/`SIGTERM` trigger a graceful shutdown: stop claiming, drain the in-flight
 job, then close every connection.

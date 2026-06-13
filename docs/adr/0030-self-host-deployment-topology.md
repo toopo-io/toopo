@@ -51,4 +51,4 @@ real SSR bug and works on plain localhost; fail-closed `.env` means only
 `BETTER_AUTH_SECRET` is required. Costs: changing a public origin means
 rebuilding `web` (F6); images carry dev dependencies (size over prune-complexity,
 revisitable). Extends ADR-0017/0024/0025/0026; relies on ADR-0008 (no boot-time
-migration). See `docs/self-host-deploy.md` and `docs/github-app-connect-setup.md`.
+migration). See `docs/getting-started/self-host.md` and `docs/getting-started/connect-a-repo.md`.

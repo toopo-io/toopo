@@ -11,7 +11,10 @@ import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fa
 import { Test } from '@nestjs/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../src/app.module';
-import { GITHUB_WEBHOOK_RATE_LIMIT_PER_MINUTE } from '../src/modules/webhooks/github-webhook.constants';
+import {
+  applyWebhookBodyLimit,
+  GITHUB_WEBHOOK_RATE_LIMIT_PER_MINUTE,
+} from '../src/modules/webhooks/github-webhook.constants';
 
 const WEBHOOK_URL = '/v1/webhooks/github';
 const CONNECT_INSTALL_URL = '/v1/github/install';
@@ -26,6 +29,8 @@ describe('rate limiting (e2e)', () => {
       rawBody: true,
     });
     app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
+    // Mirror the production bootstrap (main.ts) so the booted app matches it.
+    app.getHttpAdapter().getInstance().addHook('onRoute', applyWebhookBodyLimit);
     await app.init();
     await app.getHttpAdapter().getInstance().ready();
   }, 60_000);

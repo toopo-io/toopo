@@ -188,6 +188,25 @@ describe('GitHub webhook (e2e) — secret configured', () => {
     await app?.close();
   });
 
+  it('accepts a signed >1 MiB payload — the webhook body ceiling is real, not declared', async () => {
+    // Guards the route-scoped 25 MiB limit empirically: if the onRoute hook
+    // ever stops reaching Fastify's parser, this large legitimate push would
+    // 413 (the silently-missed-push failure ADR-0024 §2 forbids).
+    const payload = pushBody({ head_commit: { message: 'x'.repeat(2 * 1024 * 1024) } });
+    const response = await post(app, { payload, signature: sign(payload, SECRET) });
+    expect(response.statusCode).toBe(200);
+  });
+
+  it('413s a >1 MiB payload on any OTHER route (the default ceiling holds elsewhere)', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/github/install/complete',
+      headers: { 'content-type': 'application/json' },
+      payload: `{"state":"${'y'.repeat(2 * 1024 * 1024)}"}`,
+    });
+    expect(response.statusCode).toBe(413);
+  });
+
   it('enqueues exactly one reference-only job for a valid default-branch push', async () => {
     const payload = pushBody();
     const response = await post(app, { payload, signature: sign(payload, SECRET) });

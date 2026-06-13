@@ -5,10 +5,13 @@
  * one chunked-upsert path: an additive upsert ({@link persistGraph}) and a full
  * project replace ({@link replaceProjectGraph}).
  *
- * Persist is idempotent (ADR-0015 §11): the document is deduped in memory — by
- * `SymbolId` for nodes, by canonical identity key for edges — then upserted, so
- * re-persisting the same graph leaves the row count unchanged. Bulk inserts are
- * chunked to stay within SQLite's bound-parameter limit on large graphs.
+ * Portable across both backends (ADR-0017 §6): `ON CONFLICT ... DO UPDATE SET
+ * col = excluded.col` uses the `excluded` pseudo-table, which exists on both
+ * libSQL-SQLite and Postgres. Persist is idempotent (ADR-0015 §11): the document
+ * is deduped in memory — by `SymbolId` for nodes, by canonical identity key for
+ * edges — then upserted, so re-persisting the same graph leaves the row count
+ * unchanged. Bulk inserts are chunked to stay within SQLite's bound-parameter
+ * limit on large graphs.
  */
 import { type GraphDocument, GraphDocumentSchema, type UnresolvedReference } from '@toopo/core';
 import type { Insertable, Kysely } from 'kysely';

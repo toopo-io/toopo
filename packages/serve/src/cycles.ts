@@ -15,7 +15,7 @@ import type { DependencyEdge } from '@toopo/db';
 export interface Cycle {
   /** Deterministic id: the lexicographically smallest member id. */
   readonly id: string;
-  /** Member ids, sorted, capped at {@link CYCLE_MEMBER_CAP}. */
+  /** Member ids, sorted, capped at the module's cycle-member cap (see `length`). */
   readonly members: readonly string[];
   /** The full member count (before the display cap). */
   readonly length: number;

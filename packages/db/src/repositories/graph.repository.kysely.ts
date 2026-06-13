@@ -1,14 +1,14 @@
 /**
- * Kysely implementation of {@link GraphRepository}. Portable across both backends
- * (ADR-0017 §6): parameterized everywhere, `ON CONFLICT ... DO UPDATE SET col =
- * excluded.col` (the `excluded` pseudo-table exists on both libSQL-SQLite and
- * Postgres), and every row leaves the repository through the core Zod boundary.
+ * Kysely implementation of {@link GraphRepository}, split across focused modules
+ * behind this thin facade. Every module upholds the same invariants (ADR-0017
+ * §6): queries are parameterized and portable across both backends, and every
+ * row leaves through the core Zod boundary.
  *
- * This class is a thin, stable facade: it holds the database handle and forwards
- * each operation to a focused, free-function module — persistence, core reads,
- * Serve reads, the global derived views, and the map view. The split keeps each
- * concern under the size budget without changing the public surface; the methods
- * here ARE the {@link GraphRepository} contract.
+ * This class holds the database handle and forwards each operation to its domain
+ * module — persistence, core reads, Serve reads, the global derived views, and
+ * the map view. The split keeps each concern under the size budget without
+ * changing the public surface; the methods here ARE the {@link GraphRepository}
+ * contract.
  */
 import type { EdgeKind, GraphDocument, Node, SymbolId, UnresolvedReference } from '@toopo/core';
 import type { Kysely } from 'kysely';
